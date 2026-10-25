@@ -77,3 +77,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-skip-button:hover{color:var(--ink)}
 @media(max-width:700px){.oge-interest-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:430px){.oge-interest-grid{grid-template-columns:1fr}.oge-interest-option{min-height:44px}}
+
+.oge-settings-section{width:100%;max-width:760px;margin-top:48px;padding-top:28px;border-top:1px solid var(--line)}
+.oge-settings-section h2{margin:12px 0;font-family:Manrope,sans-serif;font-size:clamp(22px,4vw,32px);letter-spacing:-.05em}
+.oge-signout-form{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);width:100%;max-width:760px}

@@ -8,6 +8,7 @@ test('notes API authenticates every operation and scopes note queries to the ses
   assert.match(route, /ownerId: ctx\.ownerId/);
   assert.match(route, /subjectSlug/);
   assert.match(route, /new ObjectId\(id\), ownerId: ctx\.ownerId/);
+  assert.match(route, /readLimitedBody\(request, 32 \* 1024\)/);
 });
 
 test('subjects API scopes list, creation and deletion to the signed-in owner', async () => {
@@ -15,5 +16,6 @@ test('subjects API scopes list, creation and deletion to the signed-in owner', a
   assert.match(route, /await auth\(\)/);
   assert.match(route, /find\(\{ ownerId \}\)/);
   assert.match(route, /ownerId, slug/);
-  assert.match(route, /ownerId: ctx\.ownerId/);
+  assert.match(route, /deleteMany\(\{ ownerId, subjectSlug: slug \}\)/);
+  assert.match(route, /readLimitedBody\(request, 4 \* 1024\)/);
 });

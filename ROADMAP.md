@@ -103,8 +103,8 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 ### Phase 3 — Core knowledge features
 
 - [x] Implement baseline Notes and subject CRUD with server-enforced ownership checks and request-size limits; [ ] complete feature parity and cross-account integration testing.
-- [ ] Implement Quick Notes.
-- [ ] Implement Saved Links with URL validation, safe rendering, and reasonable field/length limits.
+- [x] Implement baseline Quick Notes create, edit, delete, and list flows with owner-scoped storage; autosave and offline support remain future enhancements.
+- [x] Implement Saved Links create, edit, delete, search, URL validation, safe external-link rendering, and reasonable field/length limits; ordering UI remains a follow-up.
 - [ ] Implement Revision and Revision History with clearly separated purposes.
 - [ ] Port existing flashcard/revision functionality only where it supports the agreed dashboard scope.
 - [ ] Preserve existing search and theme behavior where compatible.

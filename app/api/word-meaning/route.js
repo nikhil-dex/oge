@@ -1,3 +1,5 @@
+import { auth } from '../../../auth.js';
+
 const WORD_PATTERN = /^[a-z]+(?:['-][a-z]+)*$/i;
 
 function normalizeWiktionary(word, payload) {
@@ -29,6 +31,8 @@ async function fetchWithTimeout(url) {
 }
 
 export async function GET(request) {
+  const session = await auth();
+  if (!session?.user?.id) return Response.json({ error: 'Sign in to use the dictionary.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   const { searchParams } = new URL(request.url);
   const word = (searchParams.get('word') || '').trim().toLowerCase();
 

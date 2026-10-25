@@ -119,8 +119,8 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [ ] Select a news provider/source and verify license, attribution, rate limits, cost, and outage handling.
 - [x] Implement optional news-interest onboarding/settings and use the stored interests to personalize the RSS feed; skipped interests receive general topics.
 - [ ] Verify that users who skip interests receive a general feed.
-- [ ] Define the browser extension's supported browser(s), permissions, saved-content behavior, and sign-in flow.
-- [ ] Authenticate extension API requests independently and apply the same per-user authorization checks.
+- [x] Add a Manifest V3 Chrome extension MVP with active-tab capture, locally stored token, and optional host permissions.
+- [x] Authenticate extension saves with a hashed, expiring bearer token; resolve the owner from the token record and enforce owner-scoped Saved Links writes. [ ] Perform a manual end-to-end Chrome test and review token lifecycle before public release.
 
 **Exit criteria:** these features work without weakening authentication, exposing API keys, or exceeding provider terms.
 

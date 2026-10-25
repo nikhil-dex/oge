@@ -105,7 +105,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [x] Implement baseline Notes and subject CRUD with server-enforced ownership checks and request-size limits; [ ] complete feature parity and cross-account integration testing.
 - [x] Implement baseline Quick Notes create, edit, delete, and list flows with owner-scoped storage; autosave and offline support remain future enhancements.
 - [x] Implement Saved Links create, edit, delete, search, URL validation, safe external-link rendering, and reasonable field/length limits; ordering UI remains a follow-up.
-- [ ] Implement Revision and Revision History with clearly separated purposes.
+- [x] Implement a first active-recall Revision queue with owner-scoped due cards and 1/3/7/14-day review intervals, plus a Revision History viewer for stored previous note versions; richer spaced-repetition algorithms remain future work.
 - [ ] Port existing flashcard/revision functionality only where it supports the agreed dashboard scope.
 - [ ] Preserve existing search and theme behavior where compatible.
 - [ ] Ensure all queries and mutations are authenticated and user-scoped.

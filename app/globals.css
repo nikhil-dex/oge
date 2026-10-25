@@ -194,3 +194,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-history-detail{display:grid;gap:12px}.oge-history-detail h2{margin:8px 0 0;font:700 23px Manrope,sans-serif;letter-spacing:-.045em;overflow-wrap:anywhere}
 .oge-history-answer{padding:16px;border:1px solid var(--line);border-radius:9px;white-space:pre-wrap;color:var(--ink);font-size:12px;line-height:1.8;overflow-wrap:anywhere;max-height:60vh;overflow:auto}
 @media(max-width:720px){.oge-revision-ratings{grid-template-columns:repeat(2,minmax(0,1fr))}.oge-history-layout{grid-template-columns:minmax(0,1fr)}}
+
+
+.oge-dictionary-wrap{padding:28px 0 42px}
+.oge-personalized-news{margin-top:34px}
+.oge-personalized-news .home-news-filters{flex-wrap:wrap}
+.oge-personalized-news .home-news-preferences{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:15px 0 0;color:var(--muted);font-size:11px}
+.oge-personalized-news .home-news-preferences a{color:var(--green);text-decoration:none}
+.oge-personalized-news .home-news-preferences a:hover{text-decoration:underline}

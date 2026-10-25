@@ -17,5 +17,6 @@ test('Saved Links API scopes reads, updates, deletes and reordering to the owner
   assert.match(route, /find\(\{ ownerId: ctx\.ownerId \}\)/);
   assert.match(route, /_id: id, ownerId: ctx\.ownerId/);
   assert.match(route, /ownerId: ctx\.ownerId, _id: \{ \$in: ids \}/);
-  assert.match(route, /Only HTTP and HTTPS links are allowed/);
+  const validation = await readFile(new URL('../lib/saved-links.js', import.meta.url), 'utf8');
+  assert.match(validation, /Only HTTP and HTTPS links are allowed/);
 });

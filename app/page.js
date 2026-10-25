@@ -1,3 +1,6 @@
+import { auth } from '../auth.js';
+import { getDatabase } from '../lib/mongodb.js';
+import { redirect } from 'next/navigation';
 import ThemeToggle from './components/theme-toggle';
 
 const modules = [
@@ -12,7 +15,14 @@ const modules = [
   { number: '09', group: 'REVIEW', title: 'Revision', description: 'Focus on recall and revisit what you have learned.', href: '/revision', icon: '↻' },
 ];
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect('/register');
+  const db = await getDatabase();
+  const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1 } });
+  if (!account?.onboardingComplete) redirect('/onboarding');
   return (
     <main className="shell hub-shell oge-shell">
       <header className="oge-topbar">

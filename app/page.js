@@ -9,7 +9,6 @@ const modules = [
   { number: '04', group: 'CAPTURE', title: 'Browser Extension', description: 'Bring useful links into your knowledge space.', href: '/extension', icon: '⬡' },
   { number: '05', group: 'HISTORY', title: 'Revision History', description: 'Return to recent study activity and previous revisions.', href: '/revision-history', icon: '◷' },
   { number: '06', group: 'DISCOVER', title: 'Dictionary', description: 'Look up words and build your vocabulary.', href: '/dictionary', icon: 'Aa' },
-  { number: '07', group: 'DISCOVER', title: 'News', description: 'A feed tailored to topics you care about.', href: '/news', icon: '▥' },
   { number: '08', group: 'REVIEW', title: 'Revision', description: 'Focus on recall and revisit what you have learned.', href: '/revision', icon: '↻' },
 ];
 
@@ -62,7 +61,7 @@ export default async function HomePage() {
       <section className="oge-module-section" aria-labelledby="modules-title">
         <div className="oge-section-heading">
           <div><span className="oge-section-kicker">YOUR TOOLKIT</span><h2 id="modules-title">Everything in its place.</h2></div>
-          <span className="oge-count">08 MODULES</span>
+          <span className="oge-count">06 MODULES</span>
         </div>
         <div className="hub-grid oge-module-grid">
           {modules.map((item) => (

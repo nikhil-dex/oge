@@ -32,7 +32,7 @@ See [ROADMAP.md](./ROADMAP.md) for the phased implementation plan, release gates
 
 ## Current status
 
-The dashboard, Google sign-in scaffolding, news-interest onboarding, and MongoDB foundation are merged into `main`. The first core-workspace milestone is on `implementation/notes-module`: it adds owner-scoped Notes, Quick Notes, and Saved Links APIs and responsive workspaces, with bounded request bodies, URL validation, tags, favorites, and a basic 20-entry Notes revision snapshot history. This is a first implementation, not full parity with every advanced feature in `ogenotes`; multi-account security tests and live app validation remain required. See [ROADMAP.md](./ROADMAP.md) and [Google OAuth setup](./docs/GOOGLE_AUTH_SETUP.md).
+The dashboard, Google sign-in scaffolding, news-interest onboarding, and MongoDB foundation are merged into `main`. The core-workspace milestone is on `implementation/notes-module`: it adds owner-scoped Notes, Quick Notes, AirNotes, and Saved Links APIs/workspaces, with bounded request bodies, URL validation, tags, favorites, and a basic Notes revision snapshot history. This is a first implementation, not full parity with every advanced feature in `ogenotes`; multi-account security tests and live app validation remain required. See [ROADMAP.md](./ROADMAP.md) and [Google OAuth setup](./docs/GOOGLE_AUTH_SETUP.md).
 
 ## Security and configuration
 

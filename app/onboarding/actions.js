@@ -26,5 +26,5 @@ export async function saveNewsInterests(formData) {
     { googleSub: ownerId },
     { $set: { newsInterests: interests, onboardingComplete: true, updatedAt: new Date() } },
   );
-  redirect('/');
+  redirect(formData.get('returnTo') === '/settings' ? '/settings' : '/');
 }

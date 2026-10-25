@@ -24,3 +24,6 @@ jobs:
         env:
           # The current dashboard shell does not connect to production services at build time.
           NEXT_TELEMETRY_DISABLED: 1
+          AUTH_SECRET: ci-only-placeholder-secret-32-characters-minimum
+          AUTH_GOOGLE_ID: ci-placeholder.apps.googleusercontent.com
+          AUTH_GOOGLE_SECRET: ci-only-placeholder-secret

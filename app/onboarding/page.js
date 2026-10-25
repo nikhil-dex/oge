@@ -1,7 +1,8 @@
 import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
-import { NEWS_TOPICS, saveNewsInterests } from './actions.js';
+import { saveNewsInterests } from './actions.js';
+import { NEWS_TOPICS } from '../../lib/news-topics.js';
 
 export const metadata = { title: 'Personalize your news' };
 export const dynamic = 'force-dynamic';

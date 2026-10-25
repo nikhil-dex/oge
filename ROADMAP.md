@@ -82,7 +82,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 
 - [x] Establish the initial Next.js project structure and development instructions in `oge`.
 - [x] Port the original primary stylesheets, theme toggle, and favicon; create a responsive dashboard shell with the agreed nine modules.
-- [ ] Port existing working notes/editor/search/theme components where appropriate; only the theme toggle is ported so far.
+- [x] Add the first responsive Notes workspace with subject navigation, search, create/edit/delete, tags, favorites, and revision snapshots; advanced features from the original editor are not yet ported.
 - [x] Exclude file-storage dependencies from the new package; legacy shared-access code has not been copied.
 - [x] Add ESLint configuration, baseline tests, and a GitHub Actions workflow; verify the workflow passes before treating this gate as complete.
 
@@ -94,15 +94,15 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [x] Add Auth.js Google provider configuration, server-side account upsert using Google's stable `sub`, JWT session callbacks, and a sign-out action; verify full lifecycle in CI and a real OAuth environment.
 - [x] Add a server-only MongoDB Atlas connection helper and initial owner-scoped index definitions; configure the production Atlas user/network rules before deployment.
 - [x] Define initial account and news-preference fields plus indexes for notes, subjects, quick notes, and saved links; refine schemas during feature porting.
-- [ ] Implement reusable server-side authorization helpers and ownership-scoped API access for each feature.
-- [ ] Add automated tests proving User A cannot read, modify, search, export, or delete User B's records.
+- [ ] Implement reusable server-side authorization helpers and ownership-scoped API access for every feature. Notes and subjects endpoints are now owner-scoped; other feature APIs remain pending.
+- [ ] Add integration tests proving User A cannot read, modify, search, export, or delete User B's records; current tests check the presence of owner filters but do not replace runtime isolation tests.
 - [ ] Add migration/seed guidance without using real user data or secrets in tests.
 
 **Exit criteria:** Google login works in the test environment; all user data operations are ownership-scoped; cross-user isolation tests pass.
 
 ### Phase 3 — Core knowledge features
 
-- [ ] Port and validate Notes and any existing subject/organization features that remain in scope.
+- [x] Implement baseline Notes and subject CRUD with server-enforced ownership checks and request-size limits; [ ] complete feature parity and cross-account integration testing.
 - [ ] Implement Quick Notes.
 - [ ] Implement Saved Links with URL validation, safe rendering, and reasonable field/length limits.
 - [ ] Implement Revision and Revision History with clearly separated purposes.

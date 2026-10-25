@@ -114,7 +114,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 
 ### Phase 4 — AirNotes, dictionary, news, and browser extension
 
-- [ ] Clarify and document the intended AirNotes behavior before implementation if it is not clear from the existing repository.
+- [x] Inspect the original AirNotes behavior and port its separate personal knowledge workspace, navbar, and pixel-strip component into `oge` with owner-scoped storage.
 - [ ] Select a dictionary data source and verify license, attribution, usage limits, and fallback behavior.
 - [ ] Select a news provider/source and verify license, attribution, rate limits, cost, and outage handling.
 - [ ] Implement optional news-interest onboarding and settings controls.

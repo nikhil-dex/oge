@@ -7,7 +7,7 @@ test('dashboard exposes all nine agreed modules across its sections', async () =
   for (const label of ['Notes', 'AirNotes', 'Quick Notes', 'Saved Links', 'Browser Extension', 'Revision History', 'Dictionary', 'News', 'Revision']) {
     assert.ok(page.includes(label), `Missing dashboard module: ${label}`);
   }
-  assert.match(page, /oge-home-news/);
+  assert.match(page, /HomeNewsFeed/);
   assert.match(page, /oge-airnotes-preview/);
   assert.match(page, /oge-quick-notes-bottom/);
 });

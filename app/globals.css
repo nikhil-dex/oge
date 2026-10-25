@@ -63,3 +63,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-google-g{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:#fff;color:#4285f4;font-family:Arial,sans-serif;font-size:15px;font-weight:800}
 .oge-register-page .oge-brand{margin-bottom:64px}
 .oge-register-footnote{max-width:380px;margin-top:20px;color:var(--muted);font-size:10px;line-height:1.7}
+
+.oge-onboarding-page .oge-brand{margin-bottom:54px}
+.oge-onboarding-page h1 span{color:var(--green)}
+.oge-interest-form{width:100%;max-width:720px;margin-top:26px}
+.oge-interest-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.oge-interest-option{display:flex;align-items:center;gap:10px;min-height:48px;padding:12px;border:1px solid var(--line);border-radius:12px;color:var(--ink);font-size:12px;cursor:pointer;transition:border-color .2s,background .2s}
+.oge-interest-option:has(input:checked){border-color:var(--green);background:color-mix(in srgb,var(--green) 8%,transparent)}
+.oge-interest-option input{accent-color:var(--green);width:15px;height:15px;flex:0 0 15px}
+.oge-onboarding-actions{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:16px}
+.oge-onboarding-actions .oge-google-button{margin-top:0}
+.oge-skip-button{padding:12px 8px;border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer}
+.oge-skip-button:hover{color:var(--ink)}
+@media(max-width:700px){.oge-interest-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.oge-interest-grid{grid-template-columns:1fr}.oge-interest-option{min-height:44px}}

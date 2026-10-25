@@ -1,5 +1,6 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
+import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { randomUUID } from 'node:crypto';
 
 export const runtime = 'nodejs';
@@ -28,7 +29,7 @@ export async function POST(request) {
   const ownerId = session?.user?.id;
   if (!ownerId) return json({ error: 'Sign in to create a subject.' }, 401);
   let data;
-  try { data = await request.json(); } catch { return json({ error: 'Enter valid JSON.' }, 400); }
+  try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
   const name = String(data?.name || '').trim().replace(/\s+/g, ' ');
   if (!name || name.length > 60) return json({ error: 'Subject name must be 1–60 characters.' }, 400);
   try {

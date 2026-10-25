@@ -2,6 +2,7 @@ import { auth } from '../auth.js';
 import { getDatabase } from '../lib/mongodb.js';
 import { redirect } from 'next/navigation';
 import ThemeToggle from './components/theme-toggle';
+import HomeNewsFeed from './components/home-news-feed';
 
 const modules = [
   { number: '01', group: 'LEARN', title: 'Notes', description: 'Organize ideas, study material, and everything worth keeping.', href: '/notes', icon: '▤', featured: true },
@@ -29,16 +30,7 @@ export default async function HomePage() {
         <div className="oge-top-actions"><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></div>
       </header>
 
-      <section className="home-news oge-home-news" aria-labelledby="home-news-title">
-        <div className="home-news-header">
-          <div className="home-news-heading-copy">
-            <p className="eyebrow">YOUR WORLD, AT A GLANCE</p>
-            <h1 id="home-news-title">News, <span>your way.</span></h1>
-            <p className="home-news-lead">Choose your interests to shape a feed around technology, science, business, world events, and more.</p>
-          </div>
-          <a className="home-news-collapse oge-news-action" href="/news">Explore news <span aria-hidden="true">→</span></a>
-        </div>
-      </section>
+      <HomeNewsFeed />
 
       <section className="quick-notes-section oge-airnotes-preview" aria-labelledby="airnotes-heading">
         <div className="quick-notes-heading-row">

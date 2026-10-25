@@ -1,7 +1,8 @@
 import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
-import { NEWS_TOPICS, saveNewsInterests } from '../onboarding/actions.js';
+import { saveNewsInterests } from '../onboarding/actions.js';
+import { NEWS_TOPICS } from '../../lib/news-topics.js';
 import { signOutOfOgeNotes } from './actions.js';
 
 export const metadata = { title: 'Settings' };

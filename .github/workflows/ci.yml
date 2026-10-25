@@ -1,0 +1,26 @@
+name: OgeNotes CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'implementation/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run baseline tests
+        run: npm test
+      - name: Build application
+        run: npm run build
+        env:
+          # The current dashboard shell does not connect to production services at build time.
+          NEXT_TELEMETRY_DISABLED: 1

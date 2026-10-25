@@ -202,3 +202,19 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-personalized-news .home-news-preferences{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:15px 0 0;color:var(--muted);font-size:11px}
 .oge-personalized-news .home-news-preferences a{color:var(--green);text-decoration:none}
 .oge-personalized-news .home-news-preferences a:hover{text-decoration:underline}
+
+
+/* Browser-extension token management. */
+.oge-extension-content{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:16px;padding:28px 0 42px;align-items:start}
+.oge-extension-card,.oge-extension-instructions{min-width:0;padding:22px;border:1px solid var(--line);border-radius:13px;background:var(--paper)}
+.oge-extension-card h2{margin:12px 0;font:750 22px Manrope,sans-serif;letter-spacing:-.045em}
+.oge-extension-card>.oge-muted{font-size:12px;line-height:1.75}
+.oge-token-panel{display:grid;gap:9px;margin:18px 0;padding:14px;border:1px dashed var(--line);border-radius:10px}
+.oge-token-panel label{font-size:11px;font-weight:700;color:var(--muted)}
+.oge-token-panel textarea{width:100%;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--wash);color:var(--ink);font:11px 'DM Mono',monospace;overflow-wrap:anywhere}
+.oge-extension-instructions .oge-section-kicker{display:block;margin-bottom:15px}
+.oge-extension-instructions ol{display:grid;gap:12px;padding-left:20px;color:var(--ink);font-size:12px;line-height:1.7}
+.oge-extension-instructions code{padding:2px 4px;border-radius:4px;background:var(--wash);font-size:11px;overflow-wrap:anywhere}
+.oge-extension-instructions>.oge-muted{margin-top:18px;font-size:11px;line-height:1.7}
+.oge-danger-link{color:#b42318}
+@media(max-width:700px){.oge-extension-content{grid-template-columns:minmax(0,1fr)}}

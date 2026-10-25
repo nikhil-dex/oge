@@ -1,5 +1,6 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
+import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { ObjectId } from 'mongodb';
 
 export const runtime = 'nodejs';
@@ -40,7 +41,7 @@ export async function POST(request) {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to create notes.' }, 401);
     let data;
-    try { data = await request.json(); } catch { return json({ error: 'Enter valid JSON.' }, 400); }
+    try { data = JSON.parse(await readLimitedBody(request, 32 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
     const subjectSlug = String(data?.subjectSlug || '');
     const heading = String(data?.heading || '').trim();
     const answer = String(data?.answer || '').trim();
@@ -65,7 +66,7 @@ export async function PUT(request) {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update notes.' }, 401);
     let data;
-    try { data = await request.json(); } catch { return json({ error: 'Enter valid JSON.' }, 400); }
+    try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
     const id = String(data?.id || '');
     const heading = String(data?.heading || '').trim();
     const answer = String(data?.answer || '').trim();

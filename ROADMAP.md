@@ -69,32 +69,32 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 
 ### Phase 0 — Baseline and inventory
 
-- [ ] Confirm this roadmap is the agreed source of truth.
-- [ ] Inspect `ogenotes` repository structure, README, dependencies, routes, components, styles, data models, authentication, and deployment assumptions.
+- [x] Confirm this roadmap as the agreed source of truth.
+- [ ] Complete the `ogenotes` inventory: routes, components, styles, data models, tests, and deployment assumptions.
 - [ ] Create a file-by-file reuse map: reuse unchanged, port with adaptation, replace for security, or omit.
-- [ ] Record current features and tests; identify shared-access authentication and other patterns that must not carry over.
-- [ ] Confirm runtime/framework versions and package-manager lockfile before copying code.
-- [ ] Keep `ogenotes` untouched and verify all writes target `oge`.
+- [x] Review the original README, package manifest, shared-access proxy/authentication, MongoDB helper, homepage, theme toggle, and primary stylesheets; identify shared access as unsuitable for production.
+- [ ] Confirm the final dependency lockfile and runtime through a clean install and CI build.
+- [x] Keep `ogenotes` untouched; all current changes are confined to `oge`.
 
 **Exit criteria:** a reviewed migration map, identified security-sensitive code, and no production code copied blindly.
 
 ### Phase 1 — Repository foundation and visual parity
 
-- [ ] Establish the project structure and development instructions in `oge`.
-- [ ] Port the design system, global styles, layout, navigation, responsive behavior, and reusable UI components from `ogenotes`.
-- [ ] Port existing working notes/editor/search/theme components where appropriate.
-- [ ] Remove or exclude features explicitly outside scope, especially file uploads and old shared-access login.
-- [ ] Add linting, type checks, formatting conventions, and a basic CI workflow.
+- [x] Establish the initial Next.js project structure and development instructions in `oge`.
+- [x] Port the original primary stylesheets, theme toggle, and favicon; create a responsive dashboard shell with the agreed nine modules.
+- [ ] Port existing working notes/editor/search/theme components where appropriate; only the theme toggle is ported so far.
+- [x] Exclude file-storage dependencies from the new package; legacy shared-access code has not been copied.
+- [x] Add ESLint configuration, baseline tests, and a GitHub Actions workflow; verify the workflow passes before treating this gate as complete.
 
 **Exit criteria:** the app builds; visual comparison shows the same design language; the reference repository remains unchanged.
 
 ### Phase 2 — Secure identity and data foundation
 
-- [ ] Configure Google OAuth/OIDC with exact callback URLs and separate environment credentials.
-- [ ] Implement secure session lifecycle, logout, session expiry, and account identity mapping.
-- [ ] Configure the server-only MongoDB Atlas connection and least-privilege database user.
-- [ ] Define data models and indexes for accounts, notes, subjects, quick notes, saved links, revision state/history, user preferences, and news interests as needed.
-- [ ] Implement reusable server-side authorization helpers and ownership-scoped database access.
+- [ ] Configure Google OAuth/OIDC credentials and exact callback URLs in Google Cloud for local and production environments.
+- [x] Add Auth.js Google provider configuration, server-side account upsert using Google's stable `sub`, JWT session callbacks, and a sign-out action; verify full lifecycle in CI and a real OAuth environment.
+- [x] Add a server-only MongoDB Atlas connection helper and initial owner-scoped index definitions; configure the production Atlas user/network rules before deployment.
+- [x] Define initial account and news-preference fields plus indexes for notes, subjects, quick notes, and saved links; refine schemas during feature porting.
+- [ ] Implement reusable server-side authorization helpers and ownership-scoped API access for each feature.
 - [ ] Add automated tests proving User A cannot read, modify, search, export, or delete User B's records.
 - [ ] Add migration/seed guidance without using real user data or secrets in tests.
 

@@ -32,7 +32,7 @@ See [ROADMAP.md](./ROADMAP.md) for the phased implementation plan, release gates
 
 ## Current status
 
-**Planning / repository setup.** The product direction is documented; implementation and migration have not yet been completed.
+The initial dashboard, theme, Google sign-in scaffolding, news-interest onboarding, MongoDB connection foundation, and CI workflow are being developed on `implementation/phase-0-foundation`. The app is not production-ready yet. See [ROADMAP.md](./ROADMAP.md) and [Google OAuth setup](./docs/GOOGLE_AUTH_SETUP.md).
 
 ## Security and configuration
 

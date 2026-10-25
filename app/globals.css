@@ -158,3 +158,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 [data-theme="dark"] .oge-notes-sidebar,[data-theme="dark"] .oge-notes-list-panel,[data-theme="dark"] .oge-note-editor-panel{background:#171e19}
 @media(max-width:950px){.oge-notes-workspace{grid-template-columns:170px minmax(0,1fr)}.oge-note-editor-panel{grid-column:2}.oge-notes-list-panel{grid-column:2}.oge-notes-sidebar{grid-row:1 / span 2}}
 @media(max-width:620px){.oge-notes-hero{padding:32px 0 23px}.oge-notes-workspace{grid-template-columns:minmax(0,1fr);gap:12px;padding-top:16px}.oge-notes-sidebar,.oge-notes-list-panel,.oge-note-editor-panel{grid-column:1;grid-row:auto}.oge-subject-list{grid-template-columns:repeat(2,minmax(0,1fr))}.oge-note-answer-input{min-height:180px}}
+
+
+/* Quick Notes and Saved Links workspaces. */
+.oge-quick-workspace{grid-template-columns:240px minmax(0,1fr)}
+.oge-quick-workspace .oge-note-answer-input{min-height:300px}
+.oge-saved-links-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.8fr);gap:16px;padding:26px 0 42px;align-items:start}
+.oge-saved-links-layout>.oge-notes-list-panel,.oge-saved-links-layout>.oge-note-editor-panel{min-width:0}
+.oge-link-open{display:grid;place-items:center;align-self:flex-start;flex:0 0 30px;width:30px;height:30px;margin:8px 8px 0 0;border:1px solid var(--line);border-radius:8px;color:var(--green);text-decoration:none}
+.oge-link-open:hover{border-color:var(--green);background:color-mix(in srgb,var(--green) 8%,var(--paper))}
+.oge-link-description{min-height:100px!important}
+@media(max-width:950px){.oge-saved-links-layout{grid-template-columns:minmax(0,1fr)}.oge-quick-workspace{grid-template-columns:220px minmax(0,1fr)}}
+@media(max-width:620px){.oge-quick-workspace{grid-template-columns:minmax(0,1fr)}.oge-quick-workspace .oge-note-answer-input{min-height:220px}.oge-saved-links-layout{padding-top:16px}}

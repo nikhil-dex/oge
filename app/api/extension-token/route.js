@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { createExtensionToken, hashExtensionToken } from '../../../lib/extension-token.js';

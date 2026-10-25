@@ -13,6 +13,11 @@ function normalizeBase(value) {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Use a valid HTTP or HTTPS app URL.');
   return url.origin;
 }
+async function ensureHostPermission(origin) {
+  const granted = await chrome.permissions.contains({ origins: [origin + '/*'] });
+  if (granted) return true;
+  return chrome.permissions.request({ origins: [origin + '/*'] });
+}
 async function loadSettings() {
   const saved = await chrome.storage.local.get(['baseUrl', 'token', 'category']);
   if (saved.baseUrl) baseUrl.value = saved.baseUrl;
@@ -22,6 +27,7 @@ async function loadSettings() {
 $('saveSettings').addEventListener('click', async () => {
   try {
     const origin = normalizeBase(baseUrl.value);
+    if (!await ensureHostPermission(origin)) throw new Error('Allow this site in the extension permission prompt to connect.');
     const token = tokenInput.value.trim();
     if (!/^oge_[A-Za-z0-9_-]{40,60}$/.test(token)) throw new Error('Paste a valid OgeNotes extension token.');
     await chrome.storage.local.set({ baseUrl: origin, token, category: categoryInput.value.trim().slice(0, 40) });
@@ -32,6 +38,7 @@ $('saveSettings').addEventListener('click', async () => {
 $('saveTab').addEventListener('click', async () => {
   try {
     const origin = normalizeBase(baseUrl.value);
+    if (!await ensureHostPermission(origin)) throw new Error('Allow this site in the extension permission prompt to connect.');
     const token = tokenInput.value.trim();
     if (!/^oge_[A-Za-z0-9_-]{40,60}$/.test(token)) throw new Error('Paste a valid OgeNotes extension token first.');
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

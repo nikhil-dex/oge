@@ -66,7 +66,7 @@ export async function PUT(request) {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update notes.' }, 401);
     let data;
-    try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
+    try { data = JSON.parse(await readLimitedBody(request, 32 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
     const id = String(data?.id || '');
     const heading = String(data?.heading || '').trim();
     const answer = String(data?.answer || '').trim();
@@ -111,7 +111,7 @@ export async function PATCH(request) {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update notes.' }, 401);
     let data;
-    try { data = await request.json(); } catch { return json({ error: 'Enter valid JSON.' }, 400); }
+    try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
     const id = String(data?.id || '');
     if (!ObjectId.isValid(id) || typeof data?.favorite !== 'boolean') return json({ error: 'Choose a note and a valid favorite value.' }, 400);
     const result = await ctx.db.collection('notes').updateOne({ _id: new ObjectId(id), ownerId: ctx.ownerId }, { $set: { favorite: data.favorite, updatedAt: new Date() } });

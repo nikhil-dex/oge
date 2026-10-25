@@ -16,4 +16,4 @@ export default auth((request) => {
   return NextResponse.next();
 });
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt).*)'] };
+export const config = { matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico|robots.txt).*)'] };

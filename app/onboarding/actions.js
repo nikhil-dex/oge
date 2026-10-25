@@ -3,12 +3,7 @@
 import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
-
-export const NEWS_TOPICS = [
-  'Technology', 'Artificial Intelligence', 'Science', 'Business & Finance',
-  'World News', 'India News', 'Politics', 'Health', 'Education', 'Startups',
-  'Gaming', 'Anime & Entertainment', 'Sports', 'Environment', 'Space & Astronomy',
-];
+import { NEWS_TOPICS } from '../../lib/news-topics.js';
 
 export async function saveNewsInterests(formData) {
   const session = await auth();

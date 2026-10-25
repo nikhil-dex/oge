@@ -115,9 +115,9 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 ### Phase 4 — AirNotes, dictionary, news, and browser extension
 
 - [x] Inspect the original AirNotes behavior and port its separate personal knowledge workspace, navbar, and pixel-strip component into `oge` with owner-scoped storage.
-- [ ] Select a dictionary data source and verify license, attribution, usage limits, and fallback behavior.
+- [x] Port the original dictionary lookup with dictionaryapi.dev and Wiktionary fallback, timeout handling, and input validation. [ ] Complete a documented provider terms/attribution review before public deployment.
 - [ ] Select a news provider/source and verify license, attribution, rate limits, cost, and outage handling.
-- [ ] Implement optional news-interest onboarding and settings controls.
+- [x] Implement optional news-interest onboarding/settings and use the stored interests to personalize the RSS feed; skipped interests receive general topics.
 - [ ] Verify that users who skip interests receive a general feed.
 - [ ] Define the browser extension's supported browser(s), permissions, saved-content behavior, and sign-in flow.
 - [ ] Authenticate extension API requests independently and apply the same per-user authorization checks.

@@ -65,7 +65,7 @@ export async function POST(request) {
     // Keep this list restricted to models with a documented free API tier and
     // structured JSON output support. Try the next model if one is unavailable
     // or its model-specific quota is exhausted.
-    const freeModels = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+    const freeModels = ['gemini-3.8-flash', 'gemini-3.6-flash'];
     let payload = {};
     let lastStatus = 0;
     let upstream;
@@ -78,7 +78,22 @@ export async function POST(request) {
           signal: AbortSignal.timeout(20000),
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+            generationConfig: {
+              temperature: 0.2,
+              thinkingConfig: { thinkingLevel: 'low' },
+              maxOutputTokens: 4096,
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: 'OBJECT',
+                properties: {
+                  heading: { type: 'STRING' },
+                  answer: { type: 'STRING' },
+                  tags: { type: 'ARRAY', items: { type: 'STRING' } },
+                },
+                required: ['heading', 'answer', 'tags'],
+                propertyOrdering: ['heading', 'answer', 'tags'],
+              },
+            },
           }),
         });
       } catch (error) {

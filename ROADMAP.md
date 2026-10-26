@@ -82,7 +82,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 
 - [x] Establish the initial Next.js project structure and development instructions in `oge`.
 - [x] Port the original primary stylesheets, theme toggle, and favicon; create a responsive dashboard shell with the agreed nine modules.
-- [ ] Port existing working notes/editor/search/theme components where appropriate; only the theme toggle is ported so far.
+- [x] Add the first responsive Notes workspace with subject navigation, search, create/edit/delete, tags, favorites, and revision snapshots; advanced features from the original editor are not yet ported.
 - [x] Exclude file-storage dependencies from the new package; legacy shared-access code has not been copied.
 - [x] Add ESLint configuration, baseline tests, and a GitHub Actions workflow; verify the workflow passes before treating this gate as complete.
 
@@ -94,18 +94,18 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [x] Add Auth.js Google provider configuration, server-side account upsert using Google's stable `sub`, JWT session callbacks, and a sign-out action; verify full lifecycle in CI and a real OAuth environment.
 - [x] Add a server-only MongoDB Atlas connection helper and initial owner-scoped index definitions; configure the production Atlas user/network rules before deployment.
 - [x] Define initial account and news-preference fields plus indexes for notes, subjects, quick notes, and saved links; refine schemas during feature porting.
-- [ ] Implement reusable server-side authorization helpers and ownership-scoped API access for each feature.
-- [ ] Add automated tests proving User A cannot read, modify, search, export, or delete User B's records.
+- [ ] Implement reusable server-side authorization helpers and ownership-scoped API access for every feature. Notes and subjects endpoints are now owner-scoped; other feature APIs remain pending.
+- [ ] Add integration tests proving User A cannot read, modify, search, export, or delete User B's records; current tests check the presence of owner filters but do not replace runtime isolation tests.
 - [ ] Add migration/seed guidance without using real user data or secrets in tests.
 
 **Exit criteria:** Google login works in the test environment; all user data operations are ownership-scoped; cross-user isolation tests pass.
 
 ### Phase 3 — Core knowledge features
 
-- [ ] Port and validate Notes and any existing subject/organization features that remain in scope.
-- [ ] Implement Quick Notes.
-- [ ] Implement Saved Links with URL validation, safe rendering, and reasonable field/length limits.
-- [ ] Implement Revision and Revision History with clearly separated purposes.
+- [x] Implement baseline Notes and subject CRUD with server-enforced ownership checks and request-size limits; [ ] complete feature parity and cross-account integration testing.
+- [x] Implement baseline Quick Notes create, edit, delete, and list flows with owner-scoped storage; autosave and offline support remain future enhancements.
+- [x] Implement Saved Links create, edit, delete, search, URL validation, safe external-link rendering, and reasonable field/length limits; ordering UI remains a follow-up.
+- [x] Implement a first active-recall Revision queue with owner-scoped due cards and 1/3/7/14-day review intervals, plus a Revision History viewer for stored previous note versions; richer spaced-repetition algorithms remain future work.
 - [ ] Port existing flashcard/revision functionality only where it supports the agreed dashboard scope.
 - [ ] Preserve existing search and theme behavior where compatible.
 - [ ] Ensure all queries and mutations are authenticated and user-scoped.
@@ -114,13 +114,13 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 
 ### Phase 4 — AirNotes, dictionary, news, and browser extension
 
-- [ ] Clarify and document the intended AirNotes behavior before implementation if it is not clear from the existing repository.
-- [ ] Select a dictionary data source and verify license, attribution, usage limits, and fallback behavior.
+- [x] Inspect the original AirNotes behavior and port its separate personal knowledge workspace, navbar, and pixel-strip component into `oge` with owner-scoped storage.
+- [x] Port the original dictionary lookup with dictionaryapi.dev and Wiktionary fallback, timeout handling, and input validation. [ ] Complete a documented provider terms/attribution review before public deployment.
 - [ ] Select a news provider/source and verify license, attribution, rate limits, cost, and outage handling.
-- [ ] Implement optional news-interest onboarding and settings controls.
+- [x] Implement optional news-interest onboarding/settings and use the stored interests to personalize the RSS feed; skipped interests receive general topics.
 - [ ] Verify that users who skip interests receive a general feed.
-- [ ] Define the browser extension's supported browser(s), permissions, saved-content behavior, and sign-in flow.
-- [ ] Authenticate extension API requests independently and apply the same per-user authorization checks.
+- [x] Add a Manifest V3 Chrome extension MVP with active-tab capture, locally stored token, and optional host permissions.
+- [x] Authenticate extension saves with a hashed, expiring bearer token; resolve the owner from the token record and enforce owner-scoped Saved Links writes. [ ] Perform a manual end-to-end Chrome test and review token lifecycle before public release.
 
 **Exit criteria:** these features work without weakening authentication, exposing API keys, or exceeding provider terms.
 

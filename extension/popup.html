@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Save to OgeNotes</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header><span class="mark">O</span><div><strong>OgeNotes</strong><small>Save this tab</small></div></header>
+    <label for="baseUrl">App URL</label>
+    <input id="baseUrl" type="url" value="http://localhost:3000" spellcheck="false">
+    <label for="token">Extension token</label>
+    <input id="token" type="password" placeholder="oge_…" autocomplete="off" spellcheck="false">
+    <button id="saveSettings" class="secondary" type="button">Save connection</button>
+    <div class="divider"></div>
+    <label for="category">Category (optional)</label>
+    <input id="category" type="text" value="Browser" maxlength="40" placeholder="Study, tools…">
+    <button id="saveTab" type="button">Save current tab ↗</button>
+    <p id="status" role="status"></p>
+    <small class="foot">Your token is stored locally in this browser extension. Revoke it from OgeNotes if needed.</small>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('dashboard exposes all nine agreed modules across its sections', async () => {
+test('dashboard exposes all nine agreed modules and keeps Dictionary below News', async () => {
   const page = await readFile(new URL('../app/page.js', import.meta.url), 'utf8');
-  for (const label of ['Notes', 'AirNotes', 'Quick Notes', 'Saved Links', 'Browser Extension', 'Revision History', 'Dictionary', 'News', 'Revision']) {
+  for (const label of ['Notes', 'AirNotes', 'Quick Notes', 'Saved Links', 'Browser Extension', 'Revision History', 'News', 'Revision']) {
     assert.ok(page.includes(label), `Missing dashboard module: ${label}`);
   }
-  assert.match(page, /oge-home-news/);
+  assert.match(page, /EnglishWordExplainer/);
+  assert.ok(page.indexOf('<HomeNewsFeed />') < page.indexOf('<EnglishWordExplainer />'), 'Dictionary should follow News, like the original OgeNotes home page.');
+  assert.ok(page.indexOf('<EnglishWordExplainer />') < page.indexOf('oge-airnotes-preview'), 'Dictionary should appear before the AirNotes preview.');
   assert.match(page, /oge-airnotes-preview/);
   assert.match(page, /oge-quick-notes-bottom/);
 });

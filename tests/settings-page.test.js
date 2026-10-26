@@ -10,7 +10,7 @@ test('settings page exposes account, organization, appearance, news, and data co
   }
   assert.match(page, /saveNewsInterests/);
   assert.match(page, /signOutOfOgeNotes/);
-  assert.match(client, //api/subjects/);
+  assert.ok(client.includes('/api/subjects'));
   assert.match(client, /ogenotes-pixel-strip-settings/);
   assert.match(client, /Restore from backup/);
   assert.doesNotMatch(page, /onClick=/, 'Server-rendered settings page should not pass event handlers from a Server Component.');

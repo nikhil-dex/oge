@@ -41,6 +41,7 @@ export default function NotesPage() {
   const [subjectName, setSubjectName] = useState('');
   const [showSubjectForm, setShowSubjectForm] = useState(false);
   const [subjectSaving, setSubjectSaving] = useState(false);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [preview, setPreview] = useState(false);
   const [answerFullscreen, setAnswerFullscreen] = useState(false);
   const [draftStatus, setDraftStatus] = useState('');
@@ -193,6 +194,46 @@ export default function NotesPage() {
     }
   }
 
+  async function shareReaderNote() {
+    if (!readerNote) return;
+    const subject = subjects.find((item) => item.slug === readerNote.subjectSlug) || active;
+    const text = `${readerNote.heading || 'Untitled note'}\n\n${readerNote.answer || ''}\n\n${subject?.name || 'OgeNotes'} · OgeNotes`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: readerNote.heading || 'OgeNotes note', text });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setMessage('Note text copied. Paste it into WhatsApp or another app.');
+      } else {
+        window.prompt('Copy your note text:', text);
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') setError('Sharing failed. You can try Print / Save PDF instead.');
+    }
+    setShareMenuOpen(false);
+  }
+
+  function printReaderNote() {
+    if (!readerNote) return;
+    setShareMenuOpen(false);
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      setError('Allow pop-ups to print or save this note as a PDF.');
+      return;
+    }
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
+    const subject = subjects.find((item) => item.slug === readerNote.subjectSlug) || active;
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(readerNote.heading || 'OgeNotes note')}</title><style>
+      @page{margin:16mm}body{font:11pt/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17231b;max-width:850px;margin:32px auto;padding:0 20px;overflow-wrap:anywhere}
+      header{border-bottom:1px solid #d8e0da;padding-bottom:18px;margin-bottom:24px}small{color:#66736a;text-transform:uppercase;letter-spacing:.08em}h1{font-size:26pt;line-height:1.2;margin:10px 0}p{margin:0 0 14px}pre{white-space:pre-wrap;background:#f3f5f3;padding:12px;border-radius:6px}code{font-family:ui-monospace,SFMono-Regular,monospace;background:#f0f3f0;padding:2px 4px}blockquote{border-left:3px solid #71947a;margin-left:0;padding-left:14px;color:#46564a}a{color:#2f6b42}
+      @media print{body{margin:0;padding:0}.print-help{display:none}}
+      </style></head><body><header><small>${escapeHtml(subject?.name || 'YOUR LIBRARY')} · OGENOTES</small><h1>${escapeHtml(readerNote.heading || 'Untitled note')}</h1></header><main>${markdownHtml(readerNote.answer || '')}</main><p class="print-help">Use your browser’s Print command to print or save this note as a PDF.</p><script>window.onload=()=>window.print()<\/script></body></html>`);
+    printWindow.document.close();
+  }
+
   function insertFormatting(format) {
     const field = answerRef.current;
     if (!field) return;
@@ -340,15 +381,27 @@ export default function NotesPage() {
         </section>
       </div>}
 
-      {readerNote && <div className="reader-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setReaderNote(null); }}>
+      {readerNote && <div className="reader-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setReaderNote(null); setShareMenuOpen(false); } }}>
         <article className="reader-panel" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
-          <div className="reader-toolbar"><span className="reader-kicker">NOTE · {active?.name || 'LIBRARY'}</span><div className="reader-toolbar-actions">
-            <button type="button" className="reader-step-button" onClick={() => editNote(readerNote)} aria-label="Edit note" title="Edit note">✎</button>
-            <button type="button" className="close-button reader-close" onClick={() => setReaderNote(null)} aria-label="Close note">×</button>
-          </div></div>
-          <div className="reader-content"><p className="eyebrow">{active?.name || 'YOUR LIBRARY'}</p><h2 id="readerTitle">{readerNote.heading}</h2><div className="reader-meta">Saved {savedLabel(readerNote.updatedAt || readerNote.createdAt)}</div><div className="reader-answer" dangerouslySetInnerHTML={{ __html: markdownHtml(readerNote.answer) }} />
+          <div className="reader-toolbar">
+            <span className="reader-kicker">NOTE · {(subjects.find((item) => item.slug === readerNote.subjectSlug) || active)?.name || 'LIBRARY'}</span>
+            <div className="reader-toolbar-actions">
+              <div className="note-share-wrap">
+                <button type="button" className="note-share-button" aria-expanded={shareMenuOpen} onClick={() => setShareMenuOpen((open) => !open)}>↗ Share</button>
+                {shareMenuOpen && <div className="note-share-menu" role="menu">
+                  <button type="button" role="menuitem" onClick={shareReaderNote}><strong>Share note</strong><small>Send text to available apps</small></button>
+                  <button type="button" role="menuitem" onClick={printReaderNote}><strong>Print / Save PDF</strong><small>Keep the note formatting</small></button>
+                </div>}
+              </div>
+              <button type="button" className="close-button reader-close" onClick={() => { setShareMenuOpen(false); setReaderNote(null); }} aria-label="Close note">×</button>
+            </div>
+          </div>
+          <div className="reader-content">
+            <p className="eyebrow">{(subjects.find((item) => item.slug === readerNote.subjectSlug) || active)?.name || 'YOUR LIBRARY'}</p>
+            <h2 id="readerTitle">{readerNote.heading}</h2>
+            <div className="reader-meta">Saved {savedLabel(readerNote.updatedAt || readerNote.createdAt)}</div>
+            <div className="reader-answer" dangerouslySetInnerHTML={{ __html: markdownHtml(readerNote.answer) }} />
             {(readerNote.tags || []).length > 0 && <div className="reader-tags">{readerNote.tags.map((tag) => <span key={tag} className="tag-chip">{tag}</span>)}</div>}
-            <div className="reader-footer-actions"><button type="button" className="study-button secondary-study-button" onClick={() => toggleFavorite(readerNote)}>{readerNote.favorite ? '★ Remove favorite' : '☆ Add favorite'}</button><button type="button" className="add-button" onClick={() => editNote(readerNote)}>Edit note →</button></div>
           </div>
         </article>
       </div>}

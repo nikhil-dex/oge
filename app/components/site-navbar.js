@@ -7,6 +7,7 @@ import PixelStrip from './pixel-strip';
 const links = [
   { href: '/', label: 'Home' },
   { href: '/notes', label: 'Notes' },
+  { href: '/news', label: 'News' },
 ];
 
 export default function SiteNavbar({ actions = null }) {

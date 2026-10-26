@@ -2,15 +2,18 @@ import { auth } from '../auth.js';
 import { getDatabase } from '../lib/mongodb.js';
 import { redirect } from 'next/navigation';
 import ThemeToggle from './components/theme-toggle';
+import SiteNavbar from './components/site-navbar';
 import HomeNewsFeed from './components/home-news-feed';
 import EnglishWordExplainer from './components/english-word-explainer';
+import HomeDashboard from './components/home-dashboard';
+import QuickNotesPanel from './components/quick-notes-panel';
 
 const modules = [
   { number: '01', group: 'LEARN', title: 'Notes', description: 'Organize ideas, study material, and everything worth keeping.', href: '/notes', icon: '▤', featured: true },
-  { number: '03', group: 'COLLECT', title: 'Saved Links', description: 'Keep useful websites, tools, and references close.', href: '/saved-links', icon: '↗' },
-  { number: '04', group: 'CAPTURE', title: 'Browser Extension', description: 'Bring useful links into your knowledge space.', href: '/extension', icon: '⬡' },
-  { number: '05', group: 'HISTORY', title: 'Revision History', description: 'Return to recent study activity and previous revisions.', href: '/revision-history', icon: '◷' },
-  { number: '08', group: 'REVIEW', title: 'Revision', description: 'Focus on recall and revisit what you have learned.', href: '/revision', icon: '↻' },
+  { number: '02', group: 'COLLECT', title: 'Saved Links', description: 'Keep useful websites, tools, and references close.', href: '/saved-links', icon: '↗' },
+  { number: '03', group: 'CAPTURE', title: 'Browser Extension', description: 'Bring useful links into your knowledge space.', href: '/extension', icon: '⬡' },
+  { number: '04', group: 'HISTORY', title: 'Revision History', description: 'Return to recent study activity and previous revisions.', href: '/revision-history', icon: '◷' },
+  { number: '05', group: 'REVIEW', title: 'Revision', description: 'Focus on recall and revisit what you have learned.', href: '/revision', icon: '↻' },
 ];
 
 export const dynamic = 'force-dynamic';
@@ -24,15 +27,13 @@ export default async function HomePage() {
 
   return (
     <main className="shell hub-shell oge-shell">
-      <header className="oge-topbar">
-        <a className="oge-brand" href="/" aria-label="OgeNotes home"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a>
-        <nav className="oge-nav" aria-label="Main navigation"><a className="is-active" href="/">Home</a><a href="/notes">Notes</a><a href="/news">News</a></nav>
-        <div className="oge-top-actions"><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></div>
-      </header>
+      <SiteNavbar actions={<><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></>} />
 
       <HomeNewsFeed />
 
       <EnglishWordExplainer />
+
+      <HomeDashboard />
 
       <section className="quick-notes-section oge-airnotes-preview" aria-labelledby="airnotes-heading">
         <div className="quick-notes-heading-row">
@@ -69,23 +70,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="quick-notes-section oge-quick-notes-bottom" aria-labelledby="quick-notes-heading">
-        <div className="quick-notes-heading-row">
-          <div>
-            <p className="eyebrow">LIGHTWEIGHT CAPTURE</p>
-            <h2 id="quick-notes-heading">Quick <span>Notes.</span></h2>
-            <p className="quick-notes-lead">Catch a thought before it disappears. Keep short reminders easy to reach.</p>
-          </div>
-          <a className="quick-note-add-button" href="/quick-notes"><span aria-hidden="true">＋</span> Open Quick Notes</a>
-        </div>
-        <a className="hub-card oge-quick-notes-card" href="/quick-notes">
-          <span className="hub-card-icon" aria-hidden="true">✳</span>
-          <span className="hub-card-kicker">09 · CAPTURE</span>
-          <h2>A place for passing thoughts <span aria-hidden="true">↗</span></h2>
-          <p>Open your Quick Notes workspace for short ideas, reminders, and things to sort out later.</p>
-          <span className="hub-card-link">Go to Quick Notes <span aria-hidden="true">→</span></span>
-        </a>
-      </section>
+      <QuickNotesPanel />
 
       <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>A little more organized, every day.</span><a href="/settings">Settings <span aria-hidden="true">↗</span></a></footer>
     </main>

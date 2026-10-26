@@ -2,6 +2,7 @@ import { auth } from '../auth.js';
 import { getDatabase } from '../lib/mongodb.js';
 import { redirect } from 'next/navigation';
 import ThemeToggle from './components/theme-toggle';
+import SiteNavbar from './components/site-navbar';
 import HomeNewsFeed from './components/home-news-feed';
 import EnglishWordExplainer from './components/english-word-explainer';
 import HomeDashboard from './components/home-dashboard';
@@ -26,11 +27,7 @@ export default async function HomePage() {
 
   return (
     <main className="shell hub-shell oge-shell">
-      <header className="oge-topbar">
-        <a className="oge-brand" href="/" aria-label="OgeNotes home"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a>
-        <nav className="oge-nav" aria-label="Main navigation"><a className="is-active" href="/">Home</a><a href="/notes">Notes</a><a href="/news">News</a></nav>
-        <div className="oge-top-actions"><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></div>
-      </header>
+      <SiteNavbar actions={<><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></>} />
 
       <HomeNewsFeed />
 

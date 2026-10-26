@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import SiteNavbar from '../components/site-navbar';
+import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
 
 async function responseJson(response) {
@@ -39,6 +41,10 @@ export default function NotesPage() {
   const [subjectName, setSubjectName] = useState('');
   const [showSubjectForm, setShowSubjectForm] = useState(false);
   const [subjectSaving, setSubjectSaving] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [answerFullscreen, setAnswerFullscreen] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('');
+  const answerRef = useRef(null);
 
   const load = useCallback(async (preferredSubject = '') => {
     setLoading(true);
@@ -90,6 +96,9 @@ export default function NotesPage() {
     setTagsText('');
     setError('');
     setMessage('');
+    setPreview(false);
+    setAnswerFullscreen(false);
+    setDraftStatus('');
     setNoteDialog(true);
   }
 
@@ -101,6 +110,9 @@ export default function NotesPage() {
     setReaderNote(null);
     setError('');
     setMessage('');
+    setPreview(false);
+    setAnswerFullscreen(false);
+    setDraftStatus('');
     setNoteDialog(true);
   }
 
@@ -119,6 +131,8 @@ export default function NotesPage() {
         body: JSON.stringify(editingId ? { ...payload, id: editingId } : payload),
       }));
       setNoteDialog(false);
+      setAnswerFullscreen(false);
+      setPreview(false);
       setEditingId(note.id);
       setMessage('Note saved successfully.');
       await load(activeSubject);
@@ -178,6 +192,41 @@ export default function NotesPage() {
       setSubjectSaving(false);
     }
   }
+
+  function insertFormatting(format) {
+    const field = answerRef.current;
+    if (!field) return;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const selected = answer.slice(start, end);
+    let before = '';
+    let value = selected || 'text';
+    let after = '';
+    if (format === 'bold') { before = '**'; after = '**'; }
+    if (format === 'code') { before = '`'; after = '`'; }
+    if (format === 'codeblock') { before = '```bash\n'; after = '\n```'; value = selected || 'command'; }
+    if (format === 'list') {
+      const lineStart = answer.lastIndexOf('\n', start - 1) + 1;
+      const lineEnd = answer.indexOf('\n', end);
+      const actualEnd = lineEnd < 0 ? answer.length : lineEnd;
+      const list = answer.slice(lineStart, actualEnd).split('\n').map((line) => `- ${line}`).join('\n');
+      setAnswer(`${answer.slice(0, lineStart)}${list}${answer.slice(actualEnd)}`);
+      return;
+    }
+    setAnswer(`${answer.slice(0, start)}${before}${value}${after}${answer.slice(end)}`);
+  }
+
+  useEffect(() => {
+    if (!noteDialog && !readerNote) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      if (answerFullscreen) { setAnswerFullscreen(false); return; }
+      if (noteDialog && !saving) { setNoteDialog(false); setPreview(false); return; }
+      setReaderNote(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [noteDialog, readerNote, answerFullscreen, saving]);
 
   return (
     <main className="shell">
@@ -266,13 +315,25 @@ export default function NotesPage() {
           <p className="eyebrow">{editingId ? 'EDIT NOTE' : 'GROW YOUR LIBRARY'}</p>
           <h2 id="formTitle">{editingId ? 'Edit note' : 'Add a note'}<span className="period">.</span></h2>
           <p className="form-subtitle">{editingId ? 'Update the heading, tags, or answer.' : 'Give it a clear heading and capture what you learned.'}</p>
-          <form onSubmit={saveNote}>
+          <form id="noteForm" onSubmit={saveNote}>
             <label htmlFor="heading">HEADING</label>
             <input id="heading" maxLength={160} placeholder="e.g. What does chmod do?" value={heading} onChange={(event) => setHeading(event.target.value)} required />
             <label htmlFor="noteTags">TAGS <span className="field-hint">comma-separated · up to 10</span></label>
             <input id="noteTags" maxLength={260} placeholder="e.g. arrays, exam, important" value={tagsText} onChange={(event) => setTagsText(event.target.value)} />
-            <div className="label-row"><label htmlFor="answer">ANSWER</label><span>{answer.length}/20,000 characters</span></div>
-            <textarea id="answer" rows={8} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => setAnswer(event.target.value)} required />
+            {answerFullscreen ? createPortal(
+              <div className="answer-workspace is-fullscreen">
+                <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span><button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(false)} aria-label="Exit full-screen writing area" title="Exit full screen (Esc)">↙ Exit full screen</button></div>
+                <div className="editor-toolbar" aria-label="Answer formatting"><button type="button" onClick={() => insertFormatting('bold')} title="Bold">B</button><button type="button" onClick={() => insertFormatting('code')} title="Inline code">&lt;/&gt;</button><button type="button" onClick={() => insertFormatting('list')} title="Bullet list">• List</button><button type="button" onClick={() => insertFormatting('codeblock')} title="Code block">{'{ }'}</button><span>Formatting shortcuts</span><span className="draft-status" role="status" aria-live="polite">{draftStatus}</span></div>
+                <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
+                {!preview ? <textarea ref={answerRef} form="noteForm" id="answer" rows={6} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}
+              </div>,
+              document.body
+            ) : <div className="answer-workspace">
+              <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span><button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(true)} aria-label="Expand writing area to full screen" title="Expand writing area">⛶ Expand</button></div>
+              <div className="editor-toolbar" aria-label="Answer formatting"><button type="button" onClick={() => insertFormatting('bold')} title="Bold">B</button><button type="button" onClick={() => insertFormatting('code')} title="Inline code">&lt;/&gt;</button><button type="button" onClick={() => insertFormatting('list')} title="Bullet list">• List</button><button type="button" onClick={() => insertFormatting('codeblock')} title="Code block">{'{ }'}</button><span>Formatting shortcuts</span><span className="draft-status" role="status" aria-live="polite">{draftStatus}</span></div>
+              <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
+              {!preview ? <textarea ref={answerRef} id="answer" rows={8} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}
+            </div>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="submit-button" type="submit" disabled={saving || !activeSubject}><span>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
           </form>
@@ -285,7 +346,7 @@ export default function NotesPage() {
             <button type="button" className="reader-step-button" onClick={() => editNote(readerNote)} aria-label="Edit note" title="Edit note">✎</button>
             <button type="button" className="close-button reader-close" onClick={() => setReaderNote(null)} aria-label="Close note">×</button>
           </div></div>
-          <div className="reader-content"><p className="eyebrow">{active?.name || 'YOUR LIBRARY'}</p><h2 id="readerTitle">{readerNote.heading}</h2><div className="reader-meta">Saved {savedLabel(readerNote.updatedAt || readerNote.createdAt)}</div><div className="reader-answer">{readerNote.answer}</div>
+          <div className="reader-content"><p className="eyebrow">{active?.name || 'YOUR LIBRARY'}</p><h2 id="readerTitle">{readerNote.heading}</h2><div className="reader-meta">Saved {savedLabel(readerNote.updatedAt || readerNote.createdAt)}</div><div className="reader-answer" dangerouslySetInnerHTML={{ __html: markdownHtml(readerNote.answer) }} />
             {(readerNote.tags || []).length > 0 && <div className="reader-tags">{readerNote.tags.map((tag) => <span key={tag} className="tag-chip">{tag}</span>)}</div>}
             <div className="reader-footer-actions"><button type="button" className="study-button secondary-study-button" onClick={() => toggleFavorite(readerNote)}>{readerNote.favorite ? '★ Remove favorite' : '☆ Add favorite'}</button><button type="button" className="add-button" onClick={() => editNote(readerNote)}>Edit note →</button></div>
           </div>

@@ -2168,3 +2168,342 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(max-width:850px){.oge-extension-content-refined{grid-template-columns:1fr}.oge-history-workspace{grid-template-columns:minmax(0,1fr)}.oge-history-version-list{max-height:440px}.oge-history-inspector{min-height:220px}}
 @media(max-width:600px){.oge-workflow-summary{grid-template-columns:1fr;gap:8px}.oge-workflow-stat{padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}.oge-workflow-stat .oge-section-kicker{grid-column:1/-1}.oge-workflow-stat strong{grid-column:1;grid-row:2}.oge-workflow-stat>span:last-child{grid-column:1/-1}.oge-revision-workspace-heading{align-items:stretch;flex-direction:column}.oge-revision-filter-wrap{min-width:0}.oge-revision-ratings-refined{grid-template-columns:repeat(2,minmax(0,1fr))}.oge-revision-card-refined{padding:22px}.oge-revision-card-refined>h2{margin:22px 0 28px}.oge-revision-controls-refined{justify-content:flex-start}.oge-revision-controls-refined>span{order:3;flex-basis:100%;text-align:left}.oge-history-current-ref{grid-template-columns:minmax(0,1fr)}.oge-history-current-ref .oge-section-kicker{grid-column:auto}.oge-history-current-ref a{justify-self:start}.oge-history-inspector{padding:19px}}
 @media(prefers-reduced-motion:reduce){.oge-workflow-page *, .oge-workflow-page *::before, .oge-workflow-page *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+
+/* Tablet responsiveness pass: keep the existing desktop and phone layouts intact
+   while giving 600–1100px viewports deliberate grid, spacing, and overflow rules. */
+@media (min-width: 601px) and (max-width: 1100px) {
+  .shell,
+  .oge-shell {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding-left: clamp(20px, 3.2vw, 34px);
+    padding-right: clamp(20px, 3.2vw, 34px);
+  }
+
+  .site-navbar {
+    gap: 14px;
+    min-height: 68px;
+  }
+
+  .site-navbar-content {
+    gap: 10px;
+  }
+
+  .site-navbar-links {
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .site-navbar-link {
+    min-height: 40px;
+    padding: 9px 10px;
+  }
+
+  .site-navbar-actions {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .oge-topbar {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding-bottom: 14px;
+  }
+
+  .oge-nav {
+    gap: 16px;
+    margin-left: auto;
+  }
+
+  .oge-top-actions {
+    gap: 9px;
+  }
+
+  .home-news-grid,
+  .oge-module-grid,
+  .notes-grid,
+  .saved-links-grid,
+  .quick-notes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-dashboard-content {
+    grid-template-columns: minmax(0, 1.25fr) minmax(230px, 1fr);
+    gap: 12px;
+  }
+
+  .home-dashboard-recent,
+  .home-dashboard-actions {
+    padding: 17px;
+  }
+
+  .home-dashboard-stat {
+    padding: 14px;
+  }
+
+  .home-news-header,
+  .home-dashboard-heading,
+  .home-news-toolbar,
+  .saved-links-hero,
+  .saved-links-toolbar {
+    min-width: 0;
+    gap: 14px;
+  }
+
+  .home-news-filters {
+    flex-wrap: wrap;
+  }
+
+  .oge-notes-workspace {
+    grid-template-columns: minmax(150px, .62fr) minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .oge-notes-sidebar {
+    grid-column: 1 / -1;
+    padding: 12px;
+  }
+
+  .oge-notes-sidebar .oge-subject-list {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .oge-notes-sidebar .oge-subject {
+    flex: 0 1 auto;
+    max-width: 100%;
+  }
+
+  .oge-notes-list-panel,
+  .oge-note-editor-panel {
+    min-width: 0;
+  }
+
+  .oge-quick-workspace {
+    grid-template-columns: minmax(190px, .7fr) minmax(0, 1.3fr);
+  }
+
+  .oge-saved-links-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .oge-extension-content,
+  .oge-extension-content-refined {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .oge-history-layout,
+  .oge-history-workspace {
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    gap: 13px;
+  }
+
+  .oge-revision-layout {
+    grid-template-columns: minmax(190px, .7fr) minmax(0, 1.3fr);
+    gap: 13px;
+  }
+
+  .oge-revision-ratings,
+  .oge-revision-ratings-refined {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .oge-settings-card,
+  .oge-settings-section {
+    min-width: 0;
+  }
+
+  .oge-settings-card-heading,
+  .settings-section-title {
+    flex-wrap: wrap;
+  }
+
+  .oge-settings-data-actions,
+  .oge-settings-backup-actions,
+  .settings-backup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+
+  .oge-settings-card input,
+  .oge-settings-card select,
+  .oge-settings-card textarea,
+  .settings-section input,
+  .settings-section select,
+  .settings-section textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .word-explainer,
+  .home-news,
+  .home-dashboard,
+  .oge-personalized-news,
+  .oge-workflow-card,
+  .oge-history-browser,
+  .oge-history-inspector {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .word-explainer-form,
+  .word-explainer-results,
+  .home-news-preferences,
+  .oge-settings-color-grid,
+  .oge-settings-pixel-grid {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .oge-footer {
+    gap: 12px 18px;
+    flex-wrap: wrap;
+  }
+
+  .dialog,
+  .editor-dialog,
+  .reader-panel,
+  .study-panel,
+  .media-preview-dialog,
+  .modal-dialog,
+  .oge-modal {
+    box-sizing: border-box;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100dvh - 40px);
+    overflow: auto;
+  }
+
+  .editor-dialog input,
+  .editor-dialog textarea,
+  .editor-dialog select,
+  .reader-panel *,
+  .study-panel * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 850px) {
+  .home-dashboard-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .oge-notes-workspace,
+  .oge-quick-workspace,
+  .oge-saved-links-layout,
+  .oge-history-layout,
+  .oge-history-workspace,
+  .oge-revision-layout,
+  .oge-extension-content,
+  .oge-extension-content-refined {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .oge-notes-sidebar {
+    grid-column: auto;
+  }
+
+  .oge-notes-sidebar .oge-subject-list {
+    max-height: none;
+  }
+
+  .oge-notes-list-panel,
+  .oge-note-editor-panel,
+  .oge-extension-card,
+  .oge-extension-instructions {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .oge-revision-workspace-heading {
+    align-items: stretch;
+    flex-direction: row;
+  }
+
+  .home-news-header,
+  .home-dashboard-heading,
+  .saved-links-hero {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .home-news-heading-copy,
+  .home-dashboard-heading > div,
+  .saved-links-hero > * {
+    min-width: 0;
+  }
+
+  .oge-workflow-summary {
+    gap: 9px;
+  }
+
+  .oge-workflow-stat {
+    padding: 15px 13px;
+  }
+}
+
+/* Tablet portrait and landscape: avoid fixed-width children forcing horizontal scrolling. */
+@media (min-width: 601px) and (max-width: 1100px) {
+  .oge-shell *,
+  .hub-shell *,
+  .quick-notes-shell *,
+  .shell > * {
+    min-width: 0;
+  }
+
+  .oge-module-card,
+  .hub-card,
+  .home-news-card,
+  .saved-link-card,
+  .quick-note-section,
+  .note-card {
+    overflow-wrap: anywhere;
+  }
+
+  .saved-link-card-actions,
+  .note-card-actions,
+  .oge-note-editor-actions,
+  .oge-revision-controls,
+  .oge-revision-controls-refined,
+  .oge-settings-actions,
+  .oge-settings-data-actions {
+    flex-wrap: wrap;
+  }
+
+  .saved-link-card-actions button,
+  .saved-link-card-actions a,
+  .oge-settings-card button,
+  .oge-settings-card a,
+  .oge-note-editor-actions button,
+  .oge-revision-controls button {
+    max-width: 100%;
+  }
+
+  .home-news-card h2,
+  .home-dashboard-note-title,
+  .oge-module-card h3,
+  .saved-link-card h2,
+  .note-card .note-title {
+    overflow-wrap: anywhere;
+  }
+}

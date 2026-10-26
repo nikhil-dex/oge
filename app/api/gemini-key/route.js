@@ -24,26 +24,32 @@ async function readBody(request) {
   }
 }
 
-const FREE_GEMINI_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-];
+const FREE_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash'];
 
 async function verifyGeminiKey(apiKey) {
   let lastStatus = 0;
+  let lastFinishReason = '';
   for (const model of FREE_GEMINI_MODELS) {
     let response;
     try {
-      response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+      response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         cache: 'no-store',
         signal: AbortSignal.timeout(12000),
         body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Reply with exactly: OgeNotes connection successful.' }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 24 },
+          contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OgeNotes connection successful.' }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 64,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: { message: { type: 'STRING' } },
+              required: ['message'],
+              propertyOrdering: ['message'],
+            },
+          },
         }),
       });
     } catch (error) {
@@ -55,26 +61,39 @@ async function verifyGeminiKey(apiKey) {
     }
 
     const payload = await response.json().catch(() => ({}));
-    if (response.ok) {
-      if (payload?.candidates?.[0]?.content?.parts?.some((part) => typeof part.text === 'string')) return;
-      throw new Error('Gemini did not return a valid response. Try again.');
+    if (!response.ok) {
+      lastStatus = response.status;
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Gemini rejected this API key. Check the key and its API access.');
+      }
+      if ([404, 429, 500, 502, 503, 504].includes(response.status)) continue;
+      const detail = typeof payload?.error?.message === 'string'
+        ? payload.error.message.replace(/[\\r\\n]+/g, ' ').slice(0, 180)
+        : '';
+      throw new Error('Gemini connection failed (' + response.status + ').' + (detail ? ' ' + detail : ' Check the API response and key permissions.'));
     }
-    lastStatus = response.status;
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('Gemini rejected this API key. Check the key and its API access.');
+
+    const candidate = payload?.candidates?.[0];
+    const output = candidate?.content?.parts?.map((part) => part.text || '').join('').trim();
+    if (output) {
+      try {
+        const parsed = JSON.parse(output);
+        if (typeof parsed.message === 'string' && parsed.message.trim()) return;
+      } catch { /* Try the fallback model if the provider returned malformed output. */ }
     }
-    if (![404, 429, 500, 502, 503, 504].includes(response.status)) {
-      throw new Error('Gemini connection failed (' + response.status + '). Check the API response and key permissions.');
-    }
+    lastFinishReason = String(candidate?.finishReason || '');
   }
 
   if (lastStatus === 429) {
-    throw new Error('All configured free Gemini models are rate-limited or out of quota. Check your Google AI Studio quota and try again later.');
+    throw new Error('Free Gemini model quotas or rate limits are exhausted. Check your Google AI Studio quota and try again later.');
   }
   if (lastStatus === 404) {
-    throw new Error('This key could not access the configured Gemini models. Check the models available to this key in the Gemini Models API.');
+    throw new Error('Neither configured Gemini model is available to this key. Check the models listed for your key in the Gemini Models API.');
   }
-  throw new Error('No configured free Gemini model is currently responding. Try again later.');
+  if (lastFinishReason) {
+    throw new Error('Gemini accepted the key but returned no usable test text (finish reason: ' + lastFinishReason + '). Try again or check model access.');
+  }
+  throw new Error('No configured free Gemini model returned a usable response. Try again later.');
 }
 
 export async function GET() {

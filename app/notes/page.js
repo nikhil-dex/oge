@@ -1,19 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import SiteNavbar from '../components/site-navbar';
+import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
 
-async function readJson(response) {
+async function responseJson(response) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'The request could not be completed.');
   return data;
 }
 
-function dateLabel(value) {
+function savedLabel(value) {
   if (!value) return 'Just created';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Recently edited';
-  return date.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function NotesPage() {
@@ -21,162 +24,387 @@ export default function NotesPage() {
   const [notes, setNotes] = useState([]);
   const [activeSubject, setActiveSubject] = useState('');
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState('');
-  const [heading, setHeading] = useState('');
-  const [answer, setAnswer] = useState('');
-  const [tagsText, setTagsText] = useState('');
+  const [globalSearch, setGlobalSearch] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [selectedTag, setSelectedTag] = useState('');
+  const [sortOrder, setSortOrder] = useState('latest');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [noteDialog, setNoteDialog] = useState(false);
+  const [editingId, setEditingId] = useState('');
+  const [readerNote, setReaderNote] = useState(null);
+  const [heading, setHeading] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [tagsText, setTagsText] = useState('');
   const [subjectName, setSubjectName] = useState('');
   const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [subjectSaving, setSubjectSaving] = useState(false);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [answerFullscreen, setAnswerFullscreen] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('');
+  const answerRef = useRef(null);
 
   const load = useCallback(async (preferredSubject = '') => {
     setLoading(true);
     setError('');
     try {
-      const subjectList = await readJson(await fetch('/api/subjects', { cache: 'no-store' }));
-      setSubjects(subjectList);
+      const [subjectList, noteList] = await Promise.all([
+        responseJson(await fetch('/api/subjects', { cache: 'no-store' })),
+        responseJson(await fetch('/api/notes', { cache: 'no-store' })),
+      ]);
       const slug = preferredSubject || activeSubject || subjectList[0]?.slug || '';
-      setActiveSubject(slug);
-      const noteList = await readJson(await fetch('/api/notes' + (slug ? '?subject=' + encodeURIComponent(slug) : ''), { cache: 'no-store' }));
+      setSubjects(subjectList);
       setNotes(noteList);
-      if (selectedId) {
-        const selected = noteList.find((note) => note.id === selectedId);
-        if (selected) {
-          setHeading(selected.heading);
-          setAnswer(selected.answer);
-          setTagsText((selected.tags || []).join(', '));
-        } else {
-          setSelectedId('');
-          setHeading('');
-          setAnswer('');
-          setTagsText('');
-        }
-      }
+      setActiveSubject(slug);
     } catch (err) {
-      setError(err.message || 'Could not load notes.');
+      setError(err.message || 'Could not load your notes.');
     } finally {
       setLoading(false);
     }
-  }, [activeSubject, selectedId]);
+  }, [activeSubject]);
 
-  useEffect(() => { load(); }, []); // Load once on entry; mutations explicitly refresh.
+  useEffect(() => { load(); }, []); // Initial load only; changes refresh explicitly.
 
-  const visibleNotes = useMemo(() => notes.filter((note) => {
-    const needle = query.trim().toLowerCase();
-    return !needle || (note.heading + ' ' + note.answer + ' ' + (note.tags || []).join(' ')).toLowerCase().includes(needle);
-  }), [notes, query]);
+  const availableTags = useMemo(
+    () => [...new Set(notes.flatMap((note) => Array.isArray(note.tags) ? note.tags : []))].sort(),
+    [notes],
+  );
 
-  function selectNote(note) {
-    setSelectedId(note.id);
-    setHeading(note.heading);
-    setAnswer(note.answer);
-    setTagsText((note.tags || []).join(', '));
-    setError('');
-    setMessage('');
-  }
+  const visibleNotes = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return notes
+      .filter((note) => globalSearch || !activeSubject || note.subjectSlug === activeSubject)
+      .filter((note) => !needle || (note.heading + ' ' + note.answer + ' ' + (note.tags || []).join(' ')).toLocaleLowerCase().includes(needle))
+      .filter((note) => !favoritesOnly || note.favorite)
+      .filter((note) => !selectedTag || (note.tags || []).includes(selectedTag))
+      .sort((a, b) => {
+        if (sortOrder === 'oldest') return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+        if (sortOrder === 'title-asc') return a.heading.localeCompare(b.heading);
+        if (sortOrder === 'title-desc') return b.heading.localeCompare(a.heading);
+        return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+      });
+  }, [notes, activeSubject, query, globalSearch, favoritesOnly, selectedTag, sortOrder]);
 
-  function newNote() {
-    setSelectedId('');
+  const active = subjects.find((subject) => subject.slug === activeSubject);
+
+  function openNewNote() {
+    setEditingId('');
     setHeading('');
     setAnswer('');
     setTagsText('');
     setError('');
     setMessage('');
+    setPreview(false);
+    setAnswerFullscreen(false);
+    setDraftStatus('');
+    setNoteDialog(true);
+  }
+
+  function editNote(note) {
+    setEditingId(note.id);
+    setHeading(note.heading);
+    setAnswer(note.answer);
+    setTagsText((note.tags || []).join(', '));
+    setReaderNote(null);
+    setError('');
+    setMessage('');
+    setPreview(false);
+    setAnswerFullscreen(false);
+    setDraftStatus('');
+    setNoteDialog(true);
   }
 
   async function saveNote(event) {
     event.preventDefault();
-    setSaving(true); setError(''); setMessage('');
+    if (saving || !activeSubject) return;
+    setSaving(true);
+    setError('');
+    setMessage('');
     try {
-      const tags = tagsText.split(',').map((tag) => tag.trim()).filter(Boolean).slice(0, 10);
-      const payload = { subjectSlug: activeSubject, heading, answer, tags };
-      const response = await fetch('/api/notes', {
-        method: selectedId ? 'PUT' : 'POST',
+      const tags = [...new Set(tagsText.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10);
+      const payload = { subjectSlug: activeSubject, heading: heading.trim(), answer: answer.trim(), tags };
+      const note = await responseJson(await fetch('/api/notes', {
+        method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(selectedId ? { ...payload, id: selectedId } : payload),
-      });
-      const note = await readJson(response);
-      setSelectedId(note.id);
-      setHeading(note.heading);
-      setAnswer(note.answer);
-      setTagsText((note.tags || []).join(', '));
-      setMessage('Note saved.');
+        body: JSON.stringify(editingId ? { ...payload, id: editingId } : payload),
+      }));
+      setNoteDialog(false);
+      setAnswerFullscreen(false);
+      setPreview(false);
+      setEditingId(note.id);
+      setMessage('Note saved successfully.');
       await load(activeSubject);
-    } catch (err) { setError(err.message || 'Could not save note.'); }
-    finally { setSaving(false); }
-  }
-
-  async function createSubject(event) {
-    event.preventDefault(); setError(''); setMessage('');
-    try {
-      const subject = await readJson(await fetch('/api/subjects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: subjectName }) }));
-      setSubjectName(''); setShowSubjectForm(false); setActiveSubject(subject.slug);
-      await load(subject.slug); newNote(); setMessage('Subject created.');
-    } catch (err) { setError(err.message || 'Could not create subject.'); }
-  }
-
-  async function deleteNote() {
-    if (!selectedId || !window.confirm('Delete this note permanently?')) return;
-    setError(''); setMessage('');
-    try {
-      await readJson(await fetch('/api/notes?id=' + encodeURIComponent(selectedId), { method: 'DELETE' }));
-      newNote(); await load(activeSubject); setMessage('Note deleted.');
-    } catch (err) { setError(err.message || 'Could not delete note.'); }
+    } catch (err) {
+      setError(err.message || 'Could not save this note.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function toggleFavorite(note) {
+    setError('');
     try {
-      await readJson(await fetch('/api/notes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: note.id, favorite: !note.favorite }) }));
+      await responseJson(await fetch('/api/notes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: note.id, favorite: !note.favorite }),
+      }));
       await load(activeSubject);
-    } catch (err) { setError(err.message || 'Could not update favorite.'); }
+    } catch (err) {
+      setError(err.message || 'Could not update favorite.');
+    }
   }
 
+  async function deleteNote(note) {
+    if (!window.confirm(`Delete “${note.heading}” permanently? This cannot be undone.`)) return;
+    setError('');
+    try {
+      await responseJson(await fetch('/api/notes?id=' + encodeURIComponent(note.id), { method: 'DELETE' }));
+      setReaderNote(null);
+      setNoteDialog(false);
+      setMessage('Note deleted.');
+      await load(activeSubject);
+    } catch (err) {
+      setError(err.message || 'Could not delete this note.');
+    }
+  }
+
+  async function createSubject(event) {
+    event.preventDefault();
+    if (subjectSaving) return;
+    setSubjectSaving(true);
+    setError('');
+    try {
+      const subject = await responseJson(await fetch('/api/subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: subjectName }),
+      }));
+      setSubjectName('');
+      setShowSubjectForm(false);
+      await load(subject.slug);
+      setMessage('Subject created.');
+    } catch (err) {
+      setError(err.message || 'Could not create the subject.');
+    } finally {
+      setSubjectSaving(false);
+    }
+  }
+
+  async function shareReaderNote() {
+    if (!readerNote) return;
+    const subject = subjects.find((item) => item.slug === readerNote.subjectSlug) || active;
+    const text = `${readerNote.heading || 'Untitled note'}\n\n${readerNote.answer || ''}\n\n${subject?.name || 'OgeNotes'} · OgeNotes`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: readerNote.heading || 'OgeNotes note', text });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setMessage('Note text copied. Paste it into WhatsApp or another app.');
+      } else {
+        window.prompt('Copy your note text:', text);
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') setError('Sharing failed. You can try Print / Save PDF instead.');
+    }
+    setShareMenuOpen(false);
+  }
+
+  function printReaderNote() {
+    if (!readerNote) return;
+    setShareMenuOpen(false);
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      setError('Allow pop-ups to print or save this note as a PDF.');
+      return;
+    }
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
+    const subject = subjects.find((item) => item.slug === readerNote.subjectSlug) || active;
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(readerNote.heading || 'OgeNotes note')}</title><style>
+      @page{margin:16mm}body{font:11pt/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17231b;max-width:850px;margin:32px auto;padding:0 20px;overflow-wrap:anywhere}
+      header{border-bottom:1px solid #d8e0da;padding-bottom:18px;margin-bottom:24px}small{color:#66736a;text-transform:uppercase;letter-spacing:.08em}h1{font-size:26pt;line-height:1.2;margin:10px 0}p{margin:0 0 14px}pre{white-space:pre-wrap;background:#f3f5f3;padding:12px;border-radius:6px}code{font-family:ui-monospace,SFMono-Regular,monospace;background:#f0f3f0;padding:2px 4px}blockquote{border-left:3px solid #71947a;margin-left:0;padding-left:14px;color:#46564a}a{color:#2f6b42}
+      @media print{body{margin:0;padding:0}.print-help{display:none}}
+      </style></head><body><header><small>${escapeHtml(subject?.name || 'YOUR LIBRARY')} · OGENOTES</small><h1>${escapeHtml(readerNote.heading || 'Untitled note')}</h1></header><main>${markdownHtml(readerNote.answer || '')}</main><p class="print-help">Use your browser’s Print command to print or save this note as a PDF.</p><script>window.onload=()=>window.print()<\/script></body></html>`);
+    printWindow.document.close();
+  }
+
+  function insertFormatting(format) {
+    const field = answerRef.current;
+    if (!field) return;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const selected = answer.slice(start, end);
+    let before = '';
+    let value = selected || 'text';
+    let after = '';
+    if (format === 'bold') { before = '**'; after = '**'; }
+    if (format === 'code') { before = '`'; after = '`'; }
+    if (format === 'codeblock') { before = '```bash\n'; after = '\n```'; value = selected || 'command'; }
+    if (format === 'list') {
+      const lineStart = answer.lastIndexOf('\n', start - 1) + 1;
+      const lineEnd = answer.indexOf('\n', end);
+      const actualEnd = lineEnd < 0 ? answer.length : lineEnd;
+      const list = answer.slice(lineStart, actualEnd).split('\n').map((line) => `- ${line}`).join('\n');
+      setAnswer(`${answer.slice(0, lineStart)}${list}${answer.slice(actualEnd)}`);
+      return;
+    }
+    setAnswer(`${answer.slice(0, start)}${before}${value}${after}${answer.slice(end)}`);
+  }
+
+  useEffect(() => {
+    if (!noteDialog && !readerNote) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      if (answerFullscreen) { setAnswerFullscreen(false); return; }
+      if (noteDialog && !saving) { setNoteDialog(false); setPreview(false); return; }
+      setReaderNote(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [noteDialog, readerNote, answerFullscreen, saving]);
+
   return (
-    <main className="shell oge-shell oge-notes-page">
-      <header className="oge-topbar">
-        <a className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a>
-        <nav className="oge-nav" aria-label="Main navigation"><a href="/">Home</a><a className="is-active" href="/notes">Notes</a><a href="/news">News</a></nav>
-        <div className="oge-top-actions"><a className="oge-signin" href="/settings">Settings ↗</a><ThemeToggle /></div>
-      </header>
-      <section className="oge-notes-hero">
-        <div className="oge-eyebrow"><span className="oge-status-dot" /> YOUR KNOWLEDGE LIBRARY</div>
-        <h1>Make knowledge <span>stick.</span></h1>
-        <p className="oge-hero-copy">Create organized notes, collect useful details, and come back to what matters.</p>
+    <main className="shell">
+      <SiteNavbar actions={<ThemeToggle />} />
+
+      <nav className="subject-nav" aria-label="Subjects">
+        {subjects.map((subject) => (
+          <span className="subject-item" key={subject.slug}>
+            <button
+              type="button"
+              className={subject.slug === activeSubject ? 'subject-tab active' : 'subject-tab'}
+              onClick={() => { setActiveSubject(subject.slug); setGlobalSearch(false); setQuery(''); setSelectedTag(''); setError(''); }}
+            >
+              {subject.name}
+            </button>
+          </span>
+        ))}
+        <button type="button" className="subject-add" onClick={() => setShowSubjectForm((value) => !value)} aria-expanded={showSubjectForm}>＋ Add subject</button>
+      </nav>
+
+      {showSubjectForm && (
+        <form className="subject-create-form" onSubmit={createSubject}>
+          <input value={subjectName} onChange={(event) => setSubjectName(event.target.value)} placeholder="New subject name" maxLength={60} required aria-label="New subject name" />
+          <button className="add-button" type="submit" disabled={subjectSaving}>{subjectSaving ? 'Adding…' : 'Add subject'}</button>
+          <button className="text-button" type="button" onClick={() => setShowSubjectForm(false)}>Cancel</button>
+        </form>
+      )}
+
+      <section className="intro">
+        <div>
+          <p className="eyebrow">YOUR PERSONAL KNOWLEDGE BASE</p>
+          <h1>{globalSearch ? 'Your library' : (active?.name || 'Your')} notes<span className="period">.</span></h1>
+          <p className="subtitle">A clear place for the commands, concepts, and things you learn.</p>
+        </div>
+        <div className="intro-actions">
+          <button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add a note</button>
+        </div>
       </section>
-      <section className="oge-notes-workspace">
-        <aside className="oge-notes-sidebar">
-          <div className="oge-notes-sidebar-head"><span className="oge-section-kicker">YOUR SUBJECTS</span><button type="button" className="oge-icon-button" onClick={() => setShowSubjectForm((value) => !value)} aria-label="Add subject">＋</button></div>
-          {showSubjectForm && <form className="oge-subject-form" onSubmit={createSubject}><input value={subjectName} onChange={(event) => setSubjectName(event.target.value)} placeholder="Subject name" maxLength={60} required /><button type="submit">Add</button></form>}
-          <div className="oge-subject-list">
-            {subjects.map((subject) => <button key={subject.slug} type="button" className={activeSubject === subject.slug ? 'oge-subject is-active' : 'oge-subject'} onClick={() => { setActiveSubject(subject.slug); setSelectedId(''); setHeading(''); setAnswer(''); setTagsText(''); load(subject.slug); }}><span>{subject.name}</span><span aria-hidden="true">→</span></button>)}
-            {!loading && !subjects.length && <p className="oge-muted">Create your first subject to get started.</p>}
-          </div>
-          <div className="oge-notes-sidebar-foot"><span>{notes.length} notes in this subject</span><button type="button" onClick={newNote}>＋ New note</button></div>
-        </aside>
-        <section className="oge-notes-list-panel">
-          <div className="oge-notes-list-head"><div><span className="oge-section-kicker">YOUR NOTES</span><h2>{subjects.find((subject) => subject.slug === activeSubject)?.name || 'Notes'}</h2></div><button type="button" className="oge-primary-link" onClick={newNote}>＋ New note</button></div>
-          <input className="oge-notes-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search headings, content, or tags…" aria-label="Search notes" />
-          {loading ? <p className="oge-muted">Loading your notes…</p> : visibleNotes.length ? <div className="oge-note-list">{visibleNotes.map((note) => <article key={note.id} className={selectedId === note.id ? 'oge-note-list-item is-active' : 'oge-note-list-item'}><button className="oge-note-list-open" type="button" onClick={() => selectNote(note)}><strong>{note.heading}</strong><span>{note.answer.slice(0, 100)}</span><small>{dateLabel(note.updatedAt || note.createdAt)}</small></button><button className="oge-favorite-button" type="button" aria-label={note.favorite ? 'Remove favorite' : 'Add favorite'} onClick={() => toggleFavorite(note)}>{note.favorite ? '★' : '☆'}</button></article>)}</div> : <div className="oge-empty-state"><span>✎</span><h3>No notes here yet</h3><p>Create a note for this subject. Your notes are private to your account.</p><button type="button" className="oge-primary-link" onClick={newNote}>Create a note →</button></div>}
-        </section>
-        <section className="oge-note-editor-panel">
-          <form onSubmit={saveNote} className="oge-note-editor-form">
-            <div className="oge-note-editor-head"><span className="oge-section-kicker">{selectedId ? 'EDIT NOTE' : 'NEW NOTE'}</span>{selectedId && <button type="button" className="oge-danger-link" onClick={deleteNote}>Delete</button>}</div>
-            <label htmlFor="note-heading">Heading</label>
-            <input id="note-heading" className="oge-note-heading-input" value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Give this note a clear title" maxLength={160} required />
-            <label htmlFor="note-answer">Content</label>
-            <textarea id="note-answer" className="oge-note-answer-input" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write your notes here…" maxLength={20000} rows={12} required />
-            <label htmlFor="note-tags">Tags <span>(comma-separated)</span></label>
-            <input id="note-tags" value={tagsText} onChange={(event) => setTagsText(event.target.value)} placeholder="e.g. exam, important, formula" />
-            <div className="oge-note-editor-actions"><span>{answer.length} characters</span><button type="submit" className="oge-primary-link" disabled={saving || !activeSubject}>{saving ? 'Saving…' : selectedId ? 'Save changes →' : 'Save note →'}</button></div>
-            {error && <p className="oge-form-error" role="alert">{error}</p>}
-            {message && <p className="oge-form-success" role="status">{message}</p>}
+
+      <section className="stats" aria-label="Note statistics">
+        <div className="stat"><span className="stat-number">{String(notes.length).padStart(2, '0')}</span><span className="stat-label">TOTAL NOTES</span></div>
+        <div className="stat-divider" />
+        <div className="stat"><span className="stat-number">{String(subjects.length).padStart(2, '0')}</span><span className="stat-label">SUBJECTS</span></div>
+        <div className="stat-spacer" />
+        <div className="search-wrap"><span aria-hidden="true">⌕</span><input type="search" placeholder={globalSearch ? 'Search all subjects…' : 'Search this subject…'} aria-label="Search notes" value={query} onChange={(event) => setQuery(event.target.value)} />{query && <button type="button" className="search-clear" onClick={() => setQuery('')} aria-label="Clear search">×</button>}</div>
+        <button type="button" className={globalSearch ? 'global-search-toggle active' : 'global-search-toggle'} aria-pressed={globalSearch} onClick={() => { setGlobalSearch((value) => !value); setQuery(''); setSelectedTag(''); }}>⌕ {globalSearch ? 'All subjects' : 'Search all subjects'}</button>
+      </section>
+
+      <section className="notes-section">
+        <div className="section-heading">
+          <div><p className="eyebrow">THE LIBRARY</p><h2>{globalSearch ? 'Search results' : 'All notes'} <span className="count-pill">{visibleNotes.length}</span></h2></div>
+          <label className="sort-control">Sort <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} aria-label="Sort notes"><option value="latest">Latest updated</option><option value="oldest">Oldest first</option><option value="title-asc">Title A–Z</option><option value="title-desc">Title Z–A</option></select></label>
+        </div>
+        <div className="note-filters" aria-label="Note filters">
+          <button type="button" className={favoritesOnly ? 'filter-chip active' : 'filter-chip'} aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly((value) => !value)}>★ Favorites</button>
+          {availableTags.length > 0 && <label className="tag-filter">Tag <select value={selectedTag} onChange={(event) => setSelectedTag(event.target.value)} aria-label="Filter notes by tag"><option value="">All tags</option>{availableTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select></label>}
+          {(query || globalSearch || favoritesOnly || selectedTag) && <button type="button" className="clear-filters" onClick={() => { setQuery(''); setGlobalSearch(false); setFavoritesOnly(false); setSelectedTag(''); }}>Clear all</button>}
+        </div>
+
+        {error && !noteDialog && <p className="page-error" role="alert">{error}</p>}
+        {message && !noteDialog && <p className="form-success" role="status">{message}</p>}
+        {loading ? <div className="empty-state" role="status"><span className="empty-icon">◌</span><h3>Loading notes…</h3><p>Getting your library ready.</p></div>
+          : visibleNotes.length ? <div className="notes-grid">{visibleNotes.map((note, index) => (
+            <article className="note-card" key={note.id}>
+              <button type="button" className="card-open" onClick={() => setReaderNote(note)} aria-label={`Open note: ${note.heading}`}>
+                <span className="card-top"><span className="note-index">NO. {String(index + 1).padStart(2, '0')}</span><span className="note-badges">{note.favorite && <span title="Favorite">★</span>}</span></span>
+                <span className="note-title">{note.heading}</span>
+                <span className="note-preview">{note.answer}</span>
+                <span className="card-tags">{(note.tags || []).map((tag) => <span key={tag} className="tag-chip">{tag}</span>)}</span>
+                <span className="card-bottom">◷ <span>{savedLabel(note.updatedAt || note.createdAt)}</span></span>
+              </button>
+              <div className="note-card-actions" aria-label={`Actions for ${note.heading}`}>
+                <button type="button" className={note.favorite ? 'metadata-action selected' : 'metadata-action'} onClick={() => toggleFavorite(note)} aria-pressed={Boolean(note.favorite)} aria-label={note.favorite ? 'Remove favorite' : 'Add favorite'} title={note.favorite ? 'Remove favorite' : 'Add favorite'}>★</button>
+                <button type="button" className="edit-note" onClick={() => editNote(note)} aria-label={`Edit note: ${note.heading}`} title="Edit note">✎</button>
+                <button type="button" className="delete-note" onClick={() => deleteNote(note)} aria-label={`Delete note: ${note.heading}`} title="Delete note">×</button>
+              </div>
+            </article>
+          ))}</div> : <div className="empty-state"><span className="empty-icon">⌕</span><h3>{query ? 'No notes found' : 'Start your collection'}</h3><p>{query ? 'Try another search, or clear the filters.' : 'Add a note to this subject, then come back to study it.'}</p><button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add your first note</button></div>}
+      </section>
+
+      <footer><span>Built for learning, one note at a time.</span><span>PRIVATE · SUBJECT BASED</span></footer>
+
+      {noteDialog && <div className="modal-backdrop editor-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setNoteDialog(false); }}>
+        <section className="dialog editor-dialog" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+          <button className="close-button" type="button" onClick={() => !saving && setNoteDialog(false)} aria-label="Close form">×</button>
+          <p className="eyebrow">{editingId ? 'EDIT NOTE' : 'GROW YOUR LIBRARY'}</p>
+          <h2 id="formTitle">{editingId ? 'Edit note' : 'Add a note'}<span className="period">.</span></h2>
+          <p className="form-subtitle">{editingId ? 'Update the heading, tags, or answer.' : 'Give it a clear heading and capture what you learned.'}</p>
+          <form id="noteForm" onSubmit={saveNote}>
+            <label htmlFor="heading">HEADING</label>
+            <input id="heading" maxLength={160} placeholder="e.g. What does chmod do?" value={heading} onChange={(event) => setHeading(event.target.value)} required />
+            <label htmlFor="noteTags">TAGS <span className="field-hint">comma-separated · up to 10</span></label>
+            <input id="noteTags" maxLength={260} placeholder="e.g. arrays, exam, important" value={tagsText} onChange={(event) => setTagsText(event.target.value)} />
+            {answerFullscreen ? createPortal(
+              <div className="answer-workspace is-fullscreen">
+                <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span><button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(false)} aria-label="Exit full-screen writing area" title="Exit full screen (Esc)">↙ Exit full screen</button></div>
+                <div className="editor-toolbar" aria-label="Answer formatting"><button type="button" onClick={() => insertFormatting('bold')} title="Bold">B</button><button type="button" onClick={() => insertFormatting('code')} title="Inline code">&lt;/&gt;</button><button type="button" onClick={() => insertFormatting('list')} title="Bullet list">• List</button><button type="button" onClick={() => insertFormatting('codeblock')} title="Code block">{'{ }'}</button><span>Formatting shortcuts</span><span className="draft-status" role="status" aria-live="polite">{draftStatus}</span></div>
+                <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
+                {!preview ? <textarea ref={answerRef} form="noteForm" id="answer" rows={6} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}
+              </div>,
+              document.body
+            ) : <div className="answer-workspace">
+              <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span><button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(true)} aria-label="Expand writing area to full screen" title="Expand writing area">⛶ Expand</button></div>
+              <div className="editor-toolbar" aria-label="Answer formatting"><button type="button" onClick={() => insertFormatting('bold')} title="Bold">B</button><button type="button" onClick={() => insertFormatting('code')} title="Inline code">&lt;/&gt;</button><button type="button" onClick={() => insertFormatting('list')} title="Bullet list">• List</button><button type="button" onClick={() => insertFormatting('codeblock')} title="Code block">{'{ }'}</button><span>Formatting shortcuts</span><span className="draft-status" role="status" aria-live="polite">{draftStatus}</span></div>
+              <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
+              {!preview ? <textarea ref={answerRef} id="answer" rows={8} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}
+            </div>}
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="submit-button" type="submit" disabled={saving || !activeSubject}><span>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
           </form>
         </section>
-      </section>
-      <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>One idea at a time.</span><a href="/settings">Settings ↗</a></footer>
+      </div>}
+
+      {readerNote && <div className="reader-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setReaderNote(null); setShareMenuOpen(false); } }}>
+        <article className="reader-panel" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+          <div className="reader-toolbar">
+            <span className="reader-kicker">NOTE · {(subjects.find((item) => item.slug === readerNote.subjectSlug) || active)?.name || 'LIBRARY'}</span>
+            <div className="reader-toolbar-actions">
+              <div className="note-share-wrap">
+                <button type="button" className="note-share-button" aria-expanded={shareMenuOpen} onClick={() => setShareMenuOpen((open) => !open)}>↗ Share</button>
+                {shareMenuOpen && <div className="note-share-menu" role="menu">
+                  <button type="button" role="menuitem" onClick={shareReaderNote}><strong>Share note</strong><small>Send text to available apps</small></button>
+                  <button type="button" role="menuitem" onClick={printReaderNote}><strong>Print / Save PDF</strong><small>Keep the note formatting</small></button>
+                </div>}
+              </div>
+              <button type="button" className="close-button reader-close" onClick={() => { setShareMenuOpen(false); setReaderNote(null); }} aria-label="Close note">×</button>
+            </div>
+          </div>
+          <div className="reader-content">
+            <p className="eyebrow">{(subjects.find((item) => item.slug === readerNote.subjectSlug) || active)?.name || 'YOUR LIBRARY'}</p>
+            <h2 id="readerTitle">{readerNote.heading}</h2>
+            <div className="reader-meta">Saved {savedLabel(readerNote.updatedAt || readerNote.createdAt)}</div>
+            <div className="reader-answer" dangerouslySetInnerHTML={{ __html: markdownHtml(readerNote.answer) }} />
+            {(readerNote.tags || []).length > 0 && <div className="reader-tags">{readerNote.tags.map((tag) => <span key={tag} className="tag-chip">{tag}</span>)}</div>}
+          </div>
+        </article>
+      </div>}
     </main>
   );
 }

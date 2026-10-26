@@ -56,7 +56,7 @@ export default async function SettingsPage() {
           <SettingsClient />
 
           <section className="oge-settings-card" id="news-preferences" aria-labelledby="news-preferences-heading">
-            <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">04 · PERSONALIZATION</span><h2 id="news-preferences-heading">News preferences</h2></div></div>
+            <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">05 · PERSONALIZATION</span><h2 id="news-preferences-heading">News preferences</h2></div></div>
             <p className="oge-settings-description">Choose topics for your personalized news feed. Select up to 10, or leave everything unchecked for a general feed.</p>
             <form action={saveNewsInterests} className="oge-interest-form oge-settings-interest-form">
               <input type="hidden" name="returnTo" value="/settings" />

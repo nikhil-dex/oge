@@ -2507,3 +2507,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     overflow-wrap: anywhere;
   }
 }
+
+
+/* Gemini BYOK controls */
+.oge-gemini-security-note{display:flex;flex-direction:column;gap:6px;margin:17px 0;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--green) 5%,transparent)}
+.oge-gemini-security-note strong{color:var(--ink);font-size:12px}
+.oge-gemini-security-note span{color:var(--muted);font-size:11px;line-height:1.8}
+.oge-gemini-key-form{display:flex;flex-direction:column;gap:9px;margin-top:18px}
+.oge-gemini-key-form>label{color:var(--ink);font-size:12px;font-weight:700}
+.oge-gemini-key-form>input{box-sizing:border-box;width:100%;min-width:0;padding:13px 14px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:12px 'DM Mono',monospace}
+.oge-gemini-key-form>input:focus{outline:2px solid color-mix(in srgb,var(--green) 45%,transparent);outline-offset:1px}
+.oge-gemini-key-form .oge-settings-note a{color:var(--green)}
+.oge-gemini-key-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.oge-gemini-key-actions button:disabled,.oge-gemini-cleanup-button:disabled{opacity:.55;cursor:wait}
+.oge-gemini-cleanup-button{white-space:nowrap}
+@media(max-width:600px){.oge-gemini-key-actions{align-items:stretch;flex-direction:column}.oge-gemini-key-actions button{width:100%}.oge-gemini-cleanup-button{white-space:normal}}

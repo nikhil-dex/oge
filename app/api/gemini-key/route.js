@@ -1,7 +1,7 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
-import { decryptGeminiKey, encryptGeminiKey, maskGeminiKey } from '../../../lib/gemini-key.js';
+import { encryptGeminiKey } from '../../../lib/gemini-key.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

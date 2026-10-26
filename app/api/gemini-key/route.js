@@ -1,7 +1,7 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
-import { encryptGeminiKey } from '../../../lib/gemini-key.js';
+import { encryptGeminiKey, maskGeminiKey } from '../../../lib/gemini-key.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,7 +80,7 @@ export async function POST(request) {
     }
 
     const apiKey = String(data?.apiKey || '').trim();
-    if (!apiKey || apiKey.length > 512 || !/^AIza[\w-]{20,}$/.test(apiKey)) {
+    if (!apiKey || apiKey.length < 10 || apiKey.length > 512 || /\s/.test(apiKey)) {
       return json({ error: 'Enter a valid-looking Google Gemini API key.' }, 400);
     }
 

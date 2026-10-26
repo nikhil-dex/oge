@@ -37,6 +37,7 @@ export default async function SettingsPage() {
           <a href="#account">Account</a>
           <a href="#organization">Subjects</a>
           <a href="#appearance">Appearance</a>
+          <a href="#gemini-ai">Gemini AI</a>
           <a href="#pixel-strip">Pixel Strip</a>
           <a href="#news-preferences">News preferences</a>
           <a href="#data">Your data</a>

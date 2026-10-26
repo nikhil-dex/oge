@@ -3,13 +3,13 @@ import { getDatabase } from '../lib/mongodb.js';
 import { redirect } from 'next/navigation';
 import ThemeToggle from './components/theme-toggle';
 import HomeNewsFeed from './components/home-news-feed';
+import EnglishWordExplainer from './components/english-word-explainer';
 
 const modules = [
   { number: '01', group: 'LEARN', title: 'Notes', description: 'Organize ideas, study material, and everything worth keeping.', href: '/notes', icon: '▤', featured: true },
   { number: '03', group: 'COLLECT', title: 'Saved Links', description: 'Keep useful websites, tools, and references close.', href: '/saved-links', icon: '↗' },
   { number: '04', group: 'CAPTURE', title: 'Browser Extension', description: 'Bring useful links into your knowledge space.', href: '/extension', icon: '⬡' },
   { number: '05', group: 'HISTORY', title: 'Revision History', description: 'Return to recent study activity and previous revisions.', href: '/revision-history', icon: '◷' },
-  { number: '06', group: 'DISCOVER', title: 'Dictionary', description: 'Look up words and build your vocabulary.', href: '/dictionary', icon: 'Aa' },
   { number: '08', group: 'REVIEW', title: 'Revision', description: 'Focus on recall and revisit what you have learned.', href: '/revision', icon: '↻' },
 ];
 
@@ -32,6 +32,8 @@ export default async function HomePage() {
 
       <HomeNewsFeed />
 
+      <EnglishWordExplainer />
+
       <section className="quick-notes-section oge-airnotes-preview" aria-labelledby="airnotes-heading">
         <div className="quick-notes-heading-row">
           <div>
@@ -53,7 +55,7 @@ export default async function HomePage() {
       <section className="oge-module-section" aria-labelledby="modules-title">
         <div className="oge-section-heading">
           <div><span className="oge-section-kicker">YOUR TOOLKIT</span><h2 id="modules-title">Everything in its place.</h2></div>
-          <span className="oge-count">06 MODULES</span>
+          <span className="oge-count">05 MODULES</span>
         </div>
         <div className="hub-grid oge-module-grid">
           {modules.map((item) => (

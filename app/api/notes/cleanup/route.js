@@ -65,7 +65,7 @@ export async function POST(request) {
     // Keep this list restricted to models with a documented free API tier and
     // structured JSON output support. Try the next model if one is unavailable
     // or its model-specific quota is exhausted.
-    const freeModels = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+    const freeModels = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
     let payload = {};
     let lastStatus = 0;
     let upstream;

@@ -27,7 +27,9 @@ test('Gemini note cleanup is authenticated, owner-scoped, bounded, and does not 
   assert.match(route, /findOne\(\{ _id: new ObjectId\(id\), ownerId \}/);
   assert.match(route, /decryptGeminiKey/);
   assert.match(route, /responseMimeType: 'application\/json'/);
-  assert.match(route, /freeModels = \['gemini-3\.8-flash', 'gemini-3\.6-flash', 'gemini-3\.5-flash-lite', 'gemini-3\.1-flash-lite'\]/);
+  assert.match(route, /freeModels = \['gemini-3\.8-flash', 'gemini-3\.6-flash'\]/);
+  assert.match(route, /responseSchema: \{/);
+  assert.match(route, /thinkingConfig: \{ thinkingLevel: 'low' \}/);
   assert.match(route, /for \(const model of freeModels\)/);
   assert.match(route, /upstream\.status === 429/);
   assert.match(route, /applied: false/);

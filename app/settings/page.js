@@ -72,16 +72,6 @@ export default async function SettingsPage() {
             </form>
           </section>
 
-          <section className="oge-settings-card" id="data" aria-labelledby="data-heading">
-            <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">06 · DATA & PRIVACY</span><h2 id="data-heading">Your data</h2></div></div>
-            <p className="oge-settings-description">Download a backup of your OgeNotes data or restore records from a previous OgeNotes backup. Restore adds records where possible and does not intentionally overwrite existing notes.</p>
-            <div className="oge-settings-data-actions">
-              <a className="oge-settings-secondary-link" href="/api/backup">↓ Download backup</a>
-              <a className="oge-settings-secondary-link" href="#data" onClick={(event) => { event.preventDefault(); window.dispatchEvent(new Event('oge-open-backup-restore')); }}>Restore from backup ↑</a>
-            </div>
-            <p className="oge-settings-note">Backups contain personal notes and links. Store downloaded files somewhere private.</p>
-          </section>
-
           <footer className="oge-settings-footer"><a className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>YOUR WORKSPACE · YOUR WAY</span></footer>
         </div>
       </div>

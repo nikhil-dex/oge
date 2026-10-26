@@ -70,8 +70,11 @@ export async function POST(request) {
       answer: note.answer,
       savedAt: note.updatedAt || note.createdAt || now,
     }].slice(-20);
+    const restoreFilter = { _id: new ObjectId(noteId), ownerId };
+    if (note.updatedAt !== undefined) restoreFilter.updatedAt = note.updatedAt;
+    else restoreFilter.updatedAt = { $exists: false };
     const result = await collection.findOneAndUpdate(
-      { _id: new ObjectId(noteId), ownerId },
+      restoreFilter,
       { $set: {
         heading: chosen.heading,
         answer: chosen.answer,
@@ -80,7 +83,7 @@ export async function POST(request) {
       } },
       { returnDocument: 'after', projection: { _id: 1, subjectSlug: 1, heading: 1, answer: 1, updatedAt: 1 } },
     );
-    if (!result) return json({ error: 'Note not found.' }, 404);
+    if (!result) return json({ error: 'This note changed while you were restoring. Refresh history and try again.' }, 409);
     return json({
       id: String(result._id),
       subjectSlug: result.subjectSlug,

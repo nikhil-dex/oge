@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 test('extension setup explains token lifecycle and keeps token actions available', async () => {
   const page = await readFile(new URL('../app/extension/page.js', import.meta.url), 'utf8');
-  assert.match(page, //api/extension-token/);
+  assert.ok(page.includes('/api/extension-token'));
   assert.match(page, /Generate token/);
   assert.match(page, /Rotate token/);
   assert.match(page, /Revoke token/);
@@ -29,5 +29,5 @@ test('revision queue has subject filtering, a non-destructive skip, and recall r
   assert.match(page, /setNotes\(\(current\) =>/);
   assert.match(page, /Skipped cards return to the end of your queue/);
   for (const rating of ['again', 'hard', 'good', 'easy']) assert.ok(page.includes("value: '" + rating + "'"));
-  assert.match(page, //api/revision/);
+  assert.ok(page.includes('/api/revision'));
 });

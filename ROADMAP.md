@@ -127,7 +127,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 ### Phase 5 — Security, privacy, and resilience
 
 - [ ] Validate and safely render all user-generated content, including Markdown and saved URLs.
-- [ ] Apply CSRF protections to state-changing cookie-authenticated endpoints and security headers including a suitable Content Security Policy.
+- [ ] Complete CSRF protections and security headers, including a suitable Content Security Policy. Same-origin `Origin`/`Referer` checks now guard state-changing cookie-authenticated API requests in `proxy.js`; CSP and broader header policy remain pending.
 - [ ] Add rate limits, request-size limits, pagination, query bounds, and safe error responses.
 - [ ] Redact credentials, tokens, session values, and sensitive note content from logs.
 - [ ] Add dependency vulnerability scanning and secret scanning to CI.
@@ -195,4 +195,4 @@ These criteria are release blockers, not optional polish:
 - [ ] Security and release gates passed.
 - [ ] Public launch approved.
 
-**Current state: planning baseline only.**
+**Current state: core features are implemented in `oge`; security hardening and release validation remain in progress. The original `ogenotes` repository remains read-only.**

@@ -35,6 +35,12 @@ export default function SettingsClient() {
   const [accent, setAccent] = useState('green');
   const [secondary, setSecondary] = useState('blue');
   const [pixel, setPixel] = useState({ enabled: true, color: 'accent', mode: 'random', speed: 'normal', density: 'normal' });
+  const [geminiKey, setGeminiKey] = useState('');
+  const [geminiConfigured, setGeminiConfigured] = useState(false);
+  const [geminiUpdatedAt, setGeminiUpdatedAt] = useState(null);
+  const [geminiBusy, setGeminiBusy] = useState(false);
+  const [geminiMessage, setGeminiMessage] = useState('');
+  const [geminiMessageType, setGeminiMessageType] = useState('status');
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState('');
   const fileRef = useRef(null);
@@ -47,6 +53,9 @@ export default function SettingsClient() {
   useEffect(() => {
     let cancelled = false;
     refreshSubjects().catch((error) => { if (!cancelled) setSubjectMessage(error.message); }).finally(() => { if (!cancelled) setSubjectLoading(false); });
+    fetch('/api/gemini-key', { cache: 'no-store' }).then(responseJson).then((data) => {
+      if (!cancelled) { setGeminiConfigured(Boolean(data.configured)); setGeminiUpdatedAt(data.updatedAt || null); }
+    }).catch((error) => { if (!cancelled) { setGeminiMessage(error.message); setGeminiMessageType('alert'); } });
     const savedTheme = readLocal('theme', 'dark');
     const savedAccent = readLocal('accent', 'green');
     const savedSecondary = readLocal('secondary', 'blue');
@@ -123,6 +132,38 @@ export default function SettingsClient() {
     finally { setDeleting(''); }
   }
 
+
+  async function manageGeminiKey(action) {
+    if (geminiBusy) return;
+    if (action === 'delete' && !window.confirm('Remove your saved Gemini API key? Gemini clean up will stop working until you add another key.')) return;
+    setGeminiBusy(true);
+    setGeminiMessage('');
+    try {
+      const result = await responseJson(await fetch('/api/gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ action, ...(action === 'delete' ? {} : { apiKey: geminiKey }) }),
+      }));
+      setGeminiMessage(result.message || 'Gemini settings updated.');
+      setGeminiMessageType('status');
+      if (action === 'save') {
+        setGeminiConfigured(true);
+        setGeminiUpdatedAt(result.updatedAt || new Date().toISOString());
+        setGeminiKey('');
+      } else if (action === 'delete') {
+        setGeminiConfigured(false);
+        setGeminiUpdatedAt(null);
+        setGeminiKey('');
+      }
+    } catch (error) {
+      setGeminiMessage(error.message || 'Could not update Gemini settings.');
+      setGeminiMessageType('alert');
+    } finally {
+      setGeminiBusy(false);
+    }
+  }
+
   async function restoreBackup(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -179,6 +220,28 @@ export default function SettingsClient() {
         <div className="oge-settings-control-row"><div><strong>Color mode</strong><span>Choose a light or dark workspace.</span></div><div className="oge-settings-segmented"><button type="button" className={theme === 'light' ? 'is-selected' : ''} aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>☼ Light</button><button type="button" className={theme === 'dark' ? 'is-selected' : ''} aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}>◐ Dark</button></div></div>
         <div className="oge-settings-control-block"><strong>Primary accent</strong><span>Used for active states and key actions.</span><div className="oge-settings-swatches">{ACCENTS.map((item) => <button key={item.id} type="button" className={'oge-settings-swatch ' + (accent === item.id ? 'is-selected' : '')} onClick={() => setAccent(item.id)} aria-pressed={accent === item.id} aria-label={item.label + ' primary accent'}><i style={{ background: item.color }} />{item.label}</button>)}</div></div>
         <div className="oge-settings-control-block"><strong>Secondary accent</strong><span>Use a complementary color for supporting details.</span><div className="oge-settings-swatches">{ACCENTS.map((item) => <button key={item.id} type="button" className={'oge-settings-swatch ' + (secondary === item.id ? 'is-selected' : '')} onClick={() => setSecondary(item.id)} aria-pressed={secondary === item.id} aria-label={item.label + ' secondary accent'}><i style={{ background: item.color }} />{item.label}</button>)}</div></div>
+      </section>
+
+
+      <section className="oge-settings-card oge-gemini-settings" id="gemini-ai" aria-labelledby="gemini-ai-heading">
+        <div className="oge-settings-card-heading">
+          <div><span className="oge-section-kicker">04 · AI TOOLS</span><h2 id="gemini-ai-heading">Gemini AI</h2></div>
+          <span className={geminiConfigured ? 'oge-settings-pill' : 'oge-settings-count'}>{geminiConfigured ? 'Key connected' : 'BYOK · Optional'}</span>
+        </div>
+        <p className="oge-settings-description">Bring your own Google Gemini API key to clean up note headings, grammar, explanations, and Markdown formatting. Gemini suggests edits in your editor; it never overwrites a saved note automatically.</p>
+        <div className="oge-gemini-security-note"><strong>Private by design</strong><span>Your key is encrypted before it is stored in your account record. It is never sent to the browser after saving, and it is only used by OgeNotes server routes to call Gemini when you request an edit.</span></div>
+        <form className="oge-gemini-key-form" onSubmit={(event) => { event.preventDefault(); manageGeminiKey('save'); }}>
+          <label htmlFor="gemini-api-key">Google Gemini API key</label>
+          <input id="gemini-api-key" type="password" value={geminiKey} onChange={(event) => setGeminiKey(event.target.value)} placeholder={geminiConfigured ? 'Saved key is hidden — enter a new key to replace it' : 'Paste your Gemini API key'} autoComplete="new-password" spellCheck="false" maxLength={512} />
+          <p className="oge-settings-note">Create a key in <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a>. Google may apply usage limits or charges based on your account and model.</p>
+          <div className="oge-gemini-key-actions">
+            <button className="oge-google-button" type="submit" disabled={geminiBusy || !geminiKey.trim()}>{geminiBusy ? 'Working…' : geminiConfigured ? 'Test & replace key' : 'Test & save key'}</button>
+            <button className="oge-settings-secondary-button" type="button" onClick={() => manageGeminiKey('test')} disabled={geminiBusy || !geminiKey.trim()}>{geminiBusy ? 'Checking…' : 'Test only'}</button>
+            {geminiConfigured && <button className="oge-settings-danger-button" type="button" onClick={() => manageGeminiKey('delete')} disabled={geminiBusy}>Remove key</button>}
+          </div>
+        </form>
+        {geminiConfigured && <p className="oge-settings-note">A key is saved for this account{geminiUpdatedAt ? ' · last updated ' + new Date(geminiUpdatedAt).toLocaleString() : ''}. For safety, the saved value cannot be viewed again.</p>}
+        {geminiMessage && <p className="oge-settings-feedback" role={geminiMessageType} aria-live="polite">{geminiMessage}</p>}
       </section>
 
       <section className="oge-settings-card" id="pixel-strip" aria-labelledby="pixel-heading">

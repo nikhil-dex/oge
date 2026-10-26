@@ -70,7 +70,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <QuickNotesPanel />
+      <section className="oge-quick-notes-bottom" aria-label="Quick Notes">
+        <QuickNotesPanel />
+      </section>
 
       <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>A little more organized, every day.</span><a href="/settings">Settings <span aria-hidden="true">↗</span></a></footer>
     </main>

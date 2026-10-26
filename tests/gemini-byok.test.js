@@ -5,11 +5,13 @@ import { readFile } from 'node:fs/promises';
 test('Gemini BYOK key storage encrypts keys and never returns the saved key', async () => {
   const helper = await readFile(new URL('../lib/gemini-key.js', import.meta.url), 'utf8');
   const route = await readFile(new URL('../app/api/gemini-key/route.js', import.meta.url), 'utf8');
+  const cleanup = await readFile(new URL('../app/api/notes/cleanup/route.js', import.meta.url), 'utf8');
   assert.match(helper, /createCipheriv\('aes-256-gcm'/);
   assert.match(helper, /createDecipheriv\('aes-256-gcm'/);
   assert.match(route, /encryptGeminiKey\(apiKey\)/);
-  assert.match(route, /decryptGeminiKey/);
+
   assert.match(route, /projection: \{ geminiApiKey: 1 \}/);
+  assert.match(cleanup, /decryptGeminiKey/);
   assert.match(route, /action === 'delete'/);
   assert.match(route, /action === 'test'/);
   assert.doesNotMatch(route, /return json\(\{[^}]*apiKey[,}]/);

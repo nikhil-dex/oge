@@ -192,7 +192,7 @@ export default function SettingsClient() {
         <div className="oge-settings-bottom-row"><button type="button" className="oge-settings-secondary-button" onClick={() => window.dispatchEvent(new Event('ogenotes-pixel-preview'))} disabled={!pixel.enabled}>↻ Preview another animation</button><span className="oge-settings-note">Saved automatically on this device.</span></div>
       </section>
 
-      <section className="oge-settings-card" aria-labelledby="backup-heading">
+      <section className="oge-settings-card" id="data" aria-labelledby="backup-heading">
         <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">05 · RECOVERY</span><h2 id="backup-heading">Backup & restore</h2></div></div>
         <p className="oge-settings-description">Export your subjects, notes, Quick Notes, Saved Links, and news preferences as a JSON file. Keep a backup somewhere private.</p>
         <div className="oge-settings-data-actions"><a className="oge-settings-secondary-link" href="/api/backup">↓ Download backup</a><button className="oge-settings-secondary-button" type="button" onClick={() => fileRef.current?.click()} disabled={backupBusy}>{backupBusy ? 'Restoring…' : 'Restore from backup ↑'}</button><input ref={fileRef} className="oge-settings-file-input" type="file" accept="application/json,.json" onChange={restoreBackup} aria-label="Choose an OgeNotes backup file" /></div>

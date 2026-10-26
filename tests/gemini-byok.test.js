@@ -9,6 +9,8 @@ test('Gemini BYOK key storage encrypts keys and never returns the saved key', as
   assert.match(helper, /createCipheriv\('aes-256-gcm'/);
   assert.match(helper, /createDecipheriv\('aes-256-gcm'/);
   assert.match(route, /encryptGeminiKey\(apiKey\)/);
+  assert.match(route, /import \{ encryptGeminiKey, maskGeminiKey \}/);
+  assert.doesNotMatch(route, /\^AIza\\\[\\w-\]/);
 
   assert.match(route, /projection: \{ geminiApiKey: 1 \}/);
   assert.match(cleanup, /decryptGeminiKey/);

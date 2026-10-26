@@ -24,26 +24,57 @@ async function readBody(request) {
   }
 }
 
+const FREE_GEMINI_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash',
+];
+
 async function verifyGeminiKey(apiKey) {
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    cache: 'no-store',
-    signal: AbortSignal.timeout(12000),
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: 'Reply with exactly: OgeNotes connection successful.' }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 24 },
-    }),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error('Gemini rejected this API key. Check the key and its API access.');
-    if (response.status === 429) throw new Error('Gemini rate limit or quota reached. Check your Google AI Studio quota and billing settings.');
-    throw new Error('Gemini connection failed (' + response.status + '). Check that the Gemini API is enabled for this key.');
+  let lastStatus = 0;
+  for (const model of FREE_GEMINI_MODELS) {
+    let response;
+    try {
+      response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(12000),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Reply with exactly: OgeNotes connection successful.' }] }],
+          generationConfig: { temperature: 0, maxOutputTokens: 24 },
+        }),
+      });
+    } catch (error) {
+      if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+        lastStatus = 504;
+        continue;
+      }
+      throw error;
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok) {
+      if (payload?.candidates?.[0]?.content?.parts?.some((part) => typeof part.text === 'string')) return;
+      throw new Error('Gemini did not return a valid response. Try again.');
+    }
+    lastStatus = response.status;
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Gemini rejected this API key. Check the key and its API access.');
+    }
+    if (![404, 429, 500, 502, 503, 504].includes(response.status)) {
+      throw new Error('Gemini connection failed (' + response.status + '). Check the API response and key permissions.');
+    }
   }
-  if (!payload?.candidates?.[0]?.content?.parts?.some((part) => typeof part.text === 'string')) {
-    throw new Error('Gemini did not return a valid response. Try again.');
+
+  if (lastStatus === 429) {
+    throw new Error('All configured free Gemini models are rate-limited or out of quota. Check your Google AI Studio quota and try again later.');
   }
+  if (lastStatus === 404) {
+    throw new Error('This key could not access the configured Gemini models. Check the models available to this key in the Gemini Models API.');
+  }
+  throw new Error('No configured free Gemini model is currently responding. Try again later.');
 }
 
 export async function GET() {

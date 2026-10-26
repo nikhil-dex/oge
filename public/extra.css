@@ -1985,3 +1985,81 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media (max-width: 620px) {
   .quick-notes-full-page .airnote-library-card .card-open { padding-right: 42px; }
 }
+
+/* Settings refresh: responsive, consistent with OgeNotes' green editorial system. */
+.oge-settings-page{padding-bottom:70px}
+.oge-settings-hero{padding:clamp(42px,7vw,76px) 0 38px;border-bottom:1px solid var(--line);margin-bottom:30px}
+.oge-settings-hero .oge-eyebrow{margin:0 0 17px}
+.oge-settings-hero h1{margin:0;font:800 clamp(42px,7vw,68px)/1.02 Manrope,sans-serif;letter-spacing:-.075em;color:var(--ink)}
+.oge-settings-hero h1 span{color:var(--green)}
+.oge-settings-hero>p:last-child{max-width:610px;margin:16px 0 0;color:var(--muted);font-size:14px;line-height:1.8}
+.oge-settings-layout{display:grid;grid-template-columns:180px minmax(0,1fr);gap:32px;align-items:start}
+.oge-settings-sidebar{position:sticky;top:22px;display:flex;flex-direction:column;gap:4px;padding:8px 0}
+.oge-settings-sidebar a{padding:11px 13px;border-radius:9px;text-decoration:none;color:var(--muted);font-size:12px;transition:background .15s,color .15s}
+.oge-settings-sidebar a:hover,.oge-settings-sidebar a:focus-visible{background:color-mix(in srgb,var(--green) 9%,transparent);color:var(--ink);outline:none}
+.oge-settings-content{min-width:0;display:flex;flex-direction:column;gap:18px}
+.oge-settings-card{min-width:0;padding:clamp(19px,3vw,27px);border:1px solid var(--line);border-radius:15px;background:var(--paper)}
+.oge-settings-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:17px}
+.oge-settings-card-heading .oge-section-kicker{margin-bottom:9px}
+.oge-settings-card h2{margin:0;font:750 clamp(21px,3vw,27px)/1.2 Manrope,sans-serif;letter-spacing:-.055em;color:var(--ink)}
+.oge-settings-pill,.oge-settings-count{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border:1px solid var(--line);border-radius:999px;padding:7px 10px;color:var(--muted);font:10px 'DM Mono',monospace}
+.oge-settings-pill .oge-status-dot{width:6px;height:6px;flex-basis:6px}
+.oge-settings-description,.oge-settings-note{margin:0;color:var(--muted);font-size:12px;line-height:1.8}
+.oge-settings-note{font-size:11px}
+.oge-account-row{display:flex;align-items:center;gap:15px;margin:22px 0}
+.oge-account-avatar{width:54px;height:54px;border-radius:50%;object-fit:cover;border:1px solid var(--line)}
+.oge-account-avatar-fallback{display:grid;place-items:center;background:color-mix(in srgb,var(--green) 13%,transparent);color:var(--green);font:700 21px Manrope,sans-serif}
+.oge-account-details{min-width:0;display:flex;flex-direction:column;gap:4px}
+.oge-account-details strong{font:700 15px Manrope,sans-serif;color:var(--ink)}
+.oge-account-details span{overflow-wrap:anywhere;color:var(--muted);font-size:12px}
+.oge-account-details small{color:var(--muted);font-size:10px}
+.oge-settings-signout{display:flex;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.oge-settings-danger-button{border:1px solid color-mix(in srgb,#bd5b54 40%,var(--line));border-radius:9px;background:transparent;color:#b8544d;padding:10px 13px;font-size:11px;font-weight:700;cursor:pointer}
+.oge-settings-danger-button:hover{background:color-mix(in srgb,#bd5b54 8%,transparent)}
+.oge-settings-add-form{display:flex;gap:9px;margin:19px 0 13px}
+.oge-settings-add-form input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--ink);padding:12px 13px;font-size:12px;outline:none}
+.oge-settings-add-form input:focus{border-color:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 13%,transparent)}
+.oge-settings-add-form .oge-google-button{margin:0;white-space:nowrap}
+.oge-settings-subjects{margin-top:15px;border-top:1px solid var(--line)}
+.oge-settings-subject{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.oge-settings-subject:last-child{border-bottom:0}
+.oge-settings-subject-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;color:var(--green)}
+.oge-settings-subject-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+.oge-settings-subject-copy strong{font-size:12px;color:var(--ink);overflow-wrap:anywhere}
+.oge-settings-subject-copy span{font-size:10px;color:var(--muted)}
+.oge-settings-open{font-size:11px;color:var(--green);text-decoration:none;white-space:nowrap}
+.oge-settings-delete{border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);padding:7px 9px;font-size:10px;cursor:pointer}
+.oge-settings-delete:hover:not(:disabled){border-color:#bd5b54;color:#bd5b54}
+.oge-settings-delete:disabled{opacity:.5;cursor:wait}
+.oge-settings-feedback{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--green) 8%,transparent);color:var(--ink);font-size:11px;line-height:1.6}
+.oge-settings-control-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:15px 0;border-bottom:1px solid var(--line)}
+.oge-settings-control-row:first-of-type{margin-top:10px}
+.oge-settings-control-row:last-of-type{border-bottom:0}
+.oge-settings-control-row>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.oge-settings-control-row strong,.oge-settings-control-block>strong{color:var(--ink);font-size:12px}
+.oge-settings-control-row span,.oge-settings-control-block>span{color:var(--muted);font-size:10px;line-height:1.6}
+.oge-settings-segmented{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;flex-shrink:0}
+.oge-settings-segmented button{border:0;border-radius:7px;padding:8px 11px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer}
+.oge-settings-segmented button.is-selected{background:var(--green);color:#fff}
+.oge-settings-control-block{padding:17px 0;border-bottom:1px solid var(--line)}
+.oge-settings-control-block>strong,.oge-settings-control-block>span{display:block}
+.oge-settings-control-block>span{margin-top:5px}
+.oge-settings-swatches{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.oge-settings-swatch{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--muted);padding:8px 10px;font-size:10px;cursor:pointer}
+.oge-settings-swatch i{display:block;width:12px;height:12px;border-radius:50%}
+.oge-settings-swatch.is-selected{border-color:var(--green);color:var(--ink);background:color-mix(in srgb,var(--green) 7%,transparent)}
+.oge-settings-control-row select{max-width:190px;min-width:140px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);padding:10px 11px;font-size:11px}
+.oge-settings-checkbox{width:18px;height:18px;accent-color:var(--green);flex:0 0 18px}
+.oge-settings-bottom-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:17px}
+.oge-settings-secondary-button,.oge-settings-secondary-link{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--ink);padding:10px 13px;text-decoration:none;font-size:11px;font-weight:600;cursor:pointer}
+.oge-settings-secondary-button:hover:not(:disabled),.oge-settings-secondary-link:hover{border-color:var(--green);color:var(--green)}
+.oge-settings-secondary-button:disabled{opacity:.45;cursor:not-allowed}
+.oge-settings-data-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:18px 0 12px}
+.oge-settings-file-input{display:none}
+.oge-settings-interest-form{max-width:none;margin-top:18px}
+.oge-settings-interest-form .oge-interest-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.oge-settings-form-actions{display:flex;justify-content:flex-end;margin-top:17px}
+.oge-settings-form-actions .oge-google-button{margin:0}
+.oge-settings-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:21px 0;border-top:1px solid var(--line);color:var(--muted);font:9px 'DM Mono',monospace;letter-spacing:.08em}
+@media(max-width:850px){.oge-settings-layout{grid-template-columns:1fr;gap:16px}.oge-settings-sidebar{position:static;flex-direction:row;overflow-x:auto;padding:0 0 9px;border-bottom:1px solid var(--line);scrollbar-width:thin}.oge-settings-sidebar a{flex:0 0 auto;padding:9px 11px}.oge-settings-sidebar a:first-child{margin-left:0}}
+@media(max-width:540px){.oge-settings-hero{padding:38px 0 28px}.oge-settings-card{padding:18px;border-radius:12px}.oge-settings-add-form{flex-direction:column}.oge-settings-add-form .oge-google-button{justify-content:center}.oge-settings-subject{gap:8px;flex-wrap:wrap}.oge-settings-subject-copy{flex-basis:calc(100% - 55px)}.oge-settings-open{margin-left:46px}.oge-settings-control-row{align-items:flex-start;flex-direction:column;gap:10px}.oge-settings-control-row select{width:100%;max-width:none}.oge-settings-control-row:has(.oge-settings-checkbox){flex-direction:row;align-items:center}.oge-settings-segmented{width:100%}.oge-settings-segmented button{flex:1}.oge-settings-interest-form .oge-interest-grid{grid-template-columns:1fr}.oge-settings-form-actions .oge-google-button{width:100%;justify-content:center}.oge-settings-footer{align-items:flex-start;flex-direction:column}}

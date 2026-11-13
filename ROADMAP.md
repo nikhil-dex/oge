@@ -131,8 +131,10 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [x] Add baseline security response headers (`nosniff`, frame denial, referrer and permissions policies) and a CSP in report-only mode to gather compatibility signals.
 - [ ] Review CSP reports against the real app and Google sign-in flow, remove unnecessary allowances (especially inline scripts/styles and broad `https:` sources), then enforce a tested CSP. HSTS is added only in production.
 - [ ] Add rate limits, request-size limits, pagination, query bounds, and safe error responses.
+  - In progress: shared MongoDB-backed limits now protect Gemini cleanup, extension saves, and backup import/export. Audit remaining routes and enforce limits on all sensitive/expensive operations.
 - [ ] Redact credentials, tokens, session values, and sensitive note content from logs.
 - [ ] Add dependency vulnerability scanning and secret scanning to CI.
+  - In progress: CI runs a production dependency audit and a limited tracked-file credential-pattern check; full secret/history scanning and dependency review remain pending.
 - [ ] Verify environment secrets are never included in client bundles, logs, commits, or public build artifacts.
 - [ ] Configure database backups and perform a restore test.
 - [ ] Define data export, account deletion, retention, and handling of backups after deletion.
@@ -197,4 +199,4 @@ These criteria are release blockers, not optional polish:
 - [ ] Security and release gates passed.
 - [ ] Public launch approved.
 
-**Current state: core features are implemented in `oge`; security hardening and release validation remain in progress. The original `ogenotes` repository remains read-only.**
+**Current state: core features are implemented in `oge`; security hardening and release validation remain in progress. See `docs/PHASE5_SECURITY_VERIFICATION.md` for the evidence checklist and blockers. The original `ogenotes` repository remains read-only.**

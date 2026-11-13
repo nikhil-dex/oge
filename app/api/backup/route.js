@@ -5,6 +5,7 @@ import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../lib/saved-links.js';
 import { MAX_QUICK_NOTE_LENGTH, normalizeQuickNoteContent, quickNoteTitle } from '../../../lib/quick-notes.js';
 import { NEWS_TOPICS } from '../../../lib/news-topics.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,13 +34,18 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to export your OgeNotes data.' }, 401);
+    const throttle = await checkRateLimit(ctx.db, { scope: 'backup-export', identifier: ctx.ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const [user, subjects, notes, savedLinks, quickNotes] = await Promise.all([
       ctx.db.collection('users').findOne({ googleSub: ctx.ownerId }, { projection: { newsInterests: 1 } }),
-      ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).toArray(),
-      ctx.db.collection('notes').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).toArray(),
-      ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }).sort({ order: 1, createdAt: -1 }).toArray(),
-      ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).toArray(),
+      ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
+      ctx.db.collection('notes').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
+      ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }).sort({ order: 1, createdAt: -1 }).limit(5001).toArray(),
+      ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(5001).toArray(),
     ]);
+    if ([subjects, notes, savedLinks, quickNotes].some((records) => records.length > 5000)) {
+      return json({ error: 'Your data exceeds the single-export record limit. Contact support for a paginated export.' }, 413);
+    }
     const backup = {
       format: 'oge-notes-backup', version: 1, exportedAt: new Date().toISOString(),
       preferences: { newsInterests: Array.isArray(user?.newsInterests) ? user.newsInterests : [] },
@@ -59,8 +65,11 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  try {
   const ctx = await context();
   if (!ctx) return json({ error: 'Sign in to restore your OgeNotes data.' }, 401);
+  const throttle = await checkRateLimit(ctx.db, { scope: 'backup-import', identifier: ctx.ownerId, limit: 5, windowMs: 60 * 60 * 1000 });
+  if (!throttle.allowed) return rateLimitResponse(throttle);
   let raw;
   try { raw = await readLimitedBody(request, MAX_BACKUP_BYTES); }
   catch (error) { return json({ error: error?.status === 413 ? 'Backup files must be 10 MB or smaller.' : 'Could not read the backup file.' }, error?.status || 400); }
@@ -148,5 +157,9 @@ export async function POST(request) {
   } catch (error) {
     console.error('POST /api/backup failed:', error?.name);
     return json({ error: 'Could not restore this backup. Some earlier records may already have been added; exporting a fresh backup is recommended before retrying.' }, 500);
+  }
+  } catch (error) {
+    console.error('POST /api/backup request failed:', error?.name);
+    return json({ error: 'Could not process this backup request.' }, 503);
   }
 }

@@ -3,6 +3,7 @@ import { getDatabase } from '../../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../../lib/saved-links.js';
 import { randomUUID } from 'node:crypto';
+import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,8 @@ export async function POST(request) {
   if (normalized.error) return json({ error: normalized.error }, 400);
   try {
     const db = await getDatabase();
+    const throttle = await checkRateLimit(db, { scope: 'extension-save', identifier: hashExtensionToken(token), limit: 60, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const user = await db.collection('users').findOne(
       { extensionTokenHash: hashExtensionToken(token), extensionTokenExpiresAt: { $gt: new Date() } },
       { projection: { googleSub: 1 } },

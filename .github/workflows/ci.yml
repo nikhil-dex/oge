@@ -17,6 +17,14 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Audit production dependencies for high/critical vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+      - name: Scan tracked files for private keys and common credential formats
+        run: |
+          if git grep -nE -- '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_-]{35}|AKIA[0-9A-Z]{16}' -- ':!package-lock.json'; then
+            echo 'Potential secret found in tracked files' >&2
+            exit 1
+          fi
       - name: Run baseline tests
         run: npm test
       - name: Build application

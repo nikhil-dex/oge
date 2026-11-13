@@ -2,6 +2,7 @@ import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { encryptGeminiKey, maskGeminiKey } from '../../../lib/gemini-key.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,10 +68,8 @@ async function verifyGeminiKey(apiKey) {
         throw new Error('Gemini rejected this API key. Check the key and its API access.');
       }
       if ([404, 429, 500, 502, 503, 504].includes(response.status)) continue;
-      const detail = typeof payload?.error?.message === 'string'
-        ? payload.error.message.replace(/[\\r\\n]+/g, ' ').slice(0, 180)
-        : '';
-      throw new Error('Gemini connection failed (' + response.status + ').' + (detail ? ' ' + detail : ' Check the API response and key permissions.'));
+      // Never reflect third-party error text to clients; it may contain sensitive data.
+      throw new Error('Gemini connection failed (' + response.status + '). Check API access and retry.');
     }
 
     const candidate = payload?.candidates?.[0];
@@ -120,8 +119,13 @@ export async function POST(request) {
   try {
     ctx = await context();
     if (!ctx) return json({ error: 'Sign in to manage your Gemini API key.' }, 401);
+    const throttle = await checkRateLimit(ctx.db, { scope: 'gemini-key-update', identifier: ctx.ownerId, limit: 12, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const data = await readBody(request);
     const action = String(data?.action || '');
+    if (!['save', 'test', 'delete'].includes(action)) {
+      return json({ error: 'Choose save, test, or delete.' }, 400);
+    }
     const users = ctx.db.collection('users');
 
     if (action === 'delete') {

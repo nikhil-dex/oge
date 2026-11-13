@@ -3,6 +3,7 @@ import { getDatabase } from '../../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { decryptGeminiKey } from '../../../../lib/gemini-key.js';
 import { ObjectId } from 'mongodb';
+import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,9 @@ export async function POST(request) {
     const session = await auth();
     const ownerId = session?.user?.id;
     if (!ownerId) return json({ error: 'Sign in to clean up notes.' }, 401);
+    const throttleDb = await getDatabase();
+    const throttle = await checkRateLimit(throttleDb, { scope: 'gemini-cleanup', identifier: ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
 
     let data;
     try {

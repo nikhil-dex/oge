@@ -1,6 +1,7 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { createExtensionToken, hashExtensionToken } from '../../../lib/extension-token.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,8 @@ export async function POST() {
     const ownerId = await owner();
     if (!ownerId) return json({ error: 'Sign in to create an extension token.' }, 401);
     const db = await getDatabase();
+    const throttle = await checkRateLimit(db, { scope: 'extension-token-create', identifier: ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const token = createExtensionToken();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);

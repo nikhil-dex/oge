@@ -1,4 +1,6 @@
 import { auth } from '../../../auth.js';
+import { getDatabase } from '../../../lib/mongodb.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 const WORD_PATTERN = /^[a-z]+(?:['-][a-z]+)*$/i;
 
@@ -37,7 +39,20 @@ export async function GET(request) {
   const word = (searchParams.get('word') || '').trim().toLowerCase();
 
   if (!word || word.length > 80 || !WORD_PATTERN.test(word)) {
-    return Response.json({ error: 'Enter one valid English word.' }, { status: 400 });
+    return Response.json({ error: 'Enter one valid English word.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  // Prevent an authenticated caller from exhausting free dictionary providers.
+  // The limit is shared by all app instances via MongoDB.
+  try {
+    const db = await getDatabase();
+    const throttle = await checkRateLimit(db, {
+      scope: 'dictionary-lookup', identifier: session.user.id, limit: 40, windowMs: 60 * 1000,
+    });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
+  } catch (error) {
+    console.error('GET /api/word-meaning throttling failed:', error?.name);
+    return Response.json({ error: 'Dictionary temporarily unavailable.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 
   // Try the primary dictionary first.

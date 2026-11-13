@@ -16,7 +16,7 @@ export async function GET() {
   if (!ownerId) return json({ error: 'Sign in to view your subjects.' }, 401);
   try {
     const db = await getDatabase();
-    const subjects = await db.collection('subjects').find({ ownerId }).sort({ createdAt: 1 }).toArray();
+    const subjects = await db.collection('subjects').find({ ownerId }).sort({ createdAt: 1 }).limit(1000).toArray();
     return json(subjects.map(({ _id, slug, name, createdAt }) => ({ id: String(_id), slug, name, createdAt })));
   } catch (error) {
     console.error('GET /api/subjects failed:', error?.name);
@@ -34,6 +34,9 @@ export async function POST(request) {
   if (!name || name.length > 60) return json({ error: 'Subject name must be 1–60 characters.' }, 400);
   try {
     const db = await getDatabase();
+    if (await db.collection('subjects').countDocuments({ ownerId }, { limit: 1000 }) >= 1000) {
+      return json({ error: 'Subject limit reached (1,000).' }, 409);
+    }
     const subject = { ownerId, slug: randomUUID(), name, createdAt: new Date(), updatedAt: new Date() };
     await db.collection('subjects').insertOne(subject);
     return json({ id: String(subject._id), slug: subject.slug, name: subject.name, createdAt: subject.createdAt }, 201);

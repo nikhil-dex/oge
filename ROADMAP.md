@@ -131,7 +131,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [x] Add baseline security response headers (`nosniff`, frame denial, referrer and permissions policies) and a CSP in report-only mode to gather compatibility signals.
 - [ ] Review CSP reports against the real app and Google sign-in flow, remove unnecessary allowances (especially inline scripts/styles and broad `https:` sources), then enforce a tested CSP. HSTS is added only in production.
 - [ ] Add rate limits, request-size limits, pagination, query bounds, and safe error responses.
-  - In progress: shared MongoDB-backed limits now protect Gemini cleanup, extension saves, and backup import/export. Audit remaining routes and enforce limits on all sensitive/expensive operations.
+  - In progress: shared MongoDB-backed limits protect Gemini cleanup/key management, extension token creation/saves, news, dictionary, and backup import/export. Subject queries are capped; audit remaining routes, add end-to-end limit tests, and enforce limits on all sensitive/expensive operations.
 - [ ] Redact credentials, tokens, session values, and sensitive note content from logs.
 - [ ] Add dependency vulnerability scanning and secret scanning to CI.
   - In progress: CI runs a production dependency audit and a limited tracked-file credential-pattern check; full secret/history scanning and dependency review remain pending.
@@ -140,6 +140,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [ ] Define data export, account deletion, retention, and handling of backups after deletion.
 - [ ] Add monitoring and alerts for errors, abnormal request rates, database capacity, and provider/API failures.
 - [ ] Test session expiration, logout, account switching, malformed inputs, XSS, CSRF, access-control bypass, and rate limiting.
+  - A staging-only two-account Notes isolation smoke test is available; it has not yet been executed with real staging credentials. Full multi-module isolation evidence is still required.
 
 **Exit criteria:** documented test results for security and recovery; no unresolved critical/high findings that block release.
 

@@ -11,8 +11,10 @@ credentials, exported user data, or incident logs containing personal data.
 - Shared MongoDB fixed-window request limits for Gemini note cleanup (10/hour),
   browser extension saves (60/hour/token), extension token creation (10/hour/account),
   Gemini key management (12/hour/account), personalized news (30/minute/account),
-  and backups (10 exports/hour/account, 5 imports/hour/account). These are limited controls, **not full API-wide rate limiting**.
+  and backups (10 exports/hour/account, 5 imports/hour/account), plus dictionary lookups (40/minute/account). These are limited controls, **not full API-wide rate limiting**.
 - Backup exports cap each collection at 5,000 records and return an explicit error instead of returning an unlimited number of records. Backup imports already enforce a request-body limit. Gemini-key actions are validated before contacting the provider, and untrusted provider error messages are not reflected.
+- Subject listing is capped at 1,000 per user (and subject creation rejects the same per-account limit). CSP report logging is capped per process at 20 directives per minute; add shared edge/WAF limits for anonymous requests before launch.
+- A staging-only two-account Notes isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
 - CI node tests, Next.js build, high/critical production dependency audit,
   and a tracked-file credential-pattern check. Pattern matching is **not** an
   exhaustive history scan or substitute for purpose-built secret scanning.
@@ -58,3 +60,30 @@ credentials, exported user data, or incident logs containing personal data.
 - No tested backup restore or documented operational monitoring.
 - No completed secret/history/build-artifact review, privacy/retention review.
 - Remaining Phase 5 tasks in ROADMAP.md are not marked complete.
+
+## Run the two-account staging isolation check
+
+This script is **not run by CI**, because it needs two actual signed-in sessions.
+Use only disposable **staging test accounts**, never production cookies or records.
+Account A needs at least one pre-existing subject so temporary cleanup does not
+violate the app's minimum-one-subject rule.
+
+In your local terminal, set these environment variables without committing them:
+
+```bash
+export OGE_STAGING_URL="https://staging.example.com"
+export OGE_STAGING_HOST="staging.example.com"
+export OGE_STAGING_COOKIE_A="<cookie header from account A's staging session>"
+export OGE_STAGING_COOKIE_B="<cookie header from account B's staging session>"
+node scripts/verify-staging-isolation.mjs
+unset OGE_STAGING_COOKIE_A OGE_STAGING_COOKIE_B
+```
+
+Replace the example hostname with the actual staging host. The script refuses
+a host that does not include `staging` or `preview` (or localhost), verifies
+the exact named host, creates temporary data only under account A, verifies
+account B cannot view/update/delete it, and tries to clean it up. Verify no
+temporary test subject remains. Record results privately without credentials.
+
+This test covers **Notes only**. The roadmap still requires runtime account
+isolation for every module, as well as browser session and OAuth testing.

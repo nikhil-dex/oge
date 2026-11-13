@@ -36,3 +36,26 @@ test('HSTS is only set for production responses', () => {
     else process.env.NODE_ENV = original;
   }
 });
+
+test('CSP reports are directed to the report collector without enforcement', () => {
+  const policy = applySecurityHeaders(response()).headers.get('Content-Security-Policy-Report-Only');
+  assert.match(policy, /report-uri \/api\/csp-report/);
+  assert.doesNotMatch(policy, /script-src[^;]*unsafe-inline/);
+  assert.doesNotMatch(policy, /connect-src[^;]*https:;/);
+});
+
+test('Next.js applies the shared security headers to all routes', async () => {
+  const { default: nextConfig } = await import('../next.config.js');
+  const rules = await nextConfig.headers();
+  assert.deepEqual(rules.map((rule) => rule.source), ['/:path*']);
+  const configured = new Map(rules[0].headers.map(({ key, value }) => [key, value]));
+  const direct = applySecurityHeaders(response());
+  for (const [key, value] of configured) assert.equal(direct.headers.get(key), value);
+  assert.ok(configured.has('Content-Security-Policy-Report-Only'));
+});
+
+test('CSP report endpoint bypasses sign-in in proxy source', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../proxy.js', import.meta.url), 'utf8');
+  assert.ok(source.includes("pathname === '/api/csp-report' && request.method === 'POST'"));
+});

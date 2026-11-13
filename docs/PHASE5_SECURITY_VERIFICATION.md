@@ -9,8 +9,9 @@ credentials, exported user data, or incident logs containing personal data.
 - Security headers and report-only CSP, with a sanitized violation collector.
 - Same-origin API mutation checks, except the bearer-authenticated extension save endpoint.
 - Shared MongoDB fixed-window request limits for Gemini note cleanup (10/hour),
-  browser extension saves (60/hour/token), backups (10 exports/hour/account,
-  5 imports/hour/account). These are limited controls, **not full API-wide rate limiting**.
+  browser extension saves (60/hour/token), extension token creation (10/hour/account),
+  Gemini key management (12/hour/account), personalized news (30/minute/account),
+  and backups (10 exports/hour/account, 5 imports/hour/account). These are limited controls, **not full API-wide rate limiting**.
 - CI node tests, Next.js build, high/critical production dependency audit,
   and a tracked-file credential-pattern check. Pattern matching is **not** an
   exhaustive history scan or substitute for purpose-built secret scanning.

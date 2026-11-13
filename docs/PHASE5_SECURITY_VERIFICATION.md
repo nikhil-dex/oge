@@ -12,6 +12,7 @@ credentials, exported user data, or incident logs containing personal data.
   browser extension saves (60/hour/token), extension token creation (10/hour/account),
   Gemini key management (12/hour/account), personalized news (30/minute/account),
   and backups (10 exports/hour/account, 5 imports/hour/account). These are limited controls, **not full API-wide rate limiting**.
+- Backup exports cap each collection at 5,000 records and return an explicit error instead of returning an unlimited number of records. Backup imports already enforce a request-body limit. Gemini-key actions are validated before contacting the provider, and untrusted provider error messages are not reflected.
 - CI node tests, Next.js build, high/critical production dependency audit,
   and a tracked-file credential-pattern check. Pattern matching is **not** an
   exhaustive history scan or substitute for purpose-built secret scanning.

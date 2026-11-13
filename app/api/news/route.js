@@ -1,5 +1,6 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,8 @@ export async function GET() {
     const ownerId = session?.user?.id;
     if (!ownerId) return Response.json({ error: 'Sign in to view news.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     const db = await getDatabase();
+    const throttle = await checkRateLimit(db, { scope: 'news-feed', identifier: ownerId, limit: 30, windowMs: 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const account = await db.collection('users').findOne({ googleSub: ownerId }, { projection: { newsInterests: 1 } });
     const selected = Array.isArray(account?.newsInterests) ? account.newsInterests.filter((topic) => Object.hasOwn(TOPICS, topic)).slice(0, 6) : [];
     const topics = selected.length ? selected : DEFAULT_TOPICS;

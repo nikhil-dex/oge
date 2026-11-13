@@ -64,6 +64,8 @@ export async function GET() {
 export async function POST(request) {
   const ctx = await context();
   if (!ctx) return json({ error: 'Sign in to restore your OgeNotes data.' }, 401);
+  const throttle = await checkRateLimit(ctx.db, { scope: 'backup-import', identifier: ctx.ownerId, limit: 5, windowMs: 60 * 60 * 1000 });
+  if (!throttle.allowed) return rateLimitResponse(throttle);
   let raw;
   try { raw = await readLimitedBody(request, MAX_BACKUP_BYTES); }
   catch (error) { return json({ error: error?.status === 413 ? 'Backup files must be 10 MB or smaller.' : 'Could not read the backup file.' }, error?.status || 400); }

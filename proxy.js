@@ -12,6 +12,8 @@ function secure(response) {
 export default auth((request) => {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith('/api/auth/')) return secure(NextResponse.next());
+  // CSP telemetry is sent without a user session and must not redirect to sign-in.
+  if (pathname === '/api/csp-report' && request.method === 'POST') return secure(NextResponse.next());
   // The extension endpoint uses a separately validated bearer token, not cookie auth.
   if (pathname === '/api/extension/save-link') return secure(NextResponse.next());
   if (requiresSameOriginCheck(request) && !isSameOriginRequest(request)) {

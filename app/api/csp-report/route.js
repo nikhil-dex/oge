@@ -2,6 +2,19 @@
 // referrers, sample code, or other potentially sensitive report fields.
 const MAX_REPORT_BYTES = 8192;
 const ALLOWED_DIRECTIVES = /^[a-z][a-z0-9-]{0,63}$/;
+// Per-process log budget (not a substitute for CDN/WAF rate limiting).
+const LOG_WINDOW_MS = 60_000;
+const MAX_LOGS_PER_WINDOW = 20;
+let logWindow = 0;
+let logsThisWindow = 0;
+
+function logDirective(directive) {
+  const window = Math.floor(Date.now() / LOG_WINDOW_MS);
+  if (window !== logWindow) { logWindow = window; logsThisWindow = 0; }
+  if (logsThisWindow >= MAX_LOGS_PER_WINDOW) return;
+  logsThisWindow += 1;
+  console.warn('CSP report-only violation', { directive });
+}
 
 export async function POST(request) {
   const contentType = request.headers.get('content-type') || '';
@@ -41,7 +54,7 @@ export async function POST(request) {
       const report = item?.['csp-report'] ?? item?.body ?? item;
       const directive = report?.['effective-directive'] ?? report?.effectiveDirective;
       if (typeof directive === 'string' && ALLOWED_DIRECTIVES.test(directive)) {
-        console.warn('CSP report-only violation', { directive });
+        logDirective(directive);
       }
     }
   } catch {

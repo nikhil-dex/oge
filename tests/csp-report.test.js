@@ -34,3 +34,20 @@ test('CSP collector rejects unsupported or invalid reports', async () => {
   assert.equal((await POST(reportRequest('{bad json'))).status, 400);
   assert.equal((await POST(reportRequest('x'.repeat(8193)))).status, 413);
 });
+
+test('CSP report logging is bounded under repeated anonymous requests', async () => {
+  const original = console.warn;
+  let warnings = 0;
+  console.warn = () => { warnings += 1; };
+  try {
+    for (let index = 0; index < 30; index += 1) {
+      const response = await POST(reportRequest(JSON.stringify({
+        'csp-report': { 'effective-directive': 'script-src-elem' },
+      })));
+      assert.equal(response.status, 204);
+    }
+    assert.ok(warnings <= 20, 'CSP report endpoint must throttle its warning log volume');
+  } finally {
+    console.warn = original;
+  }
+});

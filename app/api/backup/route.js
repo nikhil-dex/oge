@@ -5,6 +5,7 @@ import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../lib/saved-links.js';
 import { MAX_QUICK_NOTE_LENGTH, normalizeQuickNoteContent, quickNoteTitle } from '../../../lib/quick-notes.js';
 import { NEWS_TOPICS } from '../../../lib/news-topics.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,8 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to export your OgeNotes data.' }, 401);
+    const throttle = await checkRateLimit(ctx.db, { scope: 'backup-export', identifier: ctx.ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const [user, subjects, notes, savedLinks, quickNotes] = await Promise.all([
       ctx.db.collection('users').findOne({ googleSub: ctx.ownerId }, { projection: { newsInterests: 1 } }),
       ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).toArray(),

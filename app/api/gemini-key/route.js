@@ -68,10 +68,8 @@ async function verifyGeminiKey(apiKey) {
         throw new Error('Gemini rejected this API key. Check the key and its API access.');
       }
       if ([404, 429, 500, 502, 503, 504].includes(response.status)) continue;
-      const detail = typeof payload?.error?.message === 'string'
-        ? payload.error.message.replace(/[\\r\\n]+/g, ' ').slice(0, 180)
-        : '';
-      throw new Error('Gemini connection failed (' + response.status + ').' + (detail ? ' ' + detail : ' Check the API response and key permissions.'));
+      // Never reflect third-party error text to clients; it may contain sensitive data.
+      throw new Error('Gemini connection failed (' + response.status + '). Check API access and retry.');
     }
 
     const candidate = payload?.candidates?.[0];
@@ -125,6 +123,9 @@ export async function POST(request) {
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const data = await readBody(request);
     const action = String(data?.action || '');
+    if (!['save', 'test', 'delete'].includes(action)) {
+      return json({ error: 'Choose save, test, or delete.' }, 400);
+    }
     const users = ctx.db.collection('users');
 
     if (action === 'delete') {

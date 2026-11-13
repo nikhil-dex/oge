@@ -16,7 +16,7 @@ export async function GET() {
   if (!ownerId) return json({ error: 'Sign in to view your subjects.' }, 401);
   try {
     const db = await getDatabase();
-    const subjects = await db.collection('subjects').find({ ownerId }).sort({ createdAt: 1 }).toArray();
+    const subjects = await db.collection('subjects').find({ ownerId }).sort({ createdAt: 1 }).limit(1000).toArray();
     return json(subjects.map(({ _id, slug, name, createdAt }) => ({ id: String(_id), slug, name, createdAt })));
   } catch (error) {
     console.error('GET /api/subjects failed:', error?.name);

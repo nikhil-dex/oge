@@ -2,6 +2,7 @@ import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { encryptGeminiKey, maskGeminiKey } from '../../../lib/gemini-key.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -120,6 +121,8 @@ export async function POST(request) {
   try {
     ctx = await context();
     if (!ctx) return json({ error: 'Sign in to manage your Gemini API key.' }, 401);
+    const throttle = await checkRateLimit(ctx.db, { scope: 'gemini-key-update', identifier: ctx.ownerId, limit: 12, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const data = await readBody(request);
     const action = String(data?.action || '');
     const users = ctx.db.collection('users');

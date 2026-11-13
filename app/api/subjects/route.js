@@ -34,6 +34,9 @@ export async function POST(request) {
   if (!name || name.length > 60) return json({ error: 'Subject name must be 1–60 characters.' }, 400);
   try {
     const db = await getDatabase();
+    if (await db.collection('subjects').countDocuments({ ownerId }, { limit: 1000 }) >= 1000) {
+      return json({ error: 'Subject limit reached (1,000).' }, 409);
+    }
     const subject = { ownerId, slug: randomUUID(), name, createdAt: new Date(), updatedAt: new Date() };
     await db.collection('subjects').insertOne(subject);
     return json({ id: String(subject._id), slug: subject.slug, name: subject.name, createdAt: subject.createdAt }, 201);

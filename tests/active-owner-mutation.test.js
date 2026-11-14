@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { withActiveOwnerMutation } from '../lib/active-owner-mutation.js';
+import { ownerMutationFilter, withActiveOwnerMutation } from '../lib/active-owner-mutation.js';
 
 function mockDb({ matchedCount = 1, workFails = false } = {}) {
   const steps = [];
@@ -22,7 +22,7 @@ function mockDb({ matchedCount = 1, workFails = false } = {}) {
       assert.equal(name, 'users');
       return { async updateOne(filter, update, options) {
         steps.push('check-account');
-        assert.deepEqual(filter, { googleSub: 'account-a' });
+        assert.deepEqual(filter, { googleSub: 'account-a', sessionVersion: 'e8f311e7-cf6e-4d67-a8f5-8218c2fc74d6' });
         assert.ok(update.$set.updatedAt instanceof Date);
         assert.equal(options.session, session);
         return { matchedCount };
@@ -34,7 +34,7 @@ function mockDb({ matchedCount = 1, workFails = false } = {}) {
     assert.equal(transaction, session);
     if (workFails) throw new Error('simulated downstream failure');
     return 'ok';
-  });
+  }, { sessionVersion: 'e8f311e7-cf6e-4d67-a8f5-8218c2fc74d6' });
   return { steps, perform };
 }
 
@@ -46,7 +46,7 @@ test('owner mutation writes user account and record together in a transaction', 
 
 test('owner mutation refuses missing/deleted accounts without orphan writes', async () => {
   const { steps, perform } = mockDb({ matchedCount: 0 });
-  await assert.rejects(perform(), /Account no longer exists/);
+  await assert.rejects(perform(), /Account session no longer exists/);
   assert.ok(!steps.includes('write'));
   assert.ok(!steps.includes('commit'));
   assert.ok(steps.includes('closed'));
@@ -99,4 +99,38 @@ test('owner-scoped editing and deletion routes use account transactions and sess
   }
   const links = await readFile(new URL('../app/api/saved-links/route.js', import.meta.url), 'utf8');
   assert.match(links, /bulkWrite\([\s\S]*?\{ session \}/);
+});
+
+test('rejects missing credentials and stale account session versions', () => {
+  assert.throws(() => ownerMutationFilter('account-a', {}), /Signed session version/);
+  assert.throws(() => ownerMutationFilter('account-a', { sessionVersion: 'invalid' }), /Signed session version/);
+  assert.deepEqual(ownerMutationFilter('account-a', { sessionVersion: 0 }), {
+    googleSub: 'account-a', $or: [{ sessionVersion: 0 }, { sessionVersion: { $exists: false } }],
+  });
+  assert.deepEqual(ownerMutationFilter('account-a', { sessionVersion: 'e8f311e7-cf6e-4d67-a8f5-8218c2fc74d6' }), {
+    googleSub: 'account-a', sessionVersion: 'e8f311e7-cf6e-4d67-a8f5-8218c2fc74d6',
+  });
+  const extension = ownerMutationFilter('account-a', { extensionTokenHash: 'a'.repeat(64) });
+  assert.equal(extension.googleSub, 'account-a');
+  assert.equal(extension.extensionTokenHash, 'a'.repeat(64));
+  assert.ok(extension.extensionTokenExpiresAt.$gt instanceof Date);
+  assert.throws(() => ownerMutationFilter('account-a', { extensionTokenHash: 'bad' }), /Signed session version/);
+});
+
+test('core mutations pass authenticated session versions and extension uses verified token', async () => {
+  for (const file of [
+    '../app/api/notes/route.js', '../app/api/quick-notes/route.js',
+    '../app/api/personal-quick-notes/route.js', '../app/api/saved-links/route.js',
+  ]) {
+    const src = await readFile(new URL(file, import.meta.url), 'utf8');
+    assert.match(src, /sessionVersion: session\.user\.sessionVersion/);
+    assert.match(src, /\}, \{ sessionVersion: ctx\.sessionVersion \}\)/);
+  }
+  for (const file of ['../app/api/subjects/route.js', '../app/api/revision/route.js', '../app/api/revision-history/route.js']) {
+    const src = await readFile(new URL(file, import.meta.url), 'utf8');
+    assert.match(src, /sessionVersion: session\?\.user\?\.sessionVersion/);
+    assert.match(src, /\}, \{ sessionVersion: sessionVersion \}\)/);
+  }
+  const extension = await readFile(new URL('../app/api/extension/save-link/route.js', import.meta.url), 'utf8');
+  assert.match(extension, /\}, \{ extensionTokenHash: hashExtensionToken\(token\) \}\)/);
 });

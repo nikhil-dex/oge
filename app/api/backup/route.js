@@ -7,6 +7,7 @@ import { MAX_QUICK_NOTE_LENGTH, normalizeQuickNoteContent, quickNoteTitle } from
 import { NEWS_TOPICS } from '../../../lib/news-topics.js';
 import { exportNoteMetadata, importNoteMetadata } from '../../../lib/backup-note-metadata.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { withAtomicBackupImport } from '../../../lib/atomic-backup-import.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -95,12 +96,13 @@ export async function POST(request) {
 
   try {
     const { db, ownerId } = ctx;
+    return await withAtomicBackupImport(db, async (session) => {
     const subjectCollection = db.collection('subjects');
     const noteCollection = db.collection('notes');
     const linkCollection = db.collection('savedLinks');
     const quickCollection = db.collection('quickNotes');
     const personalCollection = db.collection('personalQuickNotes');
-    const existingSubjects = await subjectCollection.find({ ownerId }).toArray();
+    const existingSubjects = await subjectCollection.find({ ownerId }, { session }).toArray();
     const subjectByName = new Map(existingSubjects.map((subject) => [subject.name.trim().toLocaleLowerCase(), subject]));
     const slugMap = new Map();
     let subjectsAdded = 0;
@@ -113,13 +115,13 @@ export async function POST(request) {
       if (existing) { slugMap.set(source.slug, existing.slug); skipped += 1; continue; }
       const created = { ownerId, slug: randomUUID(), name: normalizedName, createdAt: new Date(), updatedAt: new Date() };
       try {
-        await subjectCollection.insertOne(created);
+        await subjectCollection.insertOne(created, { session });
         subjectByName.set(created.name.toLocaleLowerCase(), created);
         slugMap.set(source.slug, created.slug);
         subjectsAdded += 1;
       } catch (error) {
         if (error?.code !== 11000) throw error;
-        const duplicate = await subjectCollection.findOne({ ownerId, name: created.name });
+        const duplicate = await subjectCollection.findOne({ ownerId, name: created.name }, { session });
         if (!duplicate) throw error;
         slugMap.set(source.slug, duplicate.slug);
         skipped += 1;
@@ -132,48 +134,49 @@ export async function POST(request) {
       if (!subjectSlug) { skipped += 1; continue; }
       const heading = source.heading.trim();
       const answer = source.answer.trim();
-      const exists = await noteCollection.findOne({ ownerId, subjectSlug, heading, answer }, { projection: { _id: 1 } });
+      const exists = await noteCollection.findOne({ ownerId, subjectSlug, heading, answer }, { session, projection: { _id: 1 } });
       if (exists) { skipped += 1; continue; }
       await noteCollection.insertOne({
         ownerId, subjectSlug, heading, answer,
         tags: Array.isArray(source.tags) ? [...new Set(source.tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean))].slice(0, 10) : [],
         favorite: Boolean(source.favorite), createdAt: new Date(), updatedAt: new Date(), ...importNoteMetadata(source),
-      });
+      }, { session });
       notesAdded += 1;
     }
 
     let savedLinksAdded = 0;
     for (const [index, source] of backup.savedLinks.entries()) {
       const normalized = normalizedLinks[index].value;
-      const exists = await linkCollection.findOne({ ownerId, url: normalized.url }, { projection: { _id: 1 } });
+      const exists = await linkCollection.findOne({ ownerId, url: normalized.url }, { session, projection: { _id: 1 } });
       if (exists) { skipped += 1; continue; }
-      await linkCollection.insertOne({ _id: randomUUID(), ownerId, ...normalized, order: await linkCollection.countDocuments({ ownerId }), createdAt: new Date(), updatedAt: new Date() });
+      await linkCollection.insertOne({ _id: randomUUID(), ownerId, ...normalized, order: await linkCollection.countDocuments({ ownerId }, { session }), createdAt: new Date(), updatedAt: new Date() }, { session });
       savedLinksAdded += 1;
     }
 
     let quickNotesAdded = 0;
     for (const source of backup.quickNotes) {
       const content = normalizeQuickNoteContent(source.content);
-      const exists = await quickCollection.findOne({ ownerId, content }, { projection: { _id: 1 } });
+      const exists = await quickCollection.findOne({ ownerId, content }, { session, projection: { _id: 1 } });
       if (exists) { skipped += 1; continue; }
       const now = new Date();
-      await quickCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now });
+      await quickCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now }, { session });
       quickNotesAdded += 1;
     }
     let personalQuickNotesAdded = 0;
     for (const source of personalQuickNotes) {
       const content = normalizeQuickNoteContent(source.content);
-      const exists = await personalCollection.findOne({ ownerId, content }, { projection: { _id: 1 } });
+      const exists = await personalCollection.findOne({ ownerId, content }, { session, projection: { _id: 1 } });
       if (exists) { skipped += 1; continue; }
       const now = new Date();
-      await personalCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now });
+      await personalCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now }, { session });
       personalQuickNotesAdded += 1;
     }
-    await db.collection('users').updateOne({ googleSub: ownerId }, { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } });
+    await db.collection('users').updateOne({ googleSub: ownerId }, { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } }, { session });
     return json({ subjectsAdded, notesAdded, savedLinksAdded, quickNotesAdded, personalQuickNotesAdded, skipped });
+    });
   } catch (error) {
     console.error('POST /api/backup failed:', error?.name);
-    return json({ error: 'Could not restore this backup. Some earlier records may already have been added; exporting a fresh backup is recommended before retrying.' }, 500);
+    return json({ error: 'Could not restore this backup. The restore transaction was not completed; verify your database supports transactions before retrying.' }, 500);
   }
   } catch (error) {
     console.error('POST /api/backup request failed:', error?.name);

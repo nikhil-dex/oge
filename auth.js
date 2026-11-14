@@ -66,6 +66,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user && typeof token.googleSub === 'string') {
         session.user.id = token.googleSub;
+        // This is a signed JWT claim, never a browser-provided account version.
+        // Sensitive account operations compare it against the current DB row.
+        session.user.sessionVersion = token.sessionVersion ?? 0;
         // Timestamp is minted server-side on fresh Google authentication.
         // Old sessions without this claim must reauthenticate for deletion.
         session.user.authenticatedAt = typeof token.authenticatedAt === 'number' ? token.authenticatedAt : null;

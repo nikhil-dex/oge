@@ -5,6 +5,7 @@ import { MongoClient } from 'mongodb';
 import { withAtomicBackupImport } from '../lib/atomic-backup-import.js';
 import { withActiveOwnerMutation } from '../lib/active-owner-mutation.js';
 import { deleteSubjectAtomically } from '../lib/atomic-subject-deletion.js';
+import { deleteAccountDataAtomically, ACCOUNT_OWNER_COLLECTIONS } from '../lib/account-deletion-transaction.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -170,5 +171,75 @@ test('real MongoDB snapshot export keeps a consistent view during concurrent wri
     assert.deepEqual(snapshot.before.map((note) => note.heading), ['before snapshot']);
     assert.deepEqual(snapshot.after.map((note) => note.heading), ['before snapshot']);
     assert.equal(await db.collection('notes').countDocuments({ ownerId: 'owner-A' }), 2);
+  });
+});
+
+test('real account deletion helper removes all owned collections but preserves another user', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    await db.collection('users').insertMany([
+      { googleSub: 'owner-A', sessionVersion: epochA, geminiApiKey: { encrypted: 'synthetic' } },
+      { googleSub: 'owner-B', sessionVersion: epochB },
+    ]);
+    for (const name of ACCOUNT_OWNER_COLLECTIONS) {
+      await db.collection(name).insertMany([
+        { ownerId: 'owner-A', marker: 'delete' },
+        { ownerId: 'owner-B', marker: 'keep' },
+      ]);
+    }
+    assert.deepEqual(await deleteAccountDataAtomically(db, 'owner-A', epochA), { deleted: true });
+    assert.equal(await db.collection('users').countDocuments({ googleSub: 'owner-A' }), 0);
+    assert.equal(await db.collection('users').countDocuments({ googleSub: 'owner-B' }), 1);
+    for (const name of ACCOUNT_OWNER_COLLECTIONS) {
+      assert.equal(await db.collection(name).countDocuments({ ownerId: 'owner-A' }), 0, name);
+      assert.equal(await db.collection(name).countDocuments({ ownerId: 'owner-B' }), 1, name);
+    }
+  });
+});
+
+test('real account deletion helper refuses a stale signed session after re-registration', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    await db.collection('users').insertOne({ googleSub: 'owner-A', sessionVersion: epochB });
+    await db.collection('notes').insertOne({ ownerId: 'owner-A', heading: 'replacement account note' });
+    await assert.rejects(deleteAccountDataAtomically(db, 'owner-A', epochA), /Account session changed/);
+    assert.equal(await db.collection('users').countDocuments({ googleSub: 'owner-A', sessionVersion: epochB }), 1);
+    assert.equal(await db.collection('notes').countDocuments({ ownerId: 'owner-A' }), 1);
+  });
+});
+
+test('real overlapping note insert and deletion cannot commit orphaned data', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    await db.collection('users').insertOne({ googleSub: 'owner-A', sessionVersion: epochA });
+    // Keep the mutation transaction open after writing the user account row,
+    // while the deletion is initiated from a distinct MongoDB session.
+    let signalStarted;
+    let releaseMutation;
+    const started = new Promise((resolve) => { signalStarted = resolve; });
+    const proceed = new Promise((resolve) => { releaseMutation = resolve; });
+    const mutation = withActiveOwnerMutation(db, 'owner-A', async (session) => {
+      signalStarted();
+      await proceed;
+      await db.collection('notes').insertOne({ ownerId: 'owner-A', heading: 'simultaneous note' }, { session });
+      return 'committed note';
+    }, { sessionVersion: epochA });
+    await started;
+    const deletion = deleteAccountDataAtomically(db, 'owner-A', epochA);
+    // Both operations have now been launched before either finishes.
+    releaseMutation();
+    const outcomes = await Promise.allSettled([mutation, deletion]);
+    // MongoDB may resolve the write conflict by aborting/retrying one
+    // transaction. Both results are acceptable *only* if the invariants hold.
+    const user = await db.collection('users').findOne({ googleSub: 'owner-A' });
+    const noteCount = await db.collection('notes').countDocuments({ ownerId: 'owner-A' });
+    if (!user) assert.equal(noteCount, 0, 'deleted account must have no orphaned notes');
+    if (outcomes[1].status === 'fulfilled') {
+      assert.equal(user, null, 'successful deletion must remove account');
+      assert.equal(noteCount, 0, 'successful deletion must remove concurrent notes');
+    } else {
+      // A transaction conflict can abort deletion without deleting anything.
+      // A fresh retry after the concurrent mutation must cleanly complete.
+      assert.ok(user, 'aborted deletion must leave an account to retry');
+      assert.deepEqual(await deleteAccountDataAtomically(db, 'owner-A', epochA), { deleted: true });
+      assert.equal(await db.collection('notes').countDocuments({ ownerId: 'owner-A' }), 0);
+    }
   });
 });

@@ -4,6 +4,7 @@ import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
 import { NEWS_TOPICS } from '../../lib/news-topics.js';
+import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 
 export async function saveNewsInterests(formData) {
   const session = await auth();
@@ -17,8 +18,9 @@ export async function saveNewsInterests(formData) {
   if (interests.length !== submitted.length) throw new Error('One or more selected interests are invalid. Please try again.');
 
   const db = await getDatabase();
+  const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion });
   const result = await db.collection('users').updateOne(
-    { googleSub: ownerId },
+    accountFilter,
     { $set: { newsInterests: interests, onboardingComplete: true, updatedAt: new Date() } },
   );
   if (result.matchedCount !== 1) redirect('/register');

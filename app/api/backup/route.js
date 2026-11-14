@@ -114,18 +114,10 @@ export async function POST(request) {
       const existing = subjectByName.get(normalizedName.toLocaleLowerCase());
       if (existing) { slugMap.set(source.slug, existing.slug); skipped += 1; continue; }
       const created = { ownerId, slug: randomUUID(), name: normalizedName, createdAt: new Date(), updatedAt: new Date() };
-      try {
-        await subjectCollection.insertOne(created, { session });
-        subjectByName.set(created.name.toLocaleLowerCase(), created);
-        slugMap.set(source.slug, created.slug);
-        subjectsAdded += 1;
-      } catch (error) {
-        if (error?.code !== 11000) throw error;
-        const duplicate = await subjectCollection.findOne({ ownerId, name: created.name }, { session });
-        if (!duplicate) throw error;
-        slugMap.set(source.slug, duplicate.slug);
-        skipped += 1;
-      }
+      await subjectCollection.insertOne(created, { session });
+      subjectByName.set(created.name.toLocaleLowerCase(), created);
+      slugMap.set(source.slug, created.slug);
+      subjectsAdded += 1;
     }
 
     let notesAdded = 0;
@@ -171,7 +163,14 @@ export async function POST(request) {
       await personalCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now }, { session });
       personalQuickNotesAdded += 1;
     }
-    await db.collection('users').updateOne({ googleSub: ownerId }, { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } }, { session });
+    // Touch the account inside the same transaction. If it was deleted or
+    // concurrently removed, do not commit orphaned restored records.
+    const userUpdate = await db.collection('users').updateOne(
+      { googleSub: ownerId },
+      { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } },
+      { session },
+    );
+    if (userUpdate.matchedCount !== 1) throw new Error('Account no longer exists');
     return json({ subjectsAdded, notesAdded, savedLinksAdded, quickNotesAdded, personalQuickNotesAdded, skipped });
     });
   } catch (error) {

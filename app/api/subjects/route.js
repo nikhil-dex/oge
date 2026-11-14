@@ -16,6 +16,7 @@ function json(data, status = 200) {
 export async function GET() {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to view your subjects.' }, 401);
   try {
     const db = await getDatabase();
@@ -30,6 +31,7 @@ export async function GET() {
 export async function POST(request) {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to create a subject.' }, 401);
   let data;
   try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
@@ -46,7 +48,7 @@ export async function POST(request) {
       const subject = { ownerId, slug: randomUUID(), name, createdAt: new Date(), updatedAt: new Date() };
       await db.collection('subjects').insertOne(subject, { session });
       return json({ id: String(subject._id), slug: subject.slug, name: subject.name, createdAt: subject.createdAt }, 201);
-    });
+    }, { sessionVersion: sessionVersion });
   } catch (error) {
     if (error?.code === 11000) return json({ error: 'That subject already exists.' }, 409);
     console.error('POST /api/subjects failed:', error?.name);
@@ -57,6 +59,7 @@ export async function POST(request) {
 export async function DELETE(request) {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to delete a subject.' }, 401);
   const slug = new URL(request.url).searchParams.get('slug');
   if (!slug) return json({ error: 'Choose a subject.' }, 400);

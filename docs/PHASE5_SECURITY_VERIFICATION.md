@@ -18,6 +18,7 @@ credentials, exported user data, or incident logs containing personal data.
 - Backup v1 exports and imports now include AirNotes (personalQuickNotes) with backwards compatibility for older v1 files lacking that field. Backup exports cap each collection at 5,000 records and return an explicit error instead of returning an unlimited number of records. Backup imports already enforce a request-body limit. Gemini-key actions are validated before contacting the provider, and untrusted provider error messages are not reflected.
 - Subject listing is capped at 1,000 per user (and subject creation rejects the same per-account limit). CSP report logging is capped per process at 20 directives per minute; add shared edge/WAF limits for anonymous requests before launch.
 - A staging-only two-account Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, Revision History, and Backup export isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
+- CI scans generated `.next/static` files and prerendered HTML/response assets for synthetic build-time secrets after Next.js build. The gate fails if any canary is found, but does not prove actual deployment secrets or runtime responses cannot leak.
 - CI node tests, Next.js build, high/critical production dependency audit,
   plus a dedicated Git-history Gitleaks scan and tracked-file credential-pattern
   check. Gitleaks must pass CI; review any findings and rotate exposed secrets.

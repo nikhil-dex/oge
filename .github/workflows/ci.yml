@@ -50,4 +50,13 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
           AUTH_SECRET: ci-only-placeholder-secret-32-characters-minimum
           AUTH_GOOGLE_ID: ci-placeholder.apps.googleusercontent.com
-          AUTH_GOOGLE_SECRET: ci-only-placeholder-secret
+          AUTH_GOOGLE_SECRET: oge-ci-google-secret-synthetic-placeholder-9ad27
+          OGE_HEALTHCHECK_TOKEN: oge-ci-monitor-secret-synthetic-placeholder-3f71a
+          OGE_CI_PRIVATE_CANARY: oge-ci-server-private-canary-e42fbf19a927
+      - name: Verify generated browser assets contain no synthetic secrets
+        run: node scripts/verify-client-artifacts.mjs
+        env:
+          AUTH_SECRET: ci-only-placeholder-secret-32-characters-minimum
+          AUTH_GOOGLE_SECRET: oge-ci-google-secret-synthetic-placeholder-9ad27
+          OGE_HEALTHCHECK_TOKEN: oge-ci-monitor-secret-synthetic-placeholder-3f71a
+          OGE_CI_PRIVATE_CANARY: oge-ci-server-private-canary-e42fbf19a927

@@ -19,7 +19,7 @@ test('settings page exposes account, organization, appearance, news, and data co
 test('backup API scopes exports and restores to the authenticated owner', async () => {
   const route = await readFile(new URL('../app/api/backup/route.js', import.meta.url), 'utf8');
   assert.match(route, /format: 'oge-notes-backup'/);
-  assert.match(route, /find\(\{ ownerId: ctx\.ownerId \}\)/);
+  assert.match(route, /find\(\{ ownerId: ctx\.ownerId \}, \{ session \}\)/);
   assert.match(route, /find\(\{ ownerId \}, \{ session \}\)/);
   assert.match(route, /insertOne\(\{\s*ownerId,/);
   assert.match(route, /normalizeSavedLink/);

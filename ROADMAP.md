@@ -129,12 +129,12 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [ ] Validate and safely render all user-generated content, including Markdown and saved URLs.
 - [ ] Complete CSRF protections and security headers, including a suitable enforced Content Security Policy. Same-origin `Origin`/`Referer` checks guard state-changing cookie-authenticated API requests in `proxy.js`.
 - [x] Add baseline security response headers (`nosniff`, frame denial, referrer and permissions policies) and a CSP in report-only mode to gather compatibility signals.
-- [ ] Review CSP reports against the real app and Google sign-in flow, remove unnecessary allowances (especially inline scripts/styles and broad `https:` sources), then enforce a tested CSP. HSTS is added only in production.
+- [ ] Review CSP reports against the real app and Google sign-in flow, remove unnecessary allowances (especially inline scripts/styles and broad `https:` sources), then enforce a tested CSP. An opt-in `OGE_ENFORCE_CSP=true` deployment flag is available but **not validated or enabled**; HSTS is added only in production.
 - [ ] Add rate limits, request-size limits, pagination, query bounds, and safe error responses.
   - In progress: shared MongoDB-backed limits protect Gemini cleanup/key management, extension token creation/saves, news, dictionary, backup import/export, and owner-scoped mutations for Notes, Subjects, Quick Notes, AirNotes and Saved Links. Subject queries are capped; runtime load testing and broader API coverage are still needed.
 - [ ] Redact credentials, tokens, session values, and sensitive note content from logs.
 - [ ] Add dependency vulnerability scanning and secret scanning to CI.
-  - In progress: CI runs a production dependency audit and a limited tracked-file credential-pattern check; full secret/history scanning and dependency review remain pending.
+  - CI runs a production dependency audit, a limited tracked-file pattern check and a dedicated Gitleaks Git-history scan; review its CI results, any alerts and public build artifacts before sign-off.
 - [ ] Verify environment secrets are never included in client bundles, logs, commits, or public build artifacts.
 - [ ] Configure database backups and perform a restore test.
 - [ ] Define data export, account deletion, retention, and handling of backups after deletion.

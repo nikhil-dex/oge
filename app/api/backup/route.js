@@ -5,6 +5,7 @@ import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../lib/saved-links.js';
 import { MAX_QUICK_NOTE_LENGTH, normalizeQuickNoteContent, quickNoteTitle } from '../../../lib/quick-notes.js';
 import { NEWS_TOPICS } from '../../../lib/news-topics.js';
+import { exportNoteMetadata, importNoteMetadata } from '../../../lib/backup-note-metadata.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
@@ -21,7 +22,7 @@ async function context() {
 }
 function publicSubject(item) { return { slug: item.slug, name: item.name, createdAt: item.createdAt }; }
 function publicNote(item) {
-  return { id: String(item._id), subjectSlug: item.subjectSlug, heading: item.heading, answer: item.answer, tags: Array.isArray(item.tags) ? item.tags : [], favorite: Boolean(item.favorite), createdAt: item.createdAt, updatedAt: item.updatedAt };
+  return { id: String(item._id), subjectSlug: item.subjectSlug, heading: item.heading, answer: item.answer, tags: Array.isArray(item.tags) ? item.tags : [], favorite: Boolean(item.favorite), createdAt: item.createdAt, updatedAt: item.updatedAt, ...exportNoteMetadata(item) };
 }
 function publicLink(item) {
   return { id: String(item._id), title: item.title, url: item.url, description: item.description || '', category: item.category || '', tags: Array.isArray(item.tags) ? item.tags : [], order: item.order || 0, createdAt: item.createdAt, updatedAt: item.updatedAt };
@@ -84,7 +85,7 @@ export async function POST(request) {
   if (!Array.isArray(personalQuickNotes) || personalQuickNotes.length > 5000) return json({ error: 'Backup AirNotes are invalid or contain too many records.' }, 400);
   if (arrays.some((key) => !Array.isArray(backup[key]) || backup[key].length > 5000)) return json({ error: 'The backup structure is invalid or contains too many records.' }, 400);
   if (backup.subjects.some((item) => !item || typeof item.name !== 'string' || !item.name.trim() || item.name.trim().length > 60 || typeof item.slug !== 'string' || !item.slug)) return json({ error: 'One or more backup subjects are invalid.' }, 400);
-  if (backup.notes.some((item) => !item || typeof item.subjectSlug !== 'string' || typeof item.heading !== 'string' || !item.heading.trim() || item.heading.length > 160 || typeof item.answer !== 'string' || !item.answer.trim() || item.answer.length > 20000)) return json({ error: 'One or more backup notes are invalid.' }, 400);
+  if (backup.notes.some((item) => !item || typeof item.subjectSlug !== 'string' || typeof item.heading !== 'string' || !item.heading.trim() || item.heading.length > 160 || typeof item.answer !== 'string' || !item.answer.trim() || item.answer.length > 20000 || !importNoteMetadata(item))) return json({ error: 'One or more backup notes are invalid.' }, 400);
   if (backup.quickNotes.some((item) => !item || typeof item.content !== 'string' || item.content.length > MAX_QUICK_NOTE_LENGTH)) return json({ error: 'One or more Quick Notes are invalid.' }, 400);
   if (personalQuickNotes.some((item) => !item || typeof item.content !== 'string' || item.content.length > MAX_QUICK_NOTE_LENGTH)) return json({ error: 'One or more AirNotes are invalid.' }, 400);
   const normalizedLinks = backup.savedLinks.map((item) => normalizeSavedLink(item));
@@ -136,7 +137,7 @@ export async function POST(request) {
       await noteCollection.insertOne({
         ownerId, subjectSlug, heading, answer,
         tags: Array.isArray(source.tags) ? [...new Set(source.tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean))].slice(0, 10) : [],
-        favorite: Boolean(source.favorite), createdAt: new Date(), updatedAt: new Date(), revisions: [],
+        favorite: Boolean(source.favorite), createdAt: new Date(), updatedAt: new Date(), ...importNoteMetadata(source),
       });
       notesAdded += 1;
     }

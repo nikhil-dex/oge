@@ -11,10 +11,10 @@ credentials, exported user data, or incident logs containing personal data.
 - Shared MongoDB fixed-window request limits for Gemini note cleanup (10/hour),
   browser extension saves (60/hour/token), extension token creation (10/hour/account),
   Gemini key management (12/hour/account), personalized news (30/minute/account),
-  and backups (10 exports/hour/account, 5 imports/hour/account), plus dictionary lookups (40/minute/account). These are limited controls, **not full API-wide rate limiting**.
+  and backups (10 exports/hour/account, 5 imports/hour/account), plus dictionary lookups (40/minute/account). Notes, Subjects, Quick Notes, AirNotes and Saved Links mutations now share 120 requests/minute per account and resource. These are limited controls, **not full API-wide rate limiting**.
 - Backup exports cap each collection at 5,000 records and return an explicit error instead of returning an unlimited number of records. Backup imports already enforce a request-body limit. Gemini-key actions are validated before contacting the provider, and untrusted provider error messages are not reflected.
 - Subject listing is capped at 1,000 per user (and subject creation rejects the same per-account limit). CSP report logging is capped per process at 20 directives per minute; add shared edge/WAF limits for anonymous requests before launch.
-- A staging-only two-account Notes isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
+- A staging-only two-account Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, Revision History, and Backup export isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
 - CI node tests, Next.js build, high/critical production dependency audit,
   and a tracked-file credential-pattern check. Pattern matching is **not** an
   exhaustive history scan or substitute for purpose-built secret scanning.
@@ -82,8 +82,14 @@ unset OGE_STAGING_COOKIE_A OGE_STAGING_COOKIE_B
 Replace the example hostname with the actual staging host. The script refuses
 a host that does not include `staging` or `preview` (or localhost), verifies
 the exact named host, creates temporary data only under account A, verifies
-account B cannot view/update/delete it, and tries to clean it up. Verify no
+account B cannot view/update/delete it across the supported resources, and tries to clean it up. Verify no
 temporary test subject remains. Record results privately without credentials.
 
-This test covers **Notes only**. The roadmap still requires runtime account
-isolation for every module, as well as browser session and OAuth testing.
+This test covers **Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, Revision History, and owner-scoped Backup export**.
+The roadmap still requires runtime account isolation for backup import,
+extension-token workflows, settings and other authenticated
+modules, as well as browser session and OAuth testing.
+
+## Mutation throttling verification
+
+Use a disposable staging account to make repeated requests to each mutation endpoint. Expect HTTP 429 with `Retry-After` after 120 requests within one minute for the same account/resource. Verify a second account is unaffected and that normal notes autosave works. The rate limiting unit tests and source-coverage checks are not substitutes for runtime concurrency testing. Do not flood a production server.

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
+import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { MAX_QUICK_NOTE_LENGTH, normalizeQuickNoteContent, quickNoteTitle } from '../../../lib/quick-notes.js';
 
@@ -42,6 +43,8 @@ export async function POST(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to create AirNotes.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const now = new Date();
     const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
     await ctx.db.collection('personalQuickNotes').insertOne(note);
@@ -62,6 +65,8 @@ export async function PUT(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update AirNotes.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const now = new Date();
     const result = await ctx.db.collection('personalQuickNotes').findOneAndUpdate(
       { _id: id, ownerId: ctx.ownerId },
@@ -80,6 +85,8 @@ export async function DELETE(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to delete AirNotes.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid AirNote.' }, 400);
     const result = await ctx.db.collection('personalQuickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId });

@@ -26,4 +26,12 @@ test('staging isolation test refuses production hosts and uses two distinct cook
   assert.ok(source.includes('OGE_STAGING_HOST'));
   assert.ok(source.includes('Refusing to run outside'));
   assert.ok(source.includes("foreignDelete.status === 404 || foreignDelete.status === 403"));
+  for (const resource of ['/api/quick-notes', '/api/personal-quick-notes', '/api/saved-links']) {
+    assert.ok(source.includes("path: '" + resource + "'"), 'staging test must include ' + resource);
+  }
+  assert.ok(source.includes('createdResources.reverse()'), 'temporary data must be cleaned up');
+  assert.ok(source.includes('Account B can view account A private subject'));
+  assert.ok(source.includes("await b('/api/revision'"), 'B revision mutation must be checked');
+  assert.ok(source.includes("await b('/api/revision-history'"), 'B revision history must be checked');
+  assert.ok(source.includes("await b('/api/backup'"), 'B backup export must be checked');
 });

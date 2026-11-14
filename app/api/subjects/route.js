@@ -1,5 +1,6 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
+import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { randomUUID } from 'node:crypto';
 
@@ -34,6 +35,8 @@ export async function POST(request) {
   if (!name || name.length > 60) return json({ error: 'Subject name must be 1–60 characters.' }, 400);
   try {
     const db = await getDatabase();
+    const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     if (await db.collection('subjects').countDocuments({ ownerId }, { limit: 1000 }) >= 1000) {
       return json({ error: 'Subject limit reached (1,000).' }, 409);
     }
@@ -55,6 +58,8 @@ export async function DELETE(request) {
   if (!slug) return json({ error: 'Choose a subject.' }, 400);
   try {
     const db = await getDatabase();
+    const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const subject = await db.collection('subjects').findOne({ ownerId, slug });
     if (!subject) return json({ error: 'Subject not found.' }, 404);
     const count = await db.collection('subjects').countDocuments({ ownerId });

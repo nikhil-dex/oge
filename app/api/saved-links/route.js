@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
+import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../lib/saved-links.js';
 
@@ -41,6 +42,8 @@ export async function POST(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to save links.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const collection = ctx.db.collection('savedLinks');
     const order = await collection.countDocuments({ ownerId: ctx.ownerId });
     const now = new Date();
@@ -63,6 +66,8 @@ export async function PUT(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to edit links.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const result = await ctx.db.collection('savedLinks').findOneAndUpdate(
       { _id: id, ownerId: ctx.ownerId },
       { $set: { ...normalized.value, updatedAt: new Date() } },
@@ -80,6 +85,8 @@ export async function DELETE(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to delete links.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid saved link.' }, 400);
     const collection = ctx.db.collection('savedLinks');
@@ -102,6 +109,8 @@ export async function PATCH(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to reorder links.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const collection = ctx.db.collection('savedLinks');
     const existingCount = await collection.countDocuments({ ownerId: ctx.ownerId, _id: { $in: ids } });
     if (existingCount !== ids.length) return json({ error: 'One or more links were not found.' }, 409);

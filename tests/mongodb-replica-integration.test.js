@@ -12,7 +12,11 @@ const epochA = 'a0e31394-d318-4b1e-a01b-e9f74636db6a';
 const epochB = 'b8e48f26-640c-4dfa-89d8-d6d68c302809';
 
 async function isolatedDatabase(run) {
-  if (!uri || !/^(mongodb|mongodb\+srv):\/\//.test(uri)) throw new Error('Test MongoDB replica set URI required');
+  // CI tests only ever connect to a local disposable Docker replica set.
+  // Never accept an Atlas or remote URI, even with the opt-in flag.
+  if (!uri || !/^mongodb:\/\/(?:localhost|127\.0\.0\.1):27017\/(?:\?|$)/.test(uri)) {
+    throw new Error('Use only a disposable local MongoDB replica set on port 27017');
+  }
   if (process.env.OGE_ALLOW_MONGO_INTEGRATION_TESTS !== 'YES_DISPOSABLE_DATABASE') {
     throw new Error('Set OGE_ALLOW_MONGO_INTEGRATION_TESTS=YES_DISPOSABLE_DATABASE; tests create/drop test databases');
   }

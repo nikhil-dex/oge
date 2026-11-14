@@ -76,3 +76,27 @@ test('owner-scoped creation routes use account-guard transactions for inserts', 
     assert.match(source, /insertOne\([^;]*\{ session \}\)/s, url + ' must insert within transaction');
   }
 });
+
+test('owner-scoped editing and deletion routes use account transactions and session-bound operations', async () => {
+  const checks = [
+    { file: '../app/api/notes/route.js', collection: 'notes', methods: ['PUT', 'PATCH', 'DELETE'] },
+    { file: '../app/api/quick-notes/route.js', collection: 'quickNotes', methods: ['PUT', 'DELETE'] },
+    { file: '../app/api/personal-quick-notes/route.js', collection: 'personalQuickNotes', methods: ['PUT', 'DELETE'] },
+    { file: '../app/api/saved-links/route.js', collection: 'savedLinks', methods: ['PUT', 'PATCH', 'DELETE'] },
+  ];
+  for (const { file, methods } of checks) {
+    const src = await readFile(new URL(file, import.meta.url), 'utf8');
+    for (const method of methods) {
+      const start = src.indexOf('export async function ' + method + '(');
+      assert.ok(start >= 0, file + ' missing ' + method);
+      const next = src.indexOf('export async function ', start + 1);
+      const handler = src.slice(start, next < 0 ? undefined : next);
+      assert.match(handler, /withActiveOwnerMutation\(ctx\.db, ctx\.ownerId, async \(session\) =>/,
+        file + ' ' + method + ' must guard its owning account');
+      assert.ok(handler.includes('{ session }') || handler.includes('session }'),
+        file + ' ' + method + ' must use the transaction session for mutations');
+    }
+  }
+  const links = await readFile(new URL('../app/api/saved-links/route.js', import.meta.url), 'utf8');
+  assert.match(links, /bulkWrite\([\s\S]*?\{ session \}/);
+});

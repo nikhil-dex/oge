@@ -140,7 +140,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [ ] Define data export, account deletion, retention, and handling of backups after deletion.
 - [ ] Add monitoring and alerts for errors, abnormal request rates, database capacity, and provider/API failures.
 - [ ] Test session expiration, logout, account switching, malformed inputs, XSS, CSRF, access-control bypass, and rate limiting.
-  - A staging-only two-account isolation smoke test now covers Notes, Subjects, Quick Notes, AirNotes, and Saved Links; it has not yet been executed with real staging credentials. Backup, revision, extension, settings, OAuth and full multi-module isolation evidence remain required.
+  - A staging-only two-account isolation smoke test now covers Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision/History, and Backup export; it has not yet been executed with real staging credentials. Backup import, extension, settings, OAuth and full multi-module isolation evidence remain required.
 
 **Exit criteria:** documented test results for security and recovery; no unresolved critical/high findings that block release.
 

@@ -40,6 +40,22 @@ resources that Next.js and Google sign-in need.
 5. Only enable enforcement in production after a full successful staging
    verification, a documented rollback, and a release-owner approval.
 
+## Preventing stale sessions from mutating re-created accounts
+
+Core cookie-authenticated mutations now send their signed Auth.js session
+version to the transactional owner guard. A matching Google identity alone
+is not enough: the same user may have deleted and re-created their account.
+An old in-flight request must not mutate the new account. Legacy accounts
+without a session version are accepted only for signed legacy version-zero
+sessions. Browser-extension saves use their validated expiring bearer token
+hash instead of the cookie session version. Backup import and subject
+cascade deletion also enforce this version inside their transactions.
+
+This is **code-level protection**, not tested live MongoDB concurrency.
+Before enabling public account deletion, perform a two-account staging drill
+that deletes and re-registers an account while requests are in flight,
+including Notes, Saved Links, Subjects, Backup import and extension saves.
+
 ## Guarding record creation during account deletion
 
 The main record-creation APIs for Subjects, Notes, Quick Notes, AirNotes,

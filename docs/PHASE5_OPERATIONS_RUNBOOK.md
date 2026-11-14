@@ -50,9 +50,13 @@ creation operations cannot independently commit a new orphaned document after
 deletion. The extension route also rechecks token validity inside the
 transaction.
 
-This protection requires MongoDB transactions. It covers the listed
-creation endpoints, **not every possible in-flight update** or Google
-sign-in / account-recreation interleaving. Test concurrent create/delete
+The guard now also protects Note, Quick Note, AirNote and Saved Link
+updates and deletions, along with Saved Link reordering. The Saved Link
+multi-write delete/reorder paths execute in one transaction.
+
+This protection requires MongoDB transactions. It does **not** yet cover
+revision/history mutations, all profile/settings writes or Google sign-in /
+account-recreation interleaving. Test concurrent create/delete
 and token revocation against disposable staging accounts before enabling
 account deletion in public production.
 

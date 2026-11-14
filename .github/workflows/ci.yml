@@ -6,6 +6,22 @@ on:
     branches: [main, 'implementation/**']
 
 jobs:
+  secret-scan:
+    name: Scan Git history for secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   validate:
     runs-on: ubuntu-latest
     steps:

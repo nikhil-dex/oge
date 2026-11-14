@@ -136,6 +136,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [ ] Add dependency vulnerability scanning and secret scanning to CI.
   - CI runs a production dependency audit, a limited tracked-file pattern check and a dedicated Gitleaks Git-history scan; review its CI results, any alerts and public build artifacts before sign-off.
 - [ ] Verify environment secrets are never included in client bundles, logs, commits, or public build artifacts.
+  - A post-build CI check now scans client and prerendered artifacts for synthetic server-only secret canaries; production deployed bundles and real traffic still require inspection.
 - [ ] Configure database backups and perform a restore test.
 - [ ] Define data export, account deletion, retention, and handling of backups after deletion.
   - JSON backup includes AirNotes, note revisions and review schedules while preserving older v1 imports. A feature-flagged account-deletion route and global session version checks exist, and a guarded disposable-account staging drill is available. Deletion remains disabled by default pending actual staging security/rollback tests, backup retention policy, and complete preferences review. See `docs/PHASE5_OPERATIONS_RUNBOOK.md`.

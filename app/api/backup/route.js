@@ -8,6 +8,7 @@ import { NEWS_TOPICS } from '../../../lib/news-topics.js';
 import { exportNoteMetadata, importNoteMetadata } from '../../../lib/backup-note-metadata.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { withAtomicBackupImport } from '../../../lib/atomic-backup-import.js';
+import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ function json(data, status = 200, headers = {}) {
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 function publicSubject(item) { return { slug: item.slug, name: item.name, createdAt: item.createdAt }; }
 function publicNote(item) {
@@ -96,6 +97,7 @@ export async function POST(request) {
 
   try {
     const { db, ownerId } = ctx;
+    const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: ctx.sessionVersion });
     return await withAtomicBackupImport(db, async (session) => {
     const subjectCollection = db.collection('subjects');
     const noteCollection = db.collection('notes');
@@ -166,7 +168,7 @@ export async function POST(request) {
     // Touch the account inside the same transaction. If it was deleted or
     // concurrently removed, do not commit orphaned restored records.
     const userUpdate = await db.collection('users').updateOne(
-      { googleSub: ownerId },
+      accountFilter,
       { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } },
       { session },
     );

@@ -11,7 +11,7 @@ credentials, exported user data, or incident logs containing personal data.
   it is **not enabled by default** and must be tested in staging before public use.
 - Same-origin API mutation checks, except the bearer-authenticated extension save endpoint.
 - Shared MongoDB fixed-window request limits for Gemini note cleanup (10/hour),
-  browser extension saves (60/hour/token), extension token creation (10/hour/account),
+  browser extension saves (60/hour/token), extension token creation (10/hour/account) and revocation (30/hour/account),
   Gemini key management (12/hour/account), personalized news (30/minute/account),
   and backups (10 exports/hour/account, 5 imports/hour/account), plus dictionary lookups (40/minute/account). Notes, Subjects, Quick Notes, AirNotes and Saved Links mutations now share 120 requests/minute per account and resource. Revision ratings are limited to 120/minute/account and revision-history restores to 30/hour/account. These are limited controls, **not full API-wide rate limiting**.
 - Backup v1 exports and imports now preserve bounded note revision snapshots, revision ratings and due dates, including compatibility with older files without this metadata.

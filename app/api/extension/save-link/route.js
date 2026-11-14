@@ -3,6 +3,7 @@ import { getDatabase } from '../../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../../lib/saved-links.js';
 import { randomUUID } from 'node:crypto';
+import { withActiveOwnerMutation } from '../../../../lib/active-owner-mutation.js';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
@@ -32,12 +33,21 @@ export async function POST(request) {
       { projection: { googleSub: 1 } },
     );
     if (!user?.googleSub) return json({ error: 'This extension token has expired or been revoked. Generate a new one in OgeNotes settings.' }, 401);
-    const collection = db.collection('savedLinks');
-    const order = await collection.countDocuments({ ownerId: user.googleSub });
-    const now = new Date();
-    const link = { _id: randomUUID(), ownerId: user.googleSub, ...normalized.value, order, createdAt: now, updatedAt: now, source: 'browser-extension' };
-    await collection.insertOne(link);
-    return json({ id: link._id, title: link.title, url: link.url, createdAt: now }, 201);
+    return await withActiveOwnerMutation(db, user.googleSub, async (session) => {
+      // Token validity may have changed while the request was in flight.
+      const liveUser = await db.collection('users').findOne({
+        googleSub: user.googleSub,
+        extensionTokenHash: hashExtensionToken(token),
+        extensionTokenExpiresAt: { $gt: new Date() },
+      }, { session, projection: { _id: 1 } });
+      if (!liveUser) return json({ error: 'This extension token has expired or been revoked.' }, 401);
+      const collection = db.collection('savedLinks');
+      const order = await collection.countDocuments({ ownerId: user.googleSub }, { session });
+      const now = new Date();
+      const link = { _id: randomUUID(), ownerId: user.googleSub, ...normalized.value, order, createdAt: now, updatedAt: now, source: 'browser-extension' };
+      await collection.insertOne(link, { session });
+      return json({ id: link._id, title: link.title, url: link.url, createdAt: now }, 201);
+    });
   } catch (error) {
     console.error('POST /api/extension/save-link failed:', error?.name);
     return json({ error: 'Could not save this link.' }, 500);

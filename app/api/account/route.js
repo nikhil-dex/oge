@@ -3,6 +3,7 @@ import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { ACCOUNT_DELETE_CONFIRMATION, canDeleteAccount } from '../../../lib/account-deletion.js';
+import { isCurrentSession } from '../../../lib/session-revocation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,15 +52,18 @@ export async function DELETE(request) {
     try {
       await transaction.withTransaction(async () => {
         const user = await db.collection('users').findOne(
-          { googleSub: ownerId }, { session: transaction, projection: { _id: 1 } },
+          { googleSub: ownerId }, { session: transaction, projection: { _id: 1, sessionVersion: 1 } },
         );
-        if (!user) throw new Error('Account not found');
+        // The request may have authenticated before a delete/re-register
+        // cycle. Never let its old JWT delete the newly registered account.
+        if (!isCurrentSession(user, session.user.sessionVersion)) throw new Error('Account session changed');
         for (const name of OWNER_COLLECTIONS) {
           await db.collection(name).deleteMany({ ownerId }, { session: transaction });
         }
         // The user row owns the extension token and encrypted Gemini key.
         const deleted = await db.collection('users').deleteOne(
-          { _id: user._id, googleSub: ownerId }, { session: transaction },
+          { _id: user._id, googleSub: ownerId, sessionVersion: user.sessionVersion ?? { $exists: false } },
+          { session: transaction },
         );
         if (deleted.deletedCount !== 1) throw new Error('Account deletion conflict');
       });

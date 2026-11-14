@@ -2,25 +2,15 @@ import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { ACCOUNT_DELETE_CONFIRMATION, canDeleteAccount } from '../../../lib/account-deletion.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const CONFIRMATION = 'DELETE MY ACCOUNT';
-const MAX_REAUTH_AGE_MS = 5 * 60 * 1000;
 const OWNER_COLLECTIONS = ['notes', 'subjects', 'quickNotes', 'personalQuickNotes', 'savedLinks'];
 
 function json(data, status = 200) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store' } });
-}
-
-export function canDeleteAccount(session, now = Date.now()) {
-  const authenticatedAt = session?.user?.authenticatedAt;
-  return typeof session?.user?.id === 'string' &&
-    typeof authenticatedAt === 'number' &&
-    Number.isFinite(authenticatedAt) &&
-    authenticatedAt <= now &&
-    now - authenticatedAt <= MAX_REAUTH_AGE_MS;
 }
 
 /**
@@ -44,7 +34,7 @@ export async function DELETE(request) {
   } catch (error) {
     return json({ error: error?.status === 413 ? 'Request is too large.' : 'Invalid request body.' }, error?.status === 413 ? 413 : 400);
   }
-  if (payload?.confirmation !== CONFIRMATION) {
+  if (payload?.confirmation !== ACCOUNT_DELETE_CONFIRMATION) {
     return json({ error: 'Type DELETE MY ACCOUNT exactly to confirm.' }, 400);
   }
 

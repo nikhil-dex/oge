@@ -70,14 +70,16 @@ export async function PUT(request) {
     if (!ctx) return json({ error: 'Sign in to update Quick Notes.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'quick-notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const now = new Date();
-    const result = await ctx.db.collection('quickNotes').findOneAndUpdate(
-      { _id: id, ownerId: ctx.ownerId },
-      { $set: { content, title: quickNoteTitle(content), updatedAt: now } },
-      { returnDocument: 'after', includeResultMetadata: false },
-    );
-    if (!result) return json({ error: 'Quick Note not found.' }, 404);
-    return json({ id: String(result._id), content: result.content, title: result.title, createdAt: result.createdAt, updatedAt: result.updatedAt });
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const now = new Date();
+      const result = await ctx.db.collection('quickNotes').findOneAndUpdate(
+        { _id: id, ownerId: ctx.ownerId },
+        { $set: { content, title: quickNoteTitle(content), updatedAt: now } },
+        { returnDocument: 'after', includeResultMetadata: false, session },
+      );
+      if (!result) return json({ error: 'Quick Note not found.' }, 404);
+      return json({ id: String(result._id), content: result.content, title: result.title, createdAt: result.createdAt, updatedAt: result.updatedAt });
+    });
   } catch (error) {
     console.error('PUT /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not save this Quick Note.' }, 500);
@@ -92,9 +94,11 @@ export async function DELETE(request) {
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid Quick Note.' }, 400);
-    const result = await ctx.db.collection('quickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId });
-    if (!result.deletedCount) return json({ error: 'Quick Note not found.' }, 404);
-    return json({ deleted: id });
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const result = await ctx.db.collection('quickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
+      if (!result.deletedCount) return json({ error: 'Quick Note not found.' }, 404);
+      return json({ deleted: id });
+    });
   } catch (error) {
     console.error('DELETE /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not delete this Quick Note.' }, 500);

@@ -155,6 +155,8 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 
 ### Phase 6 — Private deployment and release readiness
 
+Phase 6 implementation has started with a read-only deployment configuration preflight and a private staging checklist. These are preparation only; **staging is not deployed and no live environment verification has been completed.** See [Phase 6 staging guide](docs/PHASE6_PRIVATE_STAGING.md).
+
 - [ ] Deploy to a private/staging environment using separate credentials and database configuration.
 - [ ] Run end-to-end smoke tests on desktop and mobile-sized layouts.
 - [ ] Test at least two separate Google accounts and verify data isolation across every feature.
@@ -209,4 +211,4 @@ These criteria are release blockers, not optional polish:
 - [ ] Security and release gates passed.
 - [ ] Public launch approved.
 
-**Current state: core features are implemented in `oge`; security hardening and release validation remain in progress. See `docs/PHASE5_SECURITY_VERIFICATION.md` for the evidence checklist and blockers. The original `ogenotes` repository remains read-only.**
+**Current state: core features and the Phase 5 security implementation are merged into `main`; Phase 6 private staging and release validation are in progress. See `docs/PHASE5_SECURITY_VERIFICATION.md` for the evidence checklist and blockers. The original `ogenotes` repository remains read-only.**

@@ -49,7 +49,7 @@ and who can read restore artifacts.
    and approval privately. Remove/secure the isolated restore when complete.
 6. Repeat after changes to backup schedules, database topology or schema.
 
-## User data lifecycle and deletion design — pending implementation
+## User data lifecycle and deletion — staging verification pending
 
 The JSON export endpoint currently exports Subjects, Notes, Saved Links, Quick
 Notes, AirNotes, news interests, and bounded note revision snapshots/review
@@ -71,6 +71,39 @@ a forced failure, duplicate concurrent attempts, requests in flight while
 deletion happens, existing sessions on two devices, extension tokens and
 recreation after a fresh Google sign-in. Document the data-retention policy
 and backup treatment before allowing production deletion.
+
+### Disposable staging deletion drill
+
+A destructive check is available at `scripts/verify-staging-account-deletion.mjs`.
+It **permanently deletes the disposable test account**, so never use your actual
+Google identity or a staging deployment pointed at production data. The staging
+database must support MongoDB transactions and contain no valuable test data.
+The script refuses accounts with existing notes, links, Quick Notes, AirNotes
+or more than one preexisting default subject. It also requires two distinct
+browser sessions belonging to **the same disposable account**.
+
+Enable `OGE_ACCOUNT_DELETION_ENABLED=true` **only on isolated staging** and
+deploy. Sign in on two independent browser profiles using the same throwaway
+Google identity; the first cookie must be from a fresh Google sign-in within
+five minutes. Pass the values as private shell environment variables (never
+commit them, paste them into an issue, or store them in workflow logs):
+
+```bash
+export OGE_STAGING_URL='https://your-staging.example'
+export OGE_STAGING_HOST='your-staging.example'
+export OGE_STAGING_COOKIE_A='<first authenticated staging Cookie header>'
+export OGE_STAGING_COOKIE_B='<second authenticated staging Cookie header>'
+export OGE_STAGING_DELETION_CONFIRM='DELETE DISPOSABLE STAGING ACCOUNT'
+node scripts/verify-staging-account-deletion.mjs
+unset OGE_STAGING_COOKIE_A OGE_STAGING_COOKIE_B OGE_STAGING_DELETION_CONFIRM
+```
+
+The drill creates one temporary subject, confirms the two cookies belong to
+the same account, deletes the account, and checks neither browser session can
+still list private subjects. If the drill fails, inspect and clean up staging
+manually. A passing result is **not** full deletion sign-off: also verify
+rollback on forced database failure, no orphaned records, extension token
+rejection, in-flight writes, account recreation, and backup retention.
 
 Before enabling a permanent deletion flow, finish these release gates:
 

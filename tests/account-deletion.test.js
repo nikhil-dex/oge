@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { isCurrentSession, sessionVersionOf } from '../lib/session-revocation.js';
+import { ACCOUNT_DELETE_CONFIRMATION, canDeleteAccount } from '../lib/account-deletion.js';
+import { readFile } from 'node:fs/promises';
+
+test('JWT session version checks fail closed for missing and revoked accounts', () => {
+  assert.equal(isCurrentSession(null, 0), false);
+  assert.equal(isCurrentSession({ sessionVersion: 'bad-value' }, 'bad-value'), false);
+  assert.equal(isCurrentSession({ sessionVersion: 3 }, 3), true);
+  assert.equal(isCurrentSession({ sessionVersion: 3 }, 2), false);
+  assert.equal(isCurrentSession({ sessionVersion: 0 }, undefined), true);
+  assert.equal(isCurrentSession({ sessionVersion: 1 }, undefined), false);
+  assert.equal(sessionVersionOf({}), 0);
+  const next = '9b044299-28c7-44ad-9d66-3f6b77e956a4';
+  assert.equal(isCurrentSession({ sessionVersion: next }, next), true);
+  assert.equal(isCurrentSession({ sessionVersion: next }, 0), false);
+});
+
+test('account deletion requires signed-in user and recent Google authentication', () => {
+  const now = 1_800_000_000_000;
+  const valid = { user: { id: 'user-a', authenticatedAt: now - 60_000 } };
+  assert.equal(canDeleteAccount(valid, now), true);
+  assert.equal(canDeleteAccount({ user: { id: 'user-a' } }, now), false);
+  assert.equal(canDeleteAccount({ user: { id: 'user-a', authenticatedAt: now - 301_000 } }, now), false);
+  assert.equal(canDeleteAccount({ user: { id: 'user-a', authenticatedAt: now + 1000 } }, now), false);
+  assert.equal(canDeleteAccount({ user: { authenticatedAt: now } }, now), false);
+  assert.equal(ACCOUNT_DELETE_CONFIRMATION, 'DELETE MY ACCOUNT');
+});
+
+test('account deletion stays opt-in, transactional and scoped to owner collections', async () => {
+  const src = await readFile(new URL('../app/api/account/route.js', import.meta.url), 'utf8');
+  assert.match(src, /process\.env\.OGE_ACCOUNT_DELETION_ENABLED !== 'true'/);
+  assert.match(src, /transaction\.withTransaction\(/);
+  for (const name of ['notes', 'subjects', 'quickNotes', 'personalQuickNotes', 'savedLinks']) {
+    assert.ok(src.includes("'" + name + "'"));
+  }
+  assert.match(src, /deleteMany\(\{ ownerId \}, \{ session: transaction \}\)/);
+  assert.match(src, /deleteOne\([\s\S]*?googleSub: ownerId/);
+  assert.match(src, /checkRateLimit\(db/);
+});
+
+test('auth issues a unique version on account creation and validates current versions', async () => {
+  const src = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  assert.match(src, /sessionVersion: randomUUID\(\)/);
+  assert.match(src, /isCurrentSession\(user, token\.sessionVersion\)/);
+  assert.match(src, /token\.authenticatedAt = Date\.now\(\)/);
+  assert.match(src, /session\.user\.authenticatedAt/);
+});

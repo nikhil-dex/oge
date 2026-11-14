@@ -5,6 +5,7 @@ import { saveNewsInterests } from '../onboarding/actions.js';
 import { NEWS_TOPICS } from '../../lib/news-topics.js';
 import { signOutOfOgeNotes } from './actions.js';
 import SettingsClient from './settings-client.js';
+import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import SiteNavbar from '../components/site-navbar';
 
 export const metadata = { title: 'Settings' };
@@ -16,11 +17,13 @@ export default async function SettingsPage() {
   if (!ownerId) redirect('/register');
 
   const db = await getDatabase();
+  const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion });
   const user = await db.collection('users').findOne(
-    { googleSub: ownerId },
+    accountFilter,
     { projection: { name: 1, email: 1, image: 1, newsInterests: 1, createdAt: 1, lastLoginAt: 1 } },
   );
-  const displayName = user?.name || session.user.name || 'OgeNotes user';
+  if (!user) redirect('/register');
+  const displayName = user.name || session.user.name || 'OgeNotes user';
   const email = user?.email || session.user.email || 'Google account';
 
   return (

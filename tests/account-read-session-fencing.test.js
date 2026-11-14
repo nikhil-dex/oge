@@ -30,7 +30,7 @@ test('extension status refuses to report a replacement account as disconnected',
   const getter = source.slice(source.indexOf('export async function GET('), source.indexOf('export async function POST('));
   assert.match(getter, /findOne\(accountFilter,/);
   assert.match(getter, /if \(!user\) return json\(/);
-  assert.match(getter, /status: 'unused-placeholder'|return json\(\{ connected: active/);
+  assert.match(getter, /return json\(\{ connected: active/);
 });
 
 test('personalized news and Settings use signed account versions for profile reads', async () => {

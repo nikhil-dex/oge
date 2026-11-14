@@ -72,6 +72,38 @@ try {
   const aNotes = await a('/api/notes');
   expect(aNotes.status === 200 && aNotes.payload.some((note) => note.id === noteId),
     'Account A test note missing or modified.');
+  const createRevision = await a('/api/notes', {
+    method: 'PUT',
+    body: { id: noteId, heading: title, answer: 'Second private revision of temporary record' },
+  });
+  expect(createRevision.status === 200, 'A could not create a temporary history snapshot.');
+
+  const foreignRevision = await b('/api/revision', {
+    method: 'POST', body: { id: noteId, rating: 'good' },
+  });
+  expect([403, 404].includes(foreignRevision.status), 'B modified A revision schedule.');
+
+  const foreignHistory = await b('/api/revision-history');
+  expect(foreignHistory.status === 200 && Array.isArray(foreignHistory.payload) &&
+    !foreignHistory.payload.some((entry) => entry.noteId === noteId),
+    'B can read A revision history.');
+
+  const foreignRestore = await b('/api/revision-history', {
+    method: 'POST', body: { noteId, revisionIndex: 0 },
+  });
+  expect([403, 404].includes(foreignRestore.status), 'B restored A revision history.');
+
+  const backupA = await a('/api/backup');
+  const backupB = await b('/api/backup');
+  expect(backupA.status === 200 && backupB.status === 200,
+    'Two-account backup export failed.');
+  expect(Array.isArray(backupA.payload.notes) &&
+    backupA.payload.notes.some((item) => item.id === noteId),
+    'A backup does not contain A test note.');
+  expect(Array.isArray(backupB.payload.notes) &&
+    !backupB.payload.notes.some((item) => item.id === noteId),
+    'B backup leaked A private note.');
+
   // Each resource is created by A, checked against B's reads and mutations,
   // then removed by A in finally. Use disposable staging accounts only.
   const resources = [
@@ -114,7 +146,7 @@ try {
     !foreignSubjects.payload.some((entry) => entry.slug === subjectSlug),
     'Account B can view account A private subject.');
 
-  console.log('PASS: Two-account Notes, Subjects, Quick Notes, AirNotes and Saved Links isolation smoke test.');
+  console.log('PASS: Two-account Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, History and Backup export isolation smoke test.');
 } finally {
   // Remove created records even when an isolation assertion fails.
   for (const resource of createdResources.reverse()) {

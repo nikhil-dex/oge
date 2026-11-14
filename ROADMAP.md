@@ -143,7 +143,8 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [ ] Add monitoring and alerts for errors, abnormal request rates, database capacity, and provider/API failures.
   - An authenticated, sanitized `/api/health` endpoint checks app/database readiness with a dedicated server-only bearer token; actual monitor configuration, alert delivery, database-capacity/backup alerts and provider monitoring remain outstanding.
 - [ ] Test session expiration, logout, account switching, malformed inputs, XSS, CSRF, access-control bypass, and rate limiting.
-  - A staging-only two-account isolation smoke test now covers Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision/History, and Backup export; it has not yet been executed with real staging credentials. Backup import, extension, settings, OAuth and full multi-module isolation evidence remain required.
+  - A staging-only two-account isolation smoke test now covers Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision/History, and Backup export; it has not yet been executed with real staging credentials.
+  - A separate non-destructive staging authentication/CSRF drill now checks private API reads, invalid session rejection and origin guards; it also remains unexecuted without staging accounts. Backup import, extension, settings, OAuth and full multi-module isolation evidence remain required.
 
 **Exit criteria:** documented test results for security and recovery; no unresolved critical/high findings that block release.
 

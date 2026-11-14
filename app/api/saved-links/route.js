@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
@@ -44,12 +45,14 @@ export async function POST(request) {
     if (!ctx) return json({ error: 'Sign in to save links.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const collection = ctx.db.collection('savedLinks');
-    const order = await collection.countDocuments({ ownerId: ctx.ownerId });
-    const now = new Date();
-    const link = { _id: randomUUID(), ownerId: ctx.ownerId, ...normalized.value, order, createdAt: now, updatedAt: now };
-    await collection.insertOne(link);
-    return json({ id: link._id, ...normalized.value, order, createdAt: now, updatedAt: now }, 201);
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const collection = ctx.db.collection('savedLinks');
+      const order = await collection.countDocuments({ ownerId: ctx.ownerId }, { session });
+      const now = new Date();
+      const link = { _id: randomUUID(), ownerId: ctx.ownerId, ...normalized.value, order, createdAt: now, updatedAt: now };
+      await collection.insertOne(link, { session });
+      return json({ id: link._id, ...normalized.value, order, createdAt: now, updatedAt: now }, 201);
+    });
   } catch (error) {
     console.error('POST /api/saved-links failed:', error?.name);
     return json({ error: 'Could not save this link.' }, 500);

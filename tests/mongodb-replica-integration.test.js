@@ -111,3 +111,64 @@ test('real MongoDB backup helper rolls back a multi-collection partial restore',
     assert.equal(await db.collection('notes').countDocuments({}), 0);
   });
 });
+
+test('real MongoDB account deletion and re-registration reject an old in-flight session', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    await db.collection('users').insertOne({ googleSub: 'owner-A', sessionVersion: epochA });
+    await db.collection('notes').insertOne({ ownerId: 'owner-A', heading: 'old account note' });
+
+    await withAtomicBackupImport(db, async (session) => {
+      await db.collection('notes').deleteMany({ ownerId: 'owner-A' }, { session });
+      const deleted = await db.collection('users').deleteOne(
+        { googleSub: 'owner-A', sessionVersion: epochA }, { session },
+      );
+      assert.equal(deleted.deletedCount, 1);
+    });
+    assert.equal(await db.collection('notes').countDocuments({ ownerId: 'owner-A' }), 0);
+    await db.collection('users').insertOne({ googleSub: 'owner-A', sessionVersion: epochB });
+
+    await assert.rejects(
+      withActiveOwnerMutation(db, 'owner-A', async (session) => {
+        await db.collection('notes').insertOne({ ownerId: 'owner-A', heading: 'stale request' }, { session });
+      }, { sessionVersion: epochA }),
+      /Account session no longer exists/,
+    );
+    assert.equal(await db.collection('notes').countDocuments({ ownerId: 'owner-A' }), 0);
+    await withActiveOwnerMutation(db, 'owner-A', async (session) => {
+      await db.collection('notes').insertOne({ ownerId: 'owner-A', heading: 'new account note' }, { session });
+    }, { sessionVersion: epochB });
+    assert.deepEqual(
+      (await db.collection('notes').find({ ownerId: 'owner-A' }).toArray()).map((note) => note.heading),
+      ['new account note'],
+    );
+  });
+});
+
+test('real MongoDB snapshot export keeps a consistent view during concurrent writes', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    await db.collection('users').insertOne({ googleSub: 'owner-A', sessionVersion: epochA });
+    await db.collection('notes').insertOne({ ownerId: 'owner-A', heading: 'before snapshot' });
+
+    const snapshot = await withAtomicBackupImport(db, async (session) => {
+      const user = await db.collection('users').findOne(
+        { googleSub: 'owner-A', sessionVersion: epochA }, { session },
+      );
+      assert.ok(user);
+      const before = await db.collection('notes').find(
+        { ownerId: 'owner-A' }, { session },
+      ).toArray();
+      assert.equal(before.length, 1);
+
+      // A separate connection/operation inserts after the transaction snapshot
+      // was established. This write should not appear on the same snapshot.
+      await db.collection('notes').insertOne({ ownerId: 'owner-A', heading: 'after snapshot' });
+      const after = await db.collection('notes').find(
+        { ownerId: 'owner-A' }, { session },
+      ).toArray();
+      return { before, after };
+    });
+    assert.deepEqual(snapshot.before.map((note) => note.heading), ['before snapshot']);
+    assert.deepEqual(snapshot.after.map((note) => note.heading), ['before snapshot']);
+    assert.equal(await db.collection('notes').countDocuments({ ownerId: 'owner-A' }), 2);
+  });
+});

@@ -2,6 +2,7 @@ import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { ObjectId } from 'mongodb';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,42 +56,44 @@ export async function POST(request) {
 
   try {
     const db = await getDatabase();
-    const collection = db.collection('notes');
-    const note = await collection.findOne({ _id: new ObjectId(noteId), ownerId });
-    if (!note) return json({ error: 'Note not found.' }, 404);
-    const revisions = Array.isArray(note.revisions) ? note.revisions : [];
-    const chosen = revisions[revisionIndex];
-    if (!chosen || typeof chosen.heading !== 'string' || typeof chosen.answer !== 'string') {
-      return json({ error: 'That saved version is no longer available. Refresh the history and try again.' }, 409);
-    }
+    return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      const collection = db.collection('notes');
+      const note = await collection.findOne({ _id: new ObjectId(noteId), ownerId }, { session });
+      if (!note) return json({ error: 'Note not found.' }, 404);
+      const revisions = Array.isArray(note.revisions) ? note.revisions : [];
+      const chosen = revisions[revisionIndex];
+      if (!chosen || typeof chosen.heading !== 'string' || typeof chosen.answer !== 'string') {
+        return json({ error: 'That saved version is no longer available. Refresh the history and try again.' }, 409);
+      }
 
-    const now = new Date();
-    const updatedRevisions = [...revisions, {
-      heading: note.heading,
-      answer: note.answer,
-      savedAt: note.updatedAt || note.createdAt || now,
-    }].slice(-20);
-    const restoreFilter = { _id: new ObjectId(noteId), ownerId };
-    if (note.updatedAt !== undefined) restoreFilter.updatedAt = note.updatedAt;
-    else restoreFilter.updatedAt = { $exists: false };
-    const result = await collection.findOneAndUpdate(
-      restoreFilter,
-      { $set: {
-        heading: chosen.heading,
-        answer: chosen.answer,
-        revisions: updatedRevisions,
-        updatedAt: now,
-      } },
-      { returnDocument: 'after', projection: { _id: 1, subjectSlug: 1, heading: 1, answer: 1, updatedAt: 1 } },
-    );
-    if (!result) return json({ error: 'This note changed while you were restoring. Refresh history and try again.' }, 409);
-    return json({
-      id: String(result._id),
-      subjectSlug: result.subjectSlug,
-      heading: result.heading,
-      answer: result.answer,
-      updatedAt: result.updatedAt,
-      message: 'Previous version restored. The content that was current has been saved in revision history.',
+      const now = new Date();
+      const updatedRevisions = [...revisions, {
+        heading: note.heading,
+        answer: note.answer,
+        savedAt: note.updatedAt || note.createdAt || now,
+      }].slice(-20);
+      const restoreFilter = { _id: new ObjectId(noteId), ownerId };
+      if (note.updatedAt !== undefined) restoreFilter.updatedAt = note.updatedAt;
+      else restoreFilter.updatedAt = { $exists: false };
+      const result = await collection.findOneAndUpdate(
+        restoreFilter,
+        { $set: {
+          heading: chosen.heading,
+          answer: chosen.answer,
+          revisions: updatedRevisions,
+          updatedAt: now,
+        } },
+        { returnDocument: 'after', projection: { _id: 1, subjectSlug: 1, heading: 1, answer: 1, updatedAt: 1 }, session },
+      );
+      if (!result) return json({ error: 'This note changed while you were restoring. Refresh history and try again.' }, 409);
+      return json({
+        id: String(result._id),
+        subjectSlug: result.subjectSlug,
+        heading: result.heading,
+        answer: result.answer,
+        updatedAt: result.updatedAt,
+        message: 'Previous version restored. The content that was current has been saved in revision history.',
+      });
     });
   } catch (error) {
     console.error('POST /api/revision-history failed:', error?.name);

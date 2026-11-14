@@ -55,7 +55,33 @@ replica-set connection, non-placeholder secrets, and conservative rollout
 flags. A passing result cannot prove the staging credentials are distinct
 from production; review isolation manually.
 
-## 3. Live private smoke tests (not yet run)
+## 3. Read-only staging HTTP check (requires a deployed staging site)
+
+Once staging is deployed, run the following from a private shell, without
+passing credentials in command-line arguments:
+
+```bash
+export OGE_STAGING_URL='https://staging.YOUR_DOMAIN'
+export OGE_STAGING_HOST='staging.YOUR_DOMAIN'
+# OGE_HEALTHCHECK_TOKEN must be set privately in your shell/secret manager.
+npm run staging:http
+unset OGE_STAGING_HOST OGE_STAGING_URL OGE_HEALTHCHECK_TOKEN
+```
+
+The check validates the exact HTTPS staging host, then uses only GET requests,
+with redirects disabled, to verify the registration page, baseline security
+headers, report-only CSP, anonymous protection of selected private routes,
+anonymous health denial, and authenticated database readiness via the
+private monitor bearer token. It **does not** read response bodies, send
+cookies, mutate user data or print the health token. The health token is only
+sent to the exact validated staging origin.
+
+Never point this script at public production, and do not interpret its success
+as a Google OAuth/browser-session verification. Hosting access controls may
+require arranging a protected test execution path; do not remove staging
+protection just to pass the check.
+
+## 4. Live private browser smoke tests (not yet run)
 
 - Verify login, logout, session expiration, account switching, and direct
   HTTP access denial for invalid browser sessions.
@@ -75,7 +101,7 @@ from production; review isolation manually.
 - Publish and approve accurate privacy, terms, contact/support, retention,
   deletion and backup expiry information before enabling public access.
 
-## 4. Release decision
+## 5. Release decision
 
 Keep a private verification record of environment, test date, tester, failure
 details (without credentials/data), recovery evidence, and approval. Any

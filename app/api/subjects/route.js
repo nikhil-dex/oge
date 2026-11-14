@@ -67,7 +67,7 @@ export async function DELETE(request) {
     const db = await getDatabase();
     const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const result = await deleteSubjectAtomically(db, ownerId, slug);
+    const result = await deleteSubjectAtomically(db, ownerId, slug, { sessionVersion });
     if (result.status === 'not-found') return json({ error: 'Subject not found.' }, 404);
     if (result.status === 'last-subject') return json({ error: 'Keep at least one subject. Add another before deleting this one.' }, 400);
     return json({ deleted: slug });

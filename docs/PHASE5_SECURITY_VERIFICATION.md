@@ -25,6 +25,8 @@ credentials, exported user data, or incident logs containing personal data.
 
 For deployment procedures, see [Phase 5 Operations Runbook](PHASE5_OPERATIONS_RUNBOOK.md).
 
+- Account deletion route + Settings control now exist **behind** the default-off `OGE_ACCOUNT_DELETION_ENABLED` flag. It checks recent Google sign-in, uses transactional owner-scoped removal, and persistent JWT version validation; these controls have **not** passed live staging concurrency/rollback/security testing.
+
 ## Required deployment verification (unverified)
 
 1. On an isolated staging environment, configure real Google OAuth credentials,

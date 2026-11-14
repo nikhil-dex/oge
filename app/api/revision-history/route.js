@@ -3,6 +3,7 @@ import { getDatabase } from '../../../lib/mongodb.js';
 import { ObjectId } from 'mongodb';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,8 @@ export async function POST(request) {
 
   try {
     const db = await getDatabase();
+    const throttle = await checkRateLimit(db, { scope: 'revision-restore', identifier: ownerId, limit: 30, windowMs: 60 * 60 * 1000 });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(db, ownerId, async (session) => {
       const collection = db.collection('notes');
       const note = await collection.findOne({ _id: new ObjectId(noteId), ownerId }, { session });

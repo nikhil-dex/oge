@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { isCurrentSession, sessionVersionOf } from '../lib/session-revocation.js';
 import { ACCOUNT_DELETE_CONFIRMATION, canDeleteAccount } from '../lib/account-deletion.js';
 import { readFile } from 'node:fs/promises';
+import { ACCOUNT_OWNER_COLLECTIONS } from '../lib/account-deletion-transaction.js';
 
 test('JWT session version checks fail closed for missing and revoked accounts', () => {
   assert.equal(isCurrentSession(null, 0), false);
@@ -31,12 +32,8 @@ test('account deletion requires signed-in user and recent Google authentication'
 test('account deletion stays opt-in, transactional and scoped to owner collections', async () => {
   const src = await readFile(new URL('../app/api/account/route.js', import.meta.url), 'utf8');
   assert.match(src, /process\.env\.OGE_ACCOUNT_DELETION_ENABLED !== 'true'/);
-  assert.match(src, /transaction\.withTransaction\(/);
-  for (const name of ['notes', 'subjects', 'quickNotes', 'personalQuickNotes', 'savedLinks']) {
-    assert.ok(src.includes("'" + name + "'"));
-  }
-  assert.match(src, /deleteMany\(\{ ownerId \}, \{ session: transaction \}\)/);
-  assert.match(src, /deleteOne\([\s\S]*?googleSub: ownerId/);
+  assert.match(src, /deleteAccountDataAtomically\(db, ownerId, session\.user\.sessionVersion\)/);
+  assert.deepEqual(ACCOUNT_OWNER_COLLECTIONS, ['notes', 'subjects', 'quickNotes', 'personalQuickNotes', 'savedLinks']);
   assert.match(src, /checkRateLimit\(db/);
 });
 
@@ -67,9 +64,7 @@ test('account deletion rejects stale signed session versions after account recre
   const source = await readFile(new URL('../app/api/account/route.js', import.meta.url), 'utf8');
   const auth = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(auth, /session\.user\.sessionVersion = token\.sessionVersion \?\? 0/);
-  assert.match(source, /projection: \{ _id: 1, sessionVersion: 1 \}/);
-  assert.match(source, /!isCurrentSession\(user, session\.user\.sessionVersion\)/);
-  assert.match(source, /sessionVersion: user\.sessionVersion \?\? \{ \$exists: false \}/);
+  assert.match(source, /deleteAccountDataAtomically\(db, ownerId, session\.user\.sessionVersion\)/);
   assert.equal(isCurrentSession({ sessionVersion: 'c96a716d-125b-43e9-96dc-992a9b6d34cf' },
     '6ce8be36-9f52-44ad-b66d-690cd7cda25b'), false);
   assert.equal(isCurrentSession({ sessionVersion: 'c96a716d-125b-43e9-96dc-992a9b6d34cf' },

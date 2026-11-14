@@ -36,14 +36,15 @@ export async function GET() {
     if (!ctx) return json({ error: 'Sign in to export your OgeNotes data.' }, 401);
     const throttle = await checkRateLimit(ctx.db, { scope: 'backup-export', identifier: ctx.ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const [user, subjects, notes, savedLinks, quickNotes] = await Promise.all([
+    const [user, subjects, notes, savedLinks, quickNotes, personalQuickNotes] = await Promise.all([
       ctx.db.collection('users').findOne({ googleSub: ctx.ownerId }, { projection: { newsInterests: 1 } }),
       ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
       ctx.db.collection('notes').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
       ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }).sort({ order: 1, createdAt: -1 }).limit(5001).toArray(),
       ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(5001).toArray(),
+      ctx.db.collection('personalQuickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(5001).toArray(),
     ]);
-    if ([subjects, notes, savedLinks, quickNotes].some((records) => records.length > 5000)) {
+    if ([subjects, notes, savedLinks, quickNotes, personalQuickNotes].some((records) => records.length > 5000)) {
       return json({ error: 'Your data exceeds the single-export record limit. Contact support for a paginated export.' }, 413);
     }
     const backup = {
@@ -51,6 +52,7 @@ export async function GET() {
       preferences: { newsInterests: Array.isArray(user?.newsInterests) ? user.newsInterests : [] },
       subjects: subjects.map(publicSubject), notes: notes.map(publicNote),
       savedLinks: savedLinks.map(publicLink), quickNotes: quickNotes.map(publicQuickNote),
+      personalQuickNotes: personalQuickNotes.map(publicQuickNote),
     };
     const filename = 'oge-notes-backup-' + new Date().toISOString().slice(0, 10) + '.json';
     return new Response(JSON.stringify(backup, null, 2), { status: 200, headers: {
@@ -77,10 +79,14 @@ export async function POST(request) {
   try { backup = JSON.parse(raw); } catch { return json({ error: 'The selected file is not valid JSON.' }, 400); }
   if (!backup || backup.format !== 'oge-notes-backup' || backup.version !== 1) return json({ error: 'This is not a supported OgeNotes backup file.' }, 400);
   const arrays = ['subjects', 'notes', 'savedLinks', 'quickNotes'];
+  // Earlier v1 backups predate AirNotes exports; treat the optional field as empty.
+  const personalQuickNotes = backup.personalQuickNotes === undefined ? [] : backup.personalQuickNotes;
+  if (!Array.isArray(personalQuickNotes) || personalQuickNotes.length > 5000) return json({ error: 'Backup AirNotes are invalid or contain too many records.' }, 400);
   if (arrays.some((key) => !Array.isArray(backup[key]) || backup[key].length > 5000)) return json({ error: 'The backup structure is invalid or contains too many records.' }, 400);
   if (backup.subjects.some((item) => !item || typeof item.name !== 'string' || !item.name.trim() || item.name.trim().length > 60 || typeof item.slug !== 'string' || !item.slug)) return json({ error: 'One or more backup subjects are invalid.' }, 400);
   if (backup.notes.some((item) => !item || typeof item.subjectSlug !== 'string' || typeof item.heading !== 'string' || !item.heading.trim() || item.heading.length > 160 || typeof item.answer !== 'string' || !item.answer.trim() || item.answer.length > 20000)) return json({ error: 'One or more backup notes are invalid.' }, 400);
   if (backup.quickNotes.some((item) => !item || typeof item.content !== 'string' || item.content.length > MAX_QUICK_NOTE_LENGTH)) return json({ error: 'One or more Quick Notes are invalid.' }, 400);
+  if (personalQuickNotes.some((item) => !item || typeof item.content !== 'string' || item.content.length > MAX_QUICK_NOTE_LENGTH)) return json({ error: 'One or more AirNotes are invalid.' }, 400);
   const normalizedLinks = backup.savedLinks.map((item) => normalizeSavedLink(item));
   if (normalizedLinks.some((item) => item.error)) return json({ error: 'One or more Saved Links are invalid. Export a fresh backup and try again.' }, 400);
   const submittedInterests = backup.preferences?.newsInterests ?? [];
@@ -92,6 +98,7 @@ export async function POST(request) {
     const noteCollection = db.collection('notes');
     const linkCollection = db.collection('savedLinks');
     const quickCollection = db.collection('quickNotes');
+    const personalCollection = db.collection('personalQuickNotes');
     const existingSubjects = await subjectCollection.find({ ownerId }).toArray();
     const subjectByName = new Map(existingSubjects.map((subject) => [subject.name.trim().toLocaleLowerCase(), subject]));
     const slugMap = new Map();
@@ -152,8 +159,17 @@ export async function POST(request) {
       await quickCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now });
       quickNotesAdded += 1;
     }
+    let personalQuickNotesAdded = 0;
+    for (const source of personalQuickNotes) {
+      const content = normalizeQuickNoteContent(source.content);
+      const exists = await personalCollection.findOne({ ownerId, content }, { projection: { _id: 1 } });
+      if (exists) { skipped += 1; continue; }
+      const now = new Date();
+      await personalCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now });
+      personalQuickNotesAdded += 1;
+    }
     await db.collection('users').updateOne({ googleSub: ownerId }, { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } });
-    return json({ subjectsAdded, notesAdded, savedLinksAdded, quickNotesAdded, skipped });
+    return json({ subjectsAdded, notesAdded, savedLinksAdded, quickNotesAdded, personalQuickNotesAdded, skipped });
   } catch (error) {
     console.error('POST /api/backup failed:', error?.name);
     return json({ error: 'Could not restore this backup. Some earlier records may already have been added; exporting a fresh backup is recommended before retrying.' }, 500);

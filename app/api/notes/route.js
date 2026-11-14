@@ -16,7 +16,7 @@ async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
   const db = await getDatabase();
-  return { db, ownerId: session.user.id };
+  return { db, ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 
 export async function GET(request) {
@@ -60,7 +60,7 @@ export async function POST(request) {
       const note = { ownerId: ctx.ownerId, subjectSlug, heading, answer, tags, favorite: false, createdAt: now, updatedAt: now, revisions: [] };
       await ctx.db.collection('notes').insertOne(note, { session });
       return json({ id: String(note._id), subjectSlug, heading, answer, tags, favorite: false, createdAt: now, updatedAt: now }, 201);
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('POST /api/notes failed:', error?.name);
     return json({ error: 'Could not save this note.' }, 500);
@@ -94,7 +94,7 @@ export async function PUT(request) {
       );
       if (!result) return json({ error: 'Note not found.' }, 404);
       return json({ id: String(result._id), subjectSlug: result.subjectSlug, heading: result.heading, answer: result.answer, tags: result.tags || [], favorite: Boolean(result.favorite), createdAt: result.createdAt, updatedAt: result.updatedAt });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PUT /api/notes failed:', error?.name);
     return json({ error: 'Could not update this note.' }, 500);
@@ -113,7 +113,7 @@ export async function DELETE(request) {
       const result = await ctx.db.collection('notes').deleteOne({ _id: new ObjectId(id), ownerId: ctx.ownerId }, { session });
       if (!result.deletedCount) return json({ error: 'Note not found.' }, 404);
       return json({ deleted: id });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('DELETE /api/notes failed:', error?.name);
     return json({ error: 'Could not delete this note.' }, 500);
@@ -134,7 +134,7 @@ export async function PATCH(request) {
       const result = await ctx.db.collection('notes').updateOne({ _id: new ObjectId(id), ownerId: ctx.ownerId }, { $set: { favorite: data.favorite, updatedAt: new Date() } }, { session });
       if (!result.matchedCount) return json({ error: 'Note not found.' }, 404);
       return json({ id, favorite: data.favorite });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PATCH /api/notes failed:', error?.name);
     return json({ error: 'Could not update this note.' }, 500);

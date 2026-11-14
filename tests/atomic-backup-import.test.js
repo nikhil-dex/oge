@@ -8,11 +8,12 @@ test('backup transaction returns result after committing and closes session', as
   const db = { client: { startSession() {
     calls.push('open');
     return {
+      marker: 'session',
       async withTransaction(fn, options) {
         calls.push('begin');
         assert.equal(options.readConcern.level, 'snapshot');
         assert.equal(options.writeConcern.w, 'majority');
-        const result = await fn({ marker: 'session' });
+        const result = await fn();
         calls.push('commit');
         return result;
       },

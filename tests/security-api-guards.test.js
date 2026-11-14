@@ -13,10 +13,19 @@ test('Gemini key action is validated before provider verification', async () => 
 
 test('backup exports apply a finite per-collection record cap', async () => {
   const source = await readFile(new URL('../app/api/backup/route.js', import.meta.url), 'utf8');
-  for (const name of ['subjects', 'notes', 'savedLinks', 'quickNotes']) {
+  for (const name of ['subjects', 'notes', 'savedLinks', 'quickNotes', 'personalQuickNotes']) {
     const line = source.split('\n').find((entry) => entry.includes("db.collection('" + name + "').find({ ownerId: ctx.ownerId })"));
     assert.ok(line?.includes('.limit(5001).toArray()'), name + ' export must be capped');
   }
   assert.match(source, /records.length > 5000/);
   assert.ok(source.includes('Could not process this backup request.'));
+});
+
+test('backup export/import supports AirNotes without breaking older v1 archives', async () => {
+  const source = await readFile(new URL('../app/api/backup/route.js', import.meta.url), 'utf8');
+  assert.match(source, /personalQuickNotes: personalQuickNotes\.map\(publicQuickNote\)/);
+  assert.match(source, /backup\.personalQuickNotes === undefined \? \[\] : backup\.personalQuickNotes/);
+  assert.match(source, /personalQuickNotesAdded/);
+  assert.match(source, /personalCollection\.insertOne/);
+  assert.match(source, /personalQuickNotes\.some\(\(item\) =>/);
 });

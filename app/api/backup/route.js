@@ -39,14 +39,26 @@ export async function GET() {
     if (!ctx) return json({ error: 'Sign in to export your OgeNotes data.' }, 401);
     const throttle = await checkRateLimit(ctx.db, { scope: 'backup-export', identifier: ctx.ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const [user, subjects, notes, savedLinks, quickNotes, personalQuickNotes] = await Promise.all([
-      ctx.db.collection('users').findOne({ googleSub: ctx.ownerId }, { projection: { newsInterests: 1 } }),
-      ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
-      ctx.db.collection('notes').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
-      ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }).sort({ order: 1, createdAt: -1 }).limit(5001).toArray(),
-      ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(5001).toArray(),
-      ctx.db.collection('personalQuickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(5001).toArray(),
-    ]);
+    // A signed JWT can outlive a deleted account, and a fresh Google login
+    // can reuse the same googleSub. Check the original signed account version
+    // and read its workspace from one MongoDB snapshot to prevent exporting
+    // records from a replacement account mid-request.
+    const accountFilter = ownerMutationFilter(ctx.ownerId, { sessionVersion: ctx.sessionVersion });
+    const snapshot = await withAtomicBackupImport(ctx.db, async (session) => {
+      const user = await ctx.db.collection('users').findOne(
+        accountFilter, { session, projection: { newsInterests: 1 } },
+      );
+      if (!user) return null;
+      // Do not parallelize commands on the same MongoDB transaction session.
+      const subjects = await ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }, { session }).sort({ createdAt: 1 }).limit(5001).toArray();
+      const notes = await ctx.db.collection('notes').find({ ownerId: ctx.ownerId }, { session }).sort({ createdAt: 1 }).limit(5001).toArray();
+      const savedLinks = await ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }, { session }).sort({ order: 1, createdAt: -1 }).limit(5001).toArray();
+      const quickNotes = await ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }, { session }).sort({ updatedAt: -1 }).limit(5001).toArray();
+      const personalQuickNotes = await ctx.db.collection('personalQuickNotes').find({ ownerId: ctx.ownerId }, { session }).sort({ updatedAt: -1 }).limit(5001).toArray();
+      return { user, subjects, notes, savedLinks, quickNotes, personalQuickNotes };
+    });
+    if (!snapshot) return json({ error: 'Your account session has changed. Sign in again before exporting.' }, 401);
+    const { user, subjects, notes, savedLinks, quickNotes, personalQuickNotes } = snapshot;
     if ([subjects, notes, savedLinks, quickNotes, personalQuickNotes].some((records) => records.length > 5000)) {
       return json({ error: 'Your data exceeds the single-export record limit. Contact support for a paginated export.' }, 413);
     }

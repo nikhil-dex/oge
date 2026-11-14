@@ -120,7 +120,33 @@ Before enabling a permanent deletion flow, finish these release gates:
 - Publish the privacy notice, retention periods, support route and handling of
   deletion requests. Obtain legal and operational review as applicable.
 
-## Monitoring and alerts — pending service setup
+## Monitoring and alerts — integration pending
+
+An authenticated readiness endpoint exists at `GET /api/health`. It checks
+MongoDB connectivity using a ping and returns only a generic status (HTTP
+200 `ok`, HTTP 503 `unavailable`, or HTTP 401 `unauthorized`).
+The endpoint does not use the browser session or expose DB details.
+
+To enable monitoring, generate a random high-entropy value of at least 32
+characters, store it as the **server-only** environment variable
+`OGE_HEALTHCHECK_TOKEN` and configure an HTTPS uptime monitor to send
+`Authorization: Bearer <your monitoring token>` as a request header.
+Never store this credential in a URL, client environment variable, source
+code, workflow logs, or public status-page configuration. A missing or
+short secret causes every request to return HTTP 401.
+
+Configure alerts on HTTP 5xx and failed requests with a reasonable interval;
+ensure the uptime provider supports private request headers and does not
+record them in diagnostics. Rotate this token if exposed. This HTTP endpoint
+tests app/database readiness, not the completion of a backup snapshot,
+OAuth login, the news provider, or all account operations.
+
+**Still required:** connect a real monitor, choose alert recipients/escalation,
+test notification delivery, track abnormal 429s and database capacity,
+and verify Atlas backup-failure and upstream provider alerts. Do not treat
+the existence of this endpoint as a monitoring setup completion.
+
+
 
 Add provider-side metrics and alerts for 5xx and 429 trends, invalid sessions,
 database capacity, snapshot failures and Google/Gemini/news/dictionary outages.

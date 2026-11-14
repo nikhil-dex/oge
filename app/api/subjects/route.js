@@ -4,6 +4,7 @@ import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-li
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { randomUUID } from 'node:crypto';
 import { deleteSubjectAtomically } from '../../../lib/atomic-subject-deletion.js';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,12 +39,14 @@ export async function POST(request) {
     const db = await getDatabase();
     const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    if (await db.collection('subjects').countDocuments({ ownerId }, { limit: 1000 }) >= 1000) {
-      return json({ error: 'Subject limit reached (1,000).' }, 409);
-    }
-    const subject = { ownerId, slug: randomUUID(), name, createdAt: new Date(), updatedAt: new Date() };
-    await db.collection('subjects').insertOne(subject);
-    return json({ id: String(subject._id), slug: subject.slug, name: subject.name, createdAt: subject.createdAt }, 201);
+    return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      if (await db.collection('subjects').countDocuments({ ownerId }, { limit: 1000, session }) >= 1000) {
+        return json({ error: 'Subject limit reached (1,000).' }, 409);
+      }
+      const subject = { ownerId, slug: randomUUID(), name, createdAt: new Date(), updatedAt: new Date() };
+      await db.collection('subjects').insertOne(subject, { session });
+      return json({ id: String(subject._id), slug: subject.slug, name: subject.name, createdAt: subject.createdAt }, 201);
+    });
   } catch (error) {
     if (error?.code === 11000) return json({ error: 'That subject already exists.' }, 409);
     console.error('POST /api/subjects failed:', error?.name);

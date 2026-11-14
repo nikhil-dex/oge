@@ -99,3 +99,26 @@ jobs:
       - name: Stop disposable test MongoDB
         if: always()
         run: docker rm --force oge-mongo-integration || true
+
+  browser-smoke:
+    name: Local Chromium desktop/mobile smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install test Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run local-only anonymous browser tests
+        run: npm run test:browser
+        env:
+          CI: true
+          NEXT_TELEMETRY_DISABLED: 1

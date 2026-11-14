@@ -50,12 +50,17 @@ creation operations cannot independently commit a new orphaned document after
 deletion. The extension route also rechecks token validity inside the
 transaction.
 
+Revision ratings and revision-history restoration are now guarded by the same
+account-row transaction. Extension-token issuance, Gemini key changes and
+onboarding news preferences now check that the user row was actually matched,
+rather than reporting success for a deleted account.
+
 The guard now also protects Note, Quick Note, AirNote and Saved Link
 updates and deletions, along with Saved Link reordering. The Saved Link
 multi-write delete/reorder paths execute in one transaction.
 
 This protection requires MongoDB transactions. It does **not** yet cover
-revision/history mutations, all profile/settings writes or Google sign-in /
+all profile/settings writes or Google sign-in /
 account-recreation interleaving. Test concurrent create/delete
 and token revocation against disposable staging accounts before enabling
 account deletion in public production.

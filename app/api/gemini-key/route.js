@@ -129,7 +129,8 @@ export async function POST(request) {
     const users = ctx.db.collection('users');
 
     if (action === 'delete') {
-      await users.updateOne({ googleSub: ctx.ownerId }, { $unset: { geminiApiKey: '' } });
+      const result = await users.updateOne({ googleSub: ctx.ownerId }, { $unset: { geminiApiKey: '' } });
+      if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
       return json({ configured: false, message: 'Gemini API key removed.' });
     }
 
@@ -143,7 +144,8 @@ export async function POST(request) {
     if (action !== 'save') return json({ error: 'Choose save, test, or delete.' }, 400);
 
     const encrypted = encryptGeminiKey(apiKey);
-    await users.updateOne({ googleSub: ctx.ownerId }, { $set: { geminiApiKey: encrypted, updatedAt: new Date() } });
+    const result = await users.updateOne({ googleSub: ctx.ownerId }, { $set: { geminiApiKey: encrypted, updatedAt: new Date() } });
+    if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
     return json({ configured: true, updatedAt: encrypted.updatedAt, maskedKey: maskGeminiKey(apiKey), message: 'Gemini API key saved securely.' });
   } catch (error) {
     if (error?.message === 'GEMINI_KEY_ENCRYPTION_SECRET must be configured with at least 32 characters.') {

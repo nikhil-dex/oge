@@ -9,3 +9,7 @@ coverage/
 .env.*
 !.env.example
 .vercel/
+
+# Local Playwright evidence (contains browser state and screenshots)
+playwright-report/
+test-results/

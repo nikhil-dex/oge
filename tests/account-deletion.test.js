@@ -57,6 +57,8 @@ test('destructive staging deletion drill is restricted to disposable hosts and a
   assert.ok(script.includes("backup.payload[name].length === 0"));
   assert.ok(script.includes("otherSubjects.payload.some"));
   assert.ok(script.includes("result.status === 401"));
+  assert.ok(script.includes("extension.payload?.connected === false"));
+  assert.ok(script.includes("gemini.payload?.configured === false"));
   assert.ok(script.includes("confirmation: 'DELETE MY ACCOUNT'"));
   assert.ok(!script.includes('process.env.MONGODB_URI'), 'staging script must not read production database credentials');
 });

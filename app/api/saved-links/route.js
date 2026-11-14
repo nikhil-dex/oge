@@ -20,7 +20,7 @@ function validId(value) { return typeof value === 'string' && /^[a-f0-9-]{36}$/i
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 
 export async function GET() {
@@ -52,7 +52,7 @@ export async function POST(request) {
       const link = { _id: randomUUID(), ownerId: ctx.ownerId, ...normalized.value, order, createdAt: now, updatedAt: now };
       await collection.insertOne(link, { session });
       return json({ id: link._id, ...normalized.value, order, createdAt: now, updatedAt: now }, 201);
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('POST /api/saved-links failed:', error?.name);
     return json({ error: 'Could not save this link.' }, 500);
@@ -79,7 +79,7 @@ export async function PUT(request) {
       );
       if (!result) return json({ error: 'Saved link not found.' }, 404);
       return json({ id: result._id, title: result.title, url: result.url, description: result.description, category: result.category, tags: result.tags || [], order: result.order, createdAt: result.createdAt, updatedAt: result.updatedAt });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PUT /api/saved-links failed:', error?.name);
     return json({ error: 'Could not update this link.' }, 500);
@@ -104,7 +104,7 @@ export async function DELETE(request) {
         { session },
       );
       return json({ deleted: id });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('DELETE /api/saved-links failed:', error?.name);
     return json({ error: 'Could not delete this link.' }, 500);
@@ -130,7 +130,7 @@ export async function PATCH(request) {
         { session },
       );
       return json({ reordered: ids.length });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PATCH /api/saved-links failed:', error?.name);
     return json({ error: 'Could not reorder links.' }, 500);

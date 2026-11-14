@@ -71,6 +71,13 @@ account-row transaction. Extension-token issuance, Gemini key changes and
 onboarding news preferences now check that the user row was actually matched,
 rather than reporting success for a deleted account.
 
+Gemini API-key saves/deletes, browser extension token issuance/revocation
+and onboarding news-interest updates now also match the signed Auth.js
+session version when writing the account document. A stale in-flight request
+cannot modify credentials or preferences belonging to a re-created account.
+Unit/source checks cover these conditions; live staged re-registration
+concurrency tests are still required.
+
 The account deletion route additionally compares the request's signed session
 version to the persisted user version **inside its transaction**, and includes
 that version in the deletion filter. This prevents a request authenticated

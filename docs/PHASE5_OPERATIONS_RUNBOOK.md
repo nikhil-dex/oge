@@ -5,6 +5,18 @@ Use isolated test users and a dedicated, non-production MongoDB database. Keep
 access tokens, connection strings, backup archives and personal data out of Git,
 PR descriptions and CI logs.
 
+## Staging auth and CSRF drill
+
+A non-destructive script at `scripts/verify-staging-auth-guards.mjs` verifies
+that private API reads refuse missing or invalid sessions, cross-origin
+mutations are rejected, and the health endpoint requires its monitor token.
+It uses two distinct, disposable authenticated staging sessions, issues only
+invalid mutation payloads, and never exports note content. See
+`PHASE5_SECURITY_VERIFICATION.md` for the environment setup.
+
+**This test has not been run in staging.** It does not prove race-free account
+deletion, production OAuth configuration, or full multi-device logout.
+
 ## CSP enforcement rollout
 
 OgeNotes sends `Content-Security-Policy-Report-Only` by default.

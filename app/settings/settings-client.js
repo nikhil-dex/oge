@@ -180,7 +180,7 @@ export default function SettingsClient() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: raw,
       }));
       await refreshSubjects();
-      setBackupMessage('Restore complete: ' + result.subjectsAdded + ' subjects, ' + result.notesAdded + ' notes, ' + result.savedLinksAdded + ' saved links, and ' + result.quickNotesAdded + ' quick notes added. Existing records skipped: ' + result.skipped + '.');
+      setBackupMessage('Restore complete: ' + result.subjectsAdded + ' subjects, ' + result.notesAdded + ' notes, ' + result.savedLinksAdded + ' saved links, and ' + result.quickNotesAdded + ' quick notes and ' + (result.personalQuickNotesAdded || 0) + ' AirNotes added. Existing records skipped: ' + result.skipped + '.');
     } catch (error) { setBackupMessage(error instanceof SyntaxError ? 'That file is not valid JSON.' : error.message || 'Restore failed.'); }
     finally { setBackupBusy(false); }
   }

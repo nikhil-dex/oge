@@ -55,6 +55,12 @@ account-row transaction. Extension-token issuance, Gemini key changes and
 onboarding news preferences now check that the user row was actually matched,
 rather than reporting success for a deleted account.
 
+The account deletion route additionally compares the request's signed session
+version to the persisted user version **inside its transaction**, and includes
+that version in the deletion filter. This prevents a request authenticated
+before delete/re-registration from deleting the replacement account. This
+check is code-tested, but its concurrency behavior requires staging testing.
+
 The guard now also protects Note, Quick Note, AirNote and Saved Link
 updates and deletions, along with Saved Link reordering. The Saved Link
 multi-write delete/reorder paths execute in one transaction.

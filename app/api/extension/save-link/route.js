@@ -47,7 +47,7 @@ export async function POST(request) {
       const link = { _id: randomUUID(), ownerId: user.googleSub, ...normalized.value, order, createdAt: now, updatedAt: now, source: 'browser-extension' };
       await collection.insertOne(link, { session });
       return json({ id: link._id, title: link.title, url: link.url, createdAt: now }, 201);
-    });
+    }, { extensionTokenHash: hashExtensionToken(token) });
   } catch (error) {
     console.error('POST /api/extension/save-link failed:', error?.name);
     return json({ error: 'Could not save this link.' }, 500);

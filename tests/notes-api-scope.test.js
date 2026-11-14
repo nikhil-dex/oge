@@ -16,6 +16,9 @@ test('subjects API scopes list, creation and deletion to the signed-in owner', a
   assert.match(route, /await auth\(\)/);
   assert.match(route, /find\(\{ ownerId \}\)/);
   assert.match(route, /ownerId, slug/);
-  assert.match(route, /deleteMany\(\{ ownerId, subjectSlug: slug \}\)/);
+  assert.match(route, /deleteSubjectAtomically\(db, ownerId, slug\)/);
+  const helper = await readFile(new URL('../lib/atomic-subject-deletion.js', import.meta.url), 'utf8');
+  assert.match(helper, /deleteMany\(\{ ownerId, subjectSlug: slug \}, \{ session \}\)/);
+  assert.match(helper, /deleteOne\(\{ _id: subject\._id, ownerId, slug \}, \{ session \}\)/);
   assert.match(route, /readLimitedBody\(request, 4 \* 1024\)/);
 });

@@ -138,7 +138,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [ ] Verify environment secrets are never included in client bundles, logs, commits, or public build artifacts.
 - [ ] Configure database backups and perform a restore test.
 - [ ] Define data export, account deletion, retention, and handling of backups after deletion.
-  - JSON backup includes AirNotes, note revisions and review schedules while preserving older v1 imports. A feature-flagged account-deletion route and global session version checks exist, but deletion remains disabled pending staging security/rollback tests, backup retention policy, and complete preferences review. See `docs/PHASE5_OPERATIONS_RUNBOOK.md`.
+  - JSON backup includes AirNotes, note revisions and review schedules while preserving older v1 imports. A feature-flagged account-deletion route and global session version checks exist, and a guarded disposable-account staging drill is available. Deletion remains disabled by default pending actual staging security/rollback tests, backup retention policy, and complete preferences review. See `docs/PHASE5_OPERATIONS_RUNBOOK.md`.
 - [ ] Add monitoring and alerts for errors, abnormal request rates, database capacity, and provider/API failures.
 - [ ] Test session expiration, logout, account switching, malformed inputs, XSS, CSRF, access-control bypass, and rate limiting.
   - A staging-only two-account isolation smoke test now covers Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision/History, and Backup export; it has not yet been executed with real staging credentials. Backup import, extension, settings, OAuth and full multi-module isolation evidence remain required.

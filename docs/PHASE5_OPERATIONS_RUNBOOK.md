@@ -40,6 +40,22 @@ resources that Next.js and Google sign-in need.
 5. Only enable enforcement in production after a full successful staging
    verification, a documented rollback, and a release-owner approval.
 
+## Guarding record creation during account deletion
+
+The main record-creation APIs for Subjects, Notes, Quick Notes, AirNotes,
+Saved Links, and browser-extension saves now touch the owning user row and
+insert the new record within a single MongoDB transaction. An account
+deletion writing the same user row forces a transaction conflict, so these
+creation operations cannot independently commit a new orphaned document after
+deletion. The extension route also rechecks token validity inside the
+transaction.
+
+This protection requires MongoDB transactions. It covers the listed
+creation endpoints, **not every possible in-flight update** or Google
+sign-in / account-recreation interleaving. Test concurrent create/delete
+and token revocation against disposable staging accounts before enabling
+account deletion in public production.
+
 ## Atomic subject removal
 
 Deleting a subject now uses a transaction to remove that subject and its

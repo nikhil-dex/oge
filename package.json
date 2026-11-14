@@ -12,7 +12,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test"
+    "test": "node --test",
+    "staging:preflight": "node scripts/check-staging-preflight.mjs"
   },
   "dependencies": {
     "mongodb": "^6.21.0",

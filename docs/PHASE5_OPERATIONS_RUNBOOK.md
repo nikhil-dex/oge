@@ -104,6 +104,21 @@ In a disposable staging workspace, test concurrent note creation and deletion,
 database interruption, and last-subject protection before production sign-off.
 This does not solve every concurrent account deletion or mutation case.
 
+## Snapshot-consistent JSON backup export
+
+Authenticated JSON export checks the original signed account session version
+inside a MongoDB snapshot transaction, then reads profile preferences and
+Subjects, Notes, Saved Links, Quick Notes and AirNotes using the same session.
+An account deleted and re-created with the same Google identity must not be
+exportable by an old in-flight request. The read sequence is intentionally
+serial because concurrent operations on one transaction session are not
+supported by the MongoDB Node.js driver.
+
+Both backup import **and export** now require transaction-capable MongoDB
+(Atlas/replica set). Test export during concurrent writes and delete /
+re-registration using disposable staging accounts; automated source tests
+are not a replacement for a live Atlas snapshot consistency check.
+
 ## JSON backup import atomicity
 
 The app's JSON backup import uses a MongoDB transaction spanning Subjects,

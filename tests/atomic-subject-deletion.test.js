@@ -42,7 +42,7 @@ function fakeDb({ subject = { _id: 'subject-id' }, count = 2, accountMatched = 1
       if (name === 'users') return {
         async updateOne(filter, update, options) {
           calls.push('touchAccount');
-          assert.deepEqual(filter, { googleSub: 'owner-a' });
+          assert.deepEqual(filter, { googleSub: 'owner-a', sessionVersion: '4f27a983-6542-40c3-8cb8-215e08a15fe0' });
           assert.ok(update.$set.updatedAt instanceof Date);
           assert.equal(options.session, session);
           return { matchedCount: accountMatched };
@@ -65,14 +65,14 @@ function fakeDb({ subject = { _id: 'subject-id' }, count = 2, accountMatched = 1
 
 test('deletes notes and their subject in one transaction after account check', async () => {
   const { db, calls } = fakeDb();
-  assert.deepEqual(await deleteSubjectAtomically(db, 'owner-a', 'subject-a'), { status: 'deleted' });
+  assert.deepEqual(await deleteSubjectAtomically(db, 'owner-a', 'subject-a', { sessionVersion: '4f27a983-6542-40c3-8cb8-215e08a15fe0' }), { status: 'deleted' });
   assert.deepEqual(calls, ['start', 'begin', 'findSubject', 'countSubjects', 'touchAccount', 'deleteNotes', 'deleteSubject', 'commit', 'end']);
 });
 
 test('missing or only remaining subject causes no deletion', async () => {
   for (const [options, expected] of [[{ subject: null }, 'not-found'], [{ count: 1 }, 'last-subject']]) {
     const { db, calls } = fakeDb(options);
-    assert.deepEqual(await deleteSubjectAtomically(db, 'owner-a', 'subject-a'), { status: expected });
+    assert.deepEqual(await deleteSubjectAtomically(db, 'owner-a', 'subject-a', { sessionVersion: '4f27a983-6542-40c3-8cb8-215e08a15fe0' }), { status: expected });
     assert.ok(!calls.includes('deleteNotes'));
     assert.ok(!calls.includes('deleteSubject'));
     assert.ok(calls.includes('end'));
@@ -82,7 +82,7 @@ test('missing or only remaining subject causes no deletion', async () => {
 test('account removal, DB failure and conflicting subject delete propagate failure', async () => {
   for (const options of [{ accountMatched: 0 }, { failNoteDelete: true }, { deleted: 0 }]) {
     const { db, calls } = fakeDb(options);
-    await assert.rejects(deleteSubjectAtomically(db, 'owner-a', 'subject-a'));
+    await assert.rejects(deleteSubjectAtomically(db, 'owner-a', 'subject-a', { sessionVersion: '4f27a983-6542-40c3-8cb8-215e08a15fe0' }));
     assert.ok(!calls.includes('commit'));
     assert.ok(calls.includes('end'));
   }
@@ -90,8 +90,8 @@ test('account removal, DB failure and conflicting subject delete propagate failu
 
 test('subject deletion endpoint delegates to transactional helper after rate limit', async () => {
   const source = await readFile(new URL('../app/api/subjects/route.js', import.meta.url), 'utf8');
-  assert.match(source, /await deleteSubjectAtomically\(db, ownerId, slug\)/);
+  assert.match(source, /await deleteSubjectAtomically\(db, ownerId, slug, \{ sessionVersion \}\)/);
   assert.ok(source.indexOf("checkOwnerMutationLimit(db, ownerId, 'subjects')", source.indexOf('export async function DELETE')) <
-    source.indexOf('await deleteSubjectAtomically(db, ownerId, slug)'));
+    source.indexOf('await deleteSubjectAtomically(db, ownerId, slug, { sessionVersion })'));
   assert.doesNotMatch(source, /db\.collection\('notes'\)\.deleteMany/);
 });

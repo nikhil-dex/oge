@@ -17,9 +17,10 @@ export async function saveNewsInterests(formData) {
   if (interests.length !== submitted.length) throw new Error('One or more selected interests are invalid. Please try again.');
 
   const db = await getDatabase();
-  await db.collection('users').updateOne(
+  const result = await db.collection('users').updateOne(
     { googleSub: ownerId },
     { $set: { newsInterests: interests, onboardingComplete: true, updatedAt: new Date() } },
   );
+  if (result.matchedCount !== 1) redirect('/register');
   redirect(formData.get('returnTo') === '/settings' ? '/settings' : '/');
 }

@@ -71,6 +71,24 @@ A passing CI gate provides real replica-set transaction evidence, **not**
 proof that the production Atlas cluster, large imports, OAuth sessions or
 backup snapshot restore are working. Those remain staging release gates.
 
+## Actual account deletion transaction and overlapping write test
+
+Account deletion now delegates to `lib/account-deletion-transaction.js`, the
+same production helper exercised in real MongoDB CI. It deletes the profile
+and every known owner-scoped collection atomically, refuses obsolete session
+versions, and leaves another user's records untouched.
+
+The integration suite now also starts a Notes write transaction and an
+account-deletion transaction while they overlap. It verifies that a completed
+deletion leaves no orphaned notes; if MongoDB aborts the deletion due to a
+write conflict, a fresh retry must succeed and leave no orphaned notes.
+
+These tests run only on a disposable local replica set. They do not verify
+the full authenticated HTTP deletion flow, edge/proxy CSRF behavior, extension
+token lifecycle from real browser sessions, Atlas operational failures, or
+the complete account retention policy. The deletion feature remains off
+by default until those staging checks are complete.
+
 ## Required deployment verification (unverified)
 
 1. On an isolated staging environment, configure real Google OAuth credentials,

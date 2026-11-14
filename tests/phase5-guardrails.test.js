@@ -31,4 +31,7 @@ test('staging isolation test refuses production hosts and uses two distinct cook
   }
   assert.ok(source.includes('createdResources.reverse()'), 'temporary data must be cleaned up');
   assert.ok(source.includes('Account B can view account A private subject'));
+  assert.ok(source.includes("await b('/api/revision'"), 'B revision mutation must be checked');
+  assert.ok(source.includes("await b('/api/revision-history'"), 'B revision history must be checked');
+  assert.ok(source.includes("await b('/api/backup'"), 'B backup export must be checked');
 });

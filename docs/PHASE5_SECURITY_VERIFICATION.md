@@ -14,7 +14,7 @@ credentials, exported user data, or incident logs containing personal data.
   and backups (10 exports/hour/account, 5 imports/hour/account), plus dictionary lookups (40/minute/account). Notes, Subjects, Quick Notes, AirNotes and Saved Links mutations now share 120 requests/minute per account and resource. These are limited controls, **not full API-wide rate limiting**.
 - Backup exports cap each collection at 5,000 records and return an explicit error instead of returning an unlimited number of records. Backup imports already enforce a request-body limit. Gemini-key actions are validated before contacting the provider, and untrusted provider error messages are not reflected.
 - Subject listing is capped at 1,000 per user (and subject creation rejects the same per-account limit). CSP report logging is capped per process at 20 directives per minute; add shared edge/WAF limits for anonymous requests before launch.
-- A staging-only two-account Notes, Subjects, Quick Notes, AirNotes and Saved Links isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
+- A staging-only two-account Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, Revision History, and Backup export isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
 - CI node tests, Next.js build, high/critical production dependency audit,
   and a tracked-file credential-pattern check. Pattern matching is **not** an
   exhaustive history scan or substitute for purpose-built secret scanning.
@@ -85,9 +85,9 @@ the exact named host, creates temporary data only under account A, verifies
 account B cannot view/update/delete it across the supported resources, and tries to clean it up. Verify no
 temporary test subject remains. Record results privately without credentials.
 
-This test covers **Notes, Subjects, Quick Notes, AirNotes and Saved Links**.
-The roadmap still requires runtime account isolation for backup import/export,
-revision/history, extension-token workflows, settings and other authenticated
+This test covers **Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, Revision History, and owner-scoped Backup export**.
+The roadmap still requires runtime account isolation for backup import,
+extension-token workflows, settings and other authenticated
 modules, as well as browser session and OAuth testing.
 
 ## Mutation throttling verification

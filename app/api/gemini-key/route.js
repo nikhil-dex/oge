@@ -100,11 +100,13 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to manage your Gemini API key.' }, 401);
+    const accountFilter = ownerMutationFilter(ctx.ownerId, { sessionVersion: ctx.sessionVersion });
     const user = await ctx.db.collection('users').findOne(
-      { googleSub: ctx.ownerId },
+      accountFilter,
       { projection: { geminiApiKey: 1 } },
     );
-    const stored = user?.geminiApiKey;
+    if (!user) return json({ error: 'Your account session has changed. Sign in again.' }, 401);
+    const stored = user.geminiApiKey;
     return json({
       configured: Boolean(stored?.ciphertext && stored?.iv && stored?.tag),
       updatedAt: stored?.updatedAt || null,

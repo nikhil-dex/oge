@@ -2,6 +2,7 @@ import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { ObjectId } from 'mongodb';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,16 +42,18 @@ export async function POST(request) {
   if (!ObjectId.isValid(id) || !Object.hasOwn(intervals, rating)) return json({ error: 'Choose a valid note and revision rating.' }, 400);
   try {
     const db = await getDatabase();
-    const collection = db.collection('notes');
-    const now = new Date();
-    const nextReviewAt = new Date(now.getTime() + intervals[rating] * 24 * 60 * 60 * 1000);
-    const result = await collection.findOneAndUpdate(
-      { _id: new ObjectId(id), ownerId },
-      { $set: { lastReviewedAt: now, lastReviewRating: rating, reviewDueAt: nextReviewAt }, $inc: { reviewCount: 1 } },
-      { returnDocument: 'after', projection: { _id: 1, heading: 1, reviewDueAt: 1, reviewCount: 1 } },
-    );
-    if (!result) return json({ error: 'Note not found.' }, 404);
-    return json({ id: String(result._id), heading: result.heading, reviewDueAt: result.reviewDueAt, reviewCount: result.reviewCount });
+    return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      const collection = db.collection('notes');
+      const now = new Date();
+      const nextReviewAt = new Date(now.getTime() + intervals[rating] * 24 * 60 * 60 * 1000);
+      const result = await collection.findOneAndUpdate(
+        { _id: new ObjectId(id), ownerId },
+        { $set: { lastReviewedAt: now, lastReviewRating: rating, reviewDueAt: nextReviewAt }, $inc: { reviewCount: 1 } },
+        { returnDocument: 'after', projection: { _id: 1, heading: 1, reviewDueAt: 1, reviewCount: 1 }, session },
+      );
+      if (!result) return json({ error: 'Note not found.' }, 404);
+      return json({ id: String(result._id), heading: result.heading, reviewDueAt: result.reviewDueAt, reviewCount: result.reviewCount });
+    });
   } catch (error) {
     console.error('POST /api/revision failed:', error?.name);
     return json({ error: 'Could not save revision progress.' }, 500);

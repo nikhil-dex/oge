@@ -20,7 +20,7 @@ function validId(value) { return typeof value === 'string' && /^[a-f0-9-]{36}$/i
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 
 export async function GET() {
@@ -51,7 +51,7 @@ export async function POST(request) {
       const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
       await ctx.db.collection('quickNotes').insertOne(note, { session });
       return json({ id: note._id, content, title: note.title, createdAt: now, updatedAt: now }, 201);
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('POST /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not create this Quick Note.' }, 500);
@@ -79,7 +79,7 @@ export async function PUT(request) {
       );
       if (!result) return json({ error: 'Quick Note not found.' }, 404);
       return json({ id: String(result._id), content: result.content, title: result.title, createdAt: result.createdAt, updatedAt: result.updatedAt });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PUT /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not save this Quick Note.' }, 500);
@@ -98,7 +98,7 @@ export async function DELETE(request) {
       const result = await ctx.db.collection('quickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
       if (!result.deletedCount) return json({ error: 'Quick Note not found.' }, 404);
       return json({ deleted: id });
-    });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('DELETE /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not delete this Quick Note.' }, 500);

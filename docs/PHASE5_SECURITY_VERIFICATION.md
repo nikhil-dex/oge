@@ -100,6 +100,25 @@ The roadmap still requires runtime account isolation for backup import,
 extension-token workflows, settings and other authenticated
 modules, as well as browser session and OAuth testing.
 
+## Non-destructive authentication and CSRF staging drill
+
+The `scripts/verify-staging-auth-guards.mjs` script tests invalid/missing
+sessions against private APIs, rejects cross-origin subject mutations, and
+requires that the protected health check reject anonymous requests. It sends
+only invalid subject creation payloads; it does not create real records.
+
+Run **only** against a separate staging database with two disposable signed-in
+accounts and the same private environment variables listed above:
+
+```bash
+node scripts/verify-staging-auth-guards.mjs
+```
+
+Ensure the accounts and endpoint configurations match the staging test
+assumptions. The script is not executed in CI because it requires live
+authenticated test sessions. It is **not** a substitute for full browser
+OAuth, session expiration, concurrency, or account deletion testing.
+
 ## Mutation throttling verification
 
 Use a disposable staging account to make repeated requests to each mutation endpoint. Expect HTTP 429 with `Retry-After` after 120 requests within one minute for the same account/resource. Verify a second account is unaffected and that normal notes autosave works. The rate limiting unit tests and source-coverage checks are not substitutes for runtime concurrency testing. Do not flood a production server.

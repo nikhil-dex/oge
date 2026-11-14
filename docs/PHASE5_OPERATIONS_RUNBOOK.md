@@ -52,9 +52,10 @@ and who can read restore artifacts.
 ## User data lifecycle and deletion design — pending implementation
 
 The JSON export endpoint currently exports Subjects, Notes, Saved Links, Quick
-Notes, AirNotes and news interests. It does **not** guarantee export of
-revision metadata or all account preferences. Do not advertise it as an
-exhaustive data portability export until these omissions are resolved.
+Notes, AirNotes, news interests, and bounded note revision snapshots/review
+schedules. It does **not** guarantee export of all account preferences or
+provider-related state. Do not advertise it as an exhaustive data portability
+export until those omissions are resolved.
 
 Account deletion is **not yet implemented**. Before implementing a permanent
 deletion flow, design and test all of the following together:

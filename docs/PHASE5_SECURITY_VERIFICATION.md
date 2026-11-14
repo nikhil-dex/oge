@@ -30,6 +30,19 @@ For deployment procedures, see [Phase 5 Operations Runbook](PHASE5_OPERATIONS_RU
 - A guarded **destructive** account deletion drill now exists at `scripts/verify-staging-account-deletion.mjs`; it checks two distinct sessions for the same disposable staging account and rejects nonempty workspaces. It is not executed by CI and must never be used with a real account or production-connected database.
 - Account deletion route + Settings control now exist **behind** the default-off `OGE_ACCOUNT_DELETION_ENABLED` flag. It checks recent Google sign-in, uses transactional owner-scoped removal, and persistent JWT version validation; these controls have **not** passed live staging concurrency/rollback/security testing.
 
+## Behavioral account-mutation tests
+
+`tests/owner-mutation-behavior.test.js` uses a small stateful transactional
+database double instead of matching route source formatting. It exercises
+the production account mutation helper for valid and stale signed sessions,
+legacy-account compatibility, committed versus aborted writes, and
+revoked/expired browser-extension tokens. Fragile syntax-matching tests for
+these same paths have been reduced.
+
+These tests simulate MongoDB semantics; they **do not** establish actual
+Atlas transaction rollback or concurrency guarantees. Verify those on
+an isolated replica-set staging environment before final release.
+
 ## Required deployment verification (unverified)
 
 1. On an isolated staging environment, configure real Google OAuth credentials,

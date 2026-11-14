@@ -65,6 +65,14 @@ assert(Array.isArray(backup.payload.subjects) && backup.payload.subjects.length 
 assert(!backup.payload.subjects.some((subject) => !['general', 'General', 'Getting Started'].includes(subject.name)),
   'Refusing deletion: test account has a non-default subject.');
 
+// Even empty workspaces may have valuable external credentials or active tokens.
+const extension = await first('/api/extension-token');
+assert(extension.status === 200 && extension.payload?.connected === false,
+  'Refusing deletion: extension token is configured or cannot be verified.');
+const gemini = await first('/api/gemini-key');
+assert(gemini.status === 200 && gemini.payload?.configured === false,
+  'Refusing deletion: Gemini credential is configured or cannot be verified.');
+
 const made = await first('/api/subjects', 'POST', { name: marker });
 assert(made.status === 201 && typeof made.payload?.slug === 'string',
   'Cannot create temporary marker; no deletion attempted.');

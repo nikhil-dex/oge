@@ -40,6 +40,25 @@ resources that Next.js and Google sign-in need.
 5. Only enable enforcement in production after a full successful staging
    verification, a documented rollback, and a release-owner approval.
 
+## JSON backup import atomicity
+
+The app's JSON backup import uses a MongoDB transaction spanning Subjects,
+Notes, Saved Links, Quick Notes, AirNotes and account preferences. It is an
+all-or-nothing operation: errors trigger rollback instead of leaving a
+partially restored workspace. A missing or concurrently deleted account also
+prevents commit.
+
+**Operational requirement:** MongoDB must be deployed as an Atlas cluster or
+replica set with transaction support. A standalone MongoDB instance cannot
+complete imports. This behavior is intentional; do not bypass it by retrying
+writes outside the transaction. Test importing both valid and deliberately
+conflicting backups into **disposable staging accounts**. Force a failure
+after the first successful collection insert and verify the entire import
+rolls back. Also test a concurrent account deletion while importing and
+confirm no orphaned owner documents remain.
+
+JSON import atomicity does not replace an isolated snapshot restoration drill.
+
 ## MongoDB Atlas backup and restore drill
 
 Application JSON exports are **not** substitutes for database-level backups,

@@ -5,7 +5,10 @@ import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../lib/saved-links.js';
 import { MAX_QUICK_NOTE_LENGTH, normalizeQuickNoteContent, quickNoteTitle } from '../../../lib/quick-notes.js';
 import { NEWS_TOPICS } from '../../../lib/news-topics.js';
+import { exportNoteMetadata, importNoteMetadata } from '../../../lib/backup-note-metadata.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { withAtomicBackupImport } from '../../../lib/atomic-backup-import.js';
+import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,11 +20,11 @@ function json(data, status = 200, headers = {}) {
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 function publicSubject(item) { return { slug: item.slug, name: item.name, createdAt: item.createdAt }; }
 function publicNote(item) {
-  return { id: String(item._id), subjectSlug: item.subjectSlug, heading: item.heading, answer: item.answer, tags: Array.isArray(item.tags) ? item.tags : [], favorite: Boolean(item.favorite), createdAt: item.createdAt, updatedAt: item.updatedAt };
+  return { id: String(item._id), subjectSlug: item.subjectSlug, heading: item.heading, answer: item.answer, tags: Array.isArray(item.tags) ? item.tags : [], favorite: Boolean(item.favorite), createdAt: item.createdAt, updatedAt: item.updatedAt, ...exportNoteMetadata(item) };
 }
 function publicLink(item) {
   return { id: String(item._id), title: item.title, url: item.url, description: item.description || '', category: item.category || '', tags: Array.isArray(item.tags) ? item.tags : [], order: item.order || 0, createdAt: item.createdAt, updatedAt: item.updatedAt };
@@ -36,14 +39,27 @@ export async function GET() {
     if (!ctx) return json({ error: 'Sign in to export your OgeNotes data.' }, 401);
     const throttle = await checkRateLimit(ctx.db, { scope: 'backup-export', identifier: ctx.ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const [user, subjects, notes, savedLinks, quickNotes] = await Promise.all([
-      ctx.db.collection('users').findOne({ googleSub: ctx.ownerId }, { projection: { newsInterests: 1 } }),
-      ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
-      ctx.db.collection('notes').find({ ownerId: ctx.ownerId }).sort({ createdAt: 1 }).limit(5001).toArray(),
-      ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }).sort({ order: 1, createdAt: -1 }).limit(5001).toArray(),
-      ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(5001).toArray(),
-    ]);
-    if ([subjects, notes, savedLinks, quickNotes].some((records) => records.length > 5000)) {
+    // A signed JWT can outlive a deleted account, and a fresh Google login
+    // can reuse the same googleSub. Check the original signed account version
+    // and read its workspace from one MongoDB snapshot to prevent exporting
+    // records from a replacement account mid-request.
+    const accountFilter = ownerMutationFilter(ctx.ownerId, { sessionVersion: ctx.sessionVersion });
+    const snapshot = await withAtomicBackupImport(ctx.db, async (session) => {
+      const user = await ctx.db.collection('users').findOne(
+        accountFilter, { session, projection: { newsInterests: 1 } },
+      );
+      if (!user) return null;
+      // Do not parallelize commands on the same MongoDB transaction session.
+      const subjects = await ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }, { session }).sort({ createdAt: 1 }).limit(5001).toArray();
+      const notes = await ctx.db.collection('notes').find({ ownerId: ctx.ownerId }, { session }).sort({ createdAt: 1 }).limit(5001).toArray();
+      const savedLinks = await ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }, { session }).sort({ order: 1, createdAt: -1 }).limit(5001).toArray();
+      const quickNotes = await ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }, { session }).sort({ updatedAt: -1 }).limit(5001).toArray();
+      const personalQuickNotes = await ctx.db.collection('personalQuickNotes').find({ ownerId: ctx.ownerId }, { session }).sort({ updatedAt: -1 }).limit(5001).toArray();
+      return { user, subjects, notes, savedLinks, quickNotes, personalQuickNotes };
+    });
+    if (!snapshot) return json({ error: 'Your account session has changed. Sign in again before exporting.' }, 401);
+    const { user, subjects, notes, savedLinks, quickNotes, personalQuickNotes } = snapshot;
+    if ([subjects, notes, savedLinks, quickNotes, personalQuickNotes].some((records) => records.length > 5000)) {
       return json({ error: 'Your data exceeds the single-export record limit. Contact support for a paginated export.' }, 413);
     }
     const backup = {
@@ -51,6 +67,7 @@ export async function GET() {
       preferences: { newsInterests: Array.isArray(user?.newsInterests) ? user.newsInterests : [] },
       subjects: subjects.map(publicSubject), notes: notes.map(publicNote),
       savedLinks: savedLinks.map(publicLink), quickNotes: quickNotes.map(publicQuickNote),
+      personalQuickNotes: personalQuickNotes.map(publicQuickNote),
     };
     const filename = 'oge-notes-backup-' + new Date().toISOString().slice(0, 10) + '.json';
     return new Response(JSON.stringify(backup, null, 2), { status: 200, headers: {
@@ -77,10 +94,14 @@ export async function POST(request) {
   try { backup = JSON.parse(raw); } catch { return json({ error: 'The selected file is not valid JSON.' }, 400); }
   if (!backup || backup.format !== 'oge-notes-backup' || backup.version !== 1) return json({ error: 'This is not a supported OgeNotes backup file.' }, 400);
   const arrays = ['subjects', 'notes', 'savedLinks', 'quickNotes'];
+  // Earlier v1 backups predate AirNotes exports; treat the optional field as empty.
+  const personalQuickNotes = backup.personalQuickNotes === undefined ? [] : backup.personalQuickNotes;
+  if (!Array.isArray(personalQuickNotes) || personalQuickNotes.length > 5000) return json({ error: 'Backup AirNotes are invalid or contain too many records.' }, 400);
   if (arrays.some((key) => !Array.isArray(backup[key]) || backup[key].length > 5000)) return json({ error: 'The backup structure is invalid or contains too many records.' }, 400);
   if (backup.subjects.some((item) => !item || typeof item.name !== 'string' || !item.name.trim() || item.name.trim().length > 60 || typeof item.slug !== 'string' || !item.slug)) return json({ error: 'One or more backup subjects are invalid.' }, 400);
-  if (backup.notes.some((item) => !item || typeof item.subjectSlug !== 'string' || typeof item.heading !== 'string' || !item.heading.trim() || item.heading.length > 160 || typeof item.answer !== 'string' || !item.answer.trim() || item.answer.length > 20000)) return json({ error: 'One or more backup notes are invalid.' }, 400);
+  if (backup.notes.some((item) => !item || typeof item.subjectSlug !== 'string' || typeof item.heading !== 'string' || !item.heading.trim() || item.heading.length > 160 || typeof item.answer !== 'string' || !item.answer.trim() || item.answer.length > 20000 || !importNoteMetadata(item))) return json({ error: 'One or more backup notes are invalid.' }, 400);
   if (backup.quickNotes.some((item) => !item || typeof item.content !== 'string' || item.content.length > MAX_QUICK_NOTE_LENGTH)) return json({ error: 'One or more Quick Notes are invalid.' }, 400);
+  if (personalQuickNotes.some((item) => !item || typeof item.content !== 'string' || item.content.length > MAX_QUICK_NOTE_LENGTH)) return json({ error: 'One or more AirNotes are invalid.' }, 400);
   const normalizedLinks = backup.savedLinks.map((item) => normalizeSavedLink(item));
   if (normalizedLinks.some((item) => item.error)) return json({ error: 'One or more Saved Links are invalid. Export a fresh backup and try again.' }, 400);
   const submittedInterests = backup.preferences?.newsInterests ?? [];
@@ -88,11 +109,14 @@ export async function POST(request) {
 
   try {
     const { db, ownerId } = ctx;
+    const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: ctx.sessionVersion });
+    return await withAtomicBackupImport(db, async (session) => {
     const subjectCollection = db.collection('subjects');
     const noteCollection = db.collection('notes');
     const linkCollection = db.collection('savedLinks');
     const quickCollection = db.collection('quickNotes');
-    const existingSubjects = await subjectCollection.find({ ownerId }).toArray();
+    const personalCollection = db.collection('personalQuickNotes');
+    const existingSubjects = await subjectCollection.find({ ownerId }, { session }).toArray();
     const subjectByName = new Map(existingSubjects.map((subject) => [subject.name.trim().toLocaleLowerCase(), subject]));
     const slugMap = new Map();
     let subjectsAdded = 0;
@@ -104,18 +128,10 @@ export async function POST(request) {
       const existing = subjectByName.get(normalizedName.toLocaleLowerCase());
       if (existing) { slugMap.set(source.slug, existing.slug); skipped += 1; continue; }
       const created = { ownerId, slug: randomUUID(), name: normalizedName, createdAt: new Date(), updatedAt: new Date() };
-      try {
-        await subjectCollection.insertOne(created);
-        subjectByName.set(created.name.toLocaleLowerCase(), created);
-        slugMap.set(source.slug, created.slug);
-        subjectsAdded += 1;
-      } catch (error) {
-        if (error?.code !== 11000) throw error;
-        const duplicate = await subjectCollection.findOne({ ownerId, name: created.name });
-        if (!duplicate) throw error;
-        slugMap.set(source.slug, duplicate.slug);
-        skipped += 1;
-      }
+      await subjectCollection.insertOne(created, { session });
+      subjectByName.set(created.name.toLocaleLowerCase(), created);
+      slugMap.set(source.slug, created.slug);
+      subjectsAdded += 1;
     }
 
     let notesAdded = 0;
@@ -124,39 +140,56 @@ export async function POST(request) {
       if (!subjectSlug) { skipped += 1; continue; }
       const heading = source.heading.trim();
       const answer = source.answer.trim();
-      const exists = await noteCollection.findOne({ ownerId, subjectSlug, heading, answer }, { projection: { _id: 1 } });
+      const exists = await noteCollection.findOne({ ownerId, subjectSlug, heading, answer }, { session, projection: { _id: 1 } });
       if (exists) { skipped += 1; continue; }
       await noteCollection.insertOne({
         ownerId, subjectSlug, heading, answer,
         tags: Array.isArray(source.tags) ? [...new Set(source.tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean))].slice(0, 10) : [],
-        favorite: Boolean(source.favorite), createdAt: new Date(), updatedAt: new Date(), revisions: [],
-      });
+        favorite: Boolean(source.favorite), createdAt: new Date(), updatedAt: new Date(), ...importNoteMetadata(source),
+      }, { session });
       notesAdded += 1;
     }
 
     let savedLinksAdded = 0;
     for (const [index, source] of backup.savedLinks.entries()) {
       const normalized = normalizedLinks[index].value;
-      const exists = await linkCollection.findOne({ ownerId, url: normalized.url }, { projection: { _id: 1 } });
+      const exists = await linkCollection.findOne({ ownerId, url: normalized.url }, { session, projection: { _id: 1 } });
       if (exists) { skipped += 1; continue; }
-      await linkCollection.insertOne({ _id: randomUUID(), ownerId, ...normalized, order: await linkCollection.countDocuments({ ownerId }), createdAt: new Date(), updatedAt: new Date() });
+      await linkCollection.insertOne({ _id: randomUUID(), ownerId, ...normalized, order: await linkCollection.countDocuments({ ownerId }, { session }), createdAt: new Date(), updatedAt: new Date() }, { session });
       savedLinksAdded += 1;
     }
 
     let quickNotesAdded = 0;
     for (const source of backup.quickNotes) {
       const content = normalizeQuickNoteContent(source.content);
-      const exists = await quickCollection.findOne({ ownerId, content }, { projection: { _id: 1 } });
+      const exists = await quickCollection.findOne({ ownerId, content }, { session, projection: { _id: 1 } });
       if (exists) { skipped += 1; continue; }
       const now = new Date();
-      await quickCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now });
+      await quickCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now }, { session });
       quickNotesAdded += 1;
     }
-    await db.collection('users').updateOne({ googleSub: ownerId }, { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } });
-    return json({ subjectsAdded, notesAdded, savedLinksAdded, quickNotesAdded, skipped });
+    let personalQuickNotesAdded = 0;
+    for (const source of personalQuickNotes) {
+      const content = normalizeQuickNoteContent(source.content);
+      const exists = await personalCollection.findOne({ ownerId, content }, { session, projection: { _id: 1 } });
+      if (exists) { skipped += 1; continue; }
+      const now = new Date();
+      await personalCollection.insertOne({ _id: randomUUID(), ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now }, { session });
+      personalQuickNotesAdded += 1;
+    }
+    // Touch the account inside the same transaction. If it was deleted or
+    // concurrently removed, do not commit orphaned restored records.
+    const userUpdate = await db.collection('users').updateOne(
+      accountFilter,
+      { $set: { newsInterests: [...new Set(submittedInterests)].slice(0, 10), updatedAt: new Date() } },
+      { session },
+    );
+    if (userUpdate.matchedCount !== 1) throw new Error('Account no longer exists');
+    return json({ subjectsAdded, notesAdded, savedLinksAdded, quickNotesAdded, personalQuickNotesAdded, skipped });
+    });
   } catch (error) {
     console.error('POST /api/backup failed:', error?.name);
-    return json({ error: 'Could not restore this backup. Some earlier records may already have been added; exporting a fresh backup is recommended before retrying.' }, 500);
+    return json({ error: 'Could not restore this backup. The restore transaction was not completed; verify your database supports transactions before retrying.' }, 500);
   }
   } catch (error) {
     console.error('POST /api/backup request failed:', error?.name);

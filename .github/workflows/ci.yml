@@ -6,6 +6,22 @@ on:
     branches: [main, 'implementation/**']
 
 jobs:
+  secret-scan:
+    name: Scan Git history for secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -34,4 +50,52 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
           AUTH_SECRET: ci-only-placeholder-secret-32-characters-minimum
           AUTH_GOOGLE_ID: ci-placeholder.apps.googleusercontent.com
-          AUTH_GOOGLE_SECRET: ci-only-placeholder-secret
+          AUTH_GOOGLE_SECRET: oge-ci-google-secret-synthetic-placeholder-9ad27
+          OGE_HEALTHCHECK_TOKEN: oge-ci-monitor-secret-synthetic-placeholder-3f71a
+          OGE_CI_PRIVATE_CANARY: oge-ci-server-private-canary-e42fbf19a927
+      - name: Verify generated browser assets contain no synthetic secrets
+        run: node scripts/verify-client-artifacts.mjs
+        env:
+          AUTH_SECRET: ci-only-placeholder-secret-32-characters-minimum
+          AUTH_GOOGLE_SECRET: oge-ci-google-secret-synthetic-placeholder-9ad27
+          OGE_HEALTHCHECK_TOKEN: oge-ci-monitor-secret-synthetic-placeholder-3f71a
+          OGE_CI_PRIVATE_CANARY: oge-ci-server-private-canary-e42fbf19a927
+
+  mongo-integration:
+    name: MongoDB replica-set integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Launch disposable local MongoDB replica set
+        run: |
+          docker run --detach --name oge-mongo-integration --publish 127.0.0.1:27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 45); do
+            if docker exec oge-mongo-integration mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' 2>/dev/null | grep -q 1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec oge-mongo-integration mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+          for i in $(seq 1 45); do
+            if docker exec oge-mongo-integration mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null | grep -q true; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Replica set did not become primary' >&2
+          exit 1
+      - name: Run real MongoDB transactional integration tests
+        run: node --test tests/mongodb-replica-integration.test.js
+        env:
+          OGE_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true
+          OGE_ALLOW_MONGO_INTEGRATION_TESTS: YES_DISPOSABLE_DATABASE
+      - name: Stop disposable test MongoDB
+        if: always()
+        run: docker rm --force oge-mongo-integration || true

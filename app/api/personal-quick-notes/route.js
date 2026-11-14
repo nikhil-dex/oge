@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
@@ -19,7 +20,7 @@ function validId(value) { return typeof value === 'string' && /^[a-f0-9-]{36}$/i
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 
 export async function GET() {
@@ -45,10 +46,12 @@ export async function POST(request) {
     if (!ctx) return json({ error: 'Sign in to create AirNotes.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const now = new Date();
-    const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
-    await ctx.db.collection('personalQuickNotes').insertOne(note);
-    return json({ id: note._id, content, title: note.title, createdAt: now, updatedAt: now }, 201);
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const now = new Date();
+      const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
+      await ctx.db.collection('personalQuickNotes').insertOne(note, { session });
+      return json({ id: note._id, content, title: note.title, createdAt: now, updatedAt: now }, 201);
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('POST /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not create this AirNote.' }, 500);
@@ -67,14 +70,16 @@ export async function PUT(request) {
     if (!ctx) return json({ error: 'Sign in to update AirNotes.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const now = new Date();
-    const result = await ctx.db.collection('personalQuickNotes').findOneAndUpdate(
-      { _id: id, ownerId: ctx.ownerId },
-      { $set: { content, title: quickNoteTitle(content), updatedAt: now } },
-      { returnDocument: 'after', includeResultMetadata: false },
-    );
-    if (!result) return json({ error: 'AirNote not found.' }, 404);
-    return json({ id: String(result._id), content: result.content, title: result.title, createdAt: result.createdAt, updatedAt: result.updatedAt });
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const now = new Date();
+      const result = await ctx.db.collection('personalQuickNotes').findOneAndUpdate(
+        { _id: id, ownerId: ctx.ownerId },
+        { $set: { content, title: quickNoteTitle(content), updatedAt: now } },
+        { returnDocument: 'after', includeResultMetadata: false, session },
+      );
+      if (!result) return json({ error: 'AirNote not found.' }, 404);
+      return json({ id: String(result._id), content: result.content, title: result.title, createdAt: result.createdAt, updatedAt: result.updatedAt });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PUT /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not save this AirNote.' }, 500);
@@ -89,9 +94,11 @@ export async function DELETE(request) {
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid AirNote.' }, 400);
-    const result = await ctx.db.collection('personalQuickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId });
-    if (!result.deletedCount) return json({ error: 'AirNote not found.' }, 404);
-    return json({ deleted: id });
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const result = await ctx.db.collection('personalQuickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
+      if (!result.deletedCount) return json({ error: 'AirNote not found.' }, 404);
+      return json({ deleted: id });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('DELETE /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not delete this AirNote.' }, 500);

@@ -3,6 +3,7 @@ import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { encryptGeminiKey, maskGeminiKey } from '../../../lib/gemini-key.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ function json(data, status = 200) {
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 
 async function readBody(request) {
@@ -99,11 +100,13 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to manage your Gemini API key.' }, 401);
+    const accountFilter = ownerMutationFilter(ctx.ownerId, { sessionVersion: ctx.sessionVersion });
     const user = await ctx.db.collection('users').findOne(
-      { googleSub: ctx.ownerId },
+      accountFilter,
       { projection: { geminiApiKey: 1 } },
     );
-    const stored = user?.geminiApiKey;
+    if (!user) return json({ error: 'Your account session has changed. Sign in again.' }, 401);
+    const stored = user.geminiApiKey;
     return json({
       configured: Boolean(stored?.ciphertext && stored?.iv && stored?.tag),
       updatedAt: stored?.updatedAt || null,
@@ -127,9 +130,11 @@ export async function POST(request) {
       return json({ error: 'Choose save, test, or delete.' }, 400);
     }
     const users = ctx.db.collection('users');
+    const accountFilter = ownerMutationFilter(ctx.ownerId, { sessionVersion: ctx.sessionVersion });
 
     if (action === 'delete') {
-      await users.updateOne({ googleSub: ctx.ownerId }, { $unset: { geminiApiKey: '' } });
+      const result = await users.updateOne(accountFilter, { $unset: { geminiApiKey: '' } });
+      if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
       return json({ configured: false, message: 'Gemini API key removed.' });
     }
 
@@ -143,7 +148,8 @@ export async function POST(request) {
     if (action !== 'save') return json({ error: 'Choose save, test, or delete.' }, 400);
 
     const encrypted = encryptGeminiKey(apiKey);
-    await users.updateOne({ googleSub: ctx.ownerId }, { $set: { geminiApiKey: encrypted, updatedAt: new Date() } });
+    const result = await users.updateOne(accountFilter, { $set: { geminiApiKey: encrypted, updatedAt: new Date() } });
+    if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
     return json({ configured: true, updatedAt: encrypted.updatedAt, maskedKey: maskGeminiKey(apiKey), message: 'Gemini API key saved securely.' });
   } catch (error) {
     if (error?.message === 'GEMINI_KEY_ENCRYPTION_SECRET must be configured with at least 32 characters.') {

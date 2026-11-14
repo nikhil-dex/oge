@@ -1,6 +1,7 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,8 +54,13 @@ export async function GET() {
     const db = await getDatabase();
     const throttle = await checkRateLimit(db, { scope: 'news-feed', identifier: ownerId, limit: 30, windowMs: 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const account = await db.collection('users').findOne({ googleSub: ownerId }, { projection: { newsInterests: 1 } });
-    const selected = Array.isArray(account?.newsInterests) ? account.newsInterests.filter((topic) => Object.hasOwn(TOPICS, topic)).slice(0, 6) : [];
+    const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion });
+    const account = await db.collection('users').findOne(accountFilter, { projection: { newsInterests: 1 } });
+    if (!account) return Response.json(
+      { error: 'Your account session has changed. Sign in again.' },
+      { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    );
+    const selected = Array.isArray(account.newsInterests) ? account.newsInterests.filter((topic) => Object.hasOwn(TOPICS, topic)).slice(0, 6) : [];
     const topics = selected.length ? selected : DEFAULT_TOPICS;
     const results = await Promise.allSettled(topics.map(async (category) => {
       const query = encodeURIComponent((TOPICS[category] || TOPICS['World News']) + ' when:7d');

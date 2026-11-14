@@ -18,7 +18,8 @@ test('revision history can restore only a selected version belonging to the sign
   assert.match(page, /revisionIndex: selected\.revisionIndex/);
   assert.match(page, /Restore this version/);
   assert.match(route, /const ownerId = session\?\.user\?\.id/);
-  assert.match(route, /findOne\(\{ _id: new ObjectId\(noteId\), ownerId \}\)/);
+  assert.match(route, /findOne\(\{ _id: new ObjectId\(noteId\), ownerId \}, \{ session \}\)/);
+  assert.match(route, /withActiveOwnerMutation\(db, ownerId/);
   assert.match(route, /updatedRevisions = \[\.\.\.revisions/);
   assert.match(route, /restoreFilter\.updatedAt = note\.updatedAt/);
 });

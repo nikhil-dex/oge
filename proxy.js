@@ -12,6 +12,9 @@ function secure(response) {
 export default auth((request) => {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith('/api/auth/')) return secure(NextResponse.next());
+  // Health endpoint authenticates a separate monitor bearer token in its route.
+  // Do not redirect anonymous monitors to the Google sign-in page.
+  if (pathname === '/api/health' && request.method === 'GET') return secure(NextResponse.next());
   // CSP telemetry is sent without a user session and must not redirect to sign-in.
   if (pathname === '/api/csp-report' && request.method === 'POST') return secure(NextResponse.next());
   // The extension endpoint uses a separately validated bearer token, not cookie auth.

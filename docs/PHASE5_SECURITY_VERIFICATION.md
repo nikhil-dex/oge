@@ -6,18 +6,99 @@ credentials, exported user data, or incident logs containing personal data.
 
 ## Automated controls now present
 
-- Security headers and report-only CSP, with a sanitized violation collector.
+- Security headers and default report-only CSP, with a sanitized violation collector.
+  An explicit `OGE_ENFORCE_CSP=true` deployment flag switches to enforcement;
+  it is **not enabled by default** and must be tested in staging before public use.
 - Same-origin API mutation checks, except the bearer-authenticated extension save endpoint.
 - Shared MongoDB fixed-window request limits for Gemini note cleanup (10/hour),
-  browser extension saves (60/hour/token), extension token creation (10/hour/account),
+  browser extension saves (60/hour/token), extension token creation (10/hour/account) and revocation (30/hour/account),
   Gemini key management (12/hour/account), personalized news (30/minute/account),
-  and backups (10 exports/hour/account, 5 imports/hour/account), plus dictionary lookups (40/minute/account). Notes, Subjects, Quick Notes, AirNotes and Saved Links mutations now share 120 requests/minute per account and resource. These are limited controls, **not full API-wide rate limiting**.
-- Backup exports cap each collection at 5,000 records and return an explicit error instead of returning an unlimited number of records. Backup imports already enforce a request-body limit. Gemini-key actions are validated before contacting the provider, and untrusted provider error messages are not reflected.
+  and backups (10 exports/hour/account, 5 imports/hour/account), plus dictionary lookups (40/minute/account). Notes, Subjects, Quick Notes, AirNotes and Saved Links mutations now share 120 requests/minute per account and resource. Revision ratings are limited to 120/minute/account and revision-history restores to 30/hour/account. These are limited controls, **not full API-wide rate limiting**.
+- Backup v1 exports and imports now preserve bounded note revision snapshots, revision ratings and due dates, including compatibility with older files without this metadata.
+- Backup restore now runs as an all-or-nothing MongoDB transaction and fails closed on standalone MongoDB deployments without transaction support. Live replica-set rollback, concurrency, and import performance still require testing.
+- Backup v1 exports and imports now include AirNotes (personalQuickNotes) with backwards compatibility for older v1 files lacking that field. Backup exports cap each collection at 5,000 records and return an explicit error instead of returning an unlimited number of records. Backup imports already enforce a request-body limit. Gemini-key actions are validated before contacting the provider, and untrusted provider error messages are not reflected.
 - Subject listing is capped at 1,000 per user (and subject creation rejects the same per-account limit). CSP report logging is capped per process at 20 directives per minute; add shared edge/WAF limits for anonymous requests before launch.
 - A staging-only two-account Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, Revision History, and Backup export isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
+- CI scans generated `.next/static` files and prerendered HTML/response assets for synthetic build-time secrets after Next.js build. The gate fails if any canary is found, but does not prove actual deployment secrets or runtime responses cannot leak.
 - CI node tests, Next.js build, high/critical production dependency audit,
-  and a tracked-file credential-pattern check. Pattern matching is **not** an
-  exhaustive history scan or substitute for purpose-built secret scanning.
+  plus a dedicated Git-history Gitleaks scan and tracked-file credential-pattern
+  check. Gitleaks must pass CI; review any findings and rotate exposed secrets.
+  Passing scans do not prove that no secret ever leaked.
+
+For deployment procedures, see [Phase 5 Operations Runbook](PHASE5_OPERATIONS_RUNBOOK.md).
+
+- A guarded **destructive** account deletion drill now exists at `scripts/verify-staging-account-deletion.mjs`; it checks two distinct sessions for the same disposable staging account and rejects nonempty workspaces. It is not executed by CI and must never be used with a real account or production-connected database.
+- Account deletion route + Settings control now exist **behind** the default-off `OGE_ACCOUNT_DELETION_ENABLED` flag. It checks recent Google sign-in, uses transactional owner-scoped removal, and persistent JWT version validation; these controls have **not** passed live staging concurrency/rollback/security testing.
+
+## Behavioral account-mutation tests
+
+`tests/owner-mutation-behavior.test.js` uses a small stateful transactional
+database double instead of matching route source formatting. It exercises
+the production account mutation helper for valid and stale signed sessions,
+legacy-account compatibility, committed versus aborted writes, and
+revoked/expired browser-extension tokens. Fragile syntax-matching tests for
+these same paths have been reduced.
+
+These tests simulate MongoDB semantics; they **do not** establish actual
+Atlas transaction rollback or concurrency guarantees. Verify those on
+an isolated replica-set staging environment before final release.
+
+## Replica-set integration CI gate
+
+A dedicated `mongo-integration` GitHub Actions job boots a disposable
+`mongo:7` container on loopback, initializes a single-node replica set,
+and executes `tests/mongodb-replica-integration.test.js` against the real
+MongoDB Node.js driver. The tests verify owner-fenced writes, transaction
+rollback after partial inserts, rejection of stale session epochs,
+cross-owner isolation, and atomic subject/notes cascade deletion.
+
+The test harness requires `OGE_ALLOW_MONGO_INTEGRATION_TESTS=YES_DISPOSABLE_DATABASE`,
+only accepts a **local** MongoDB URL on port 27017, creates a random
+`oge_ci_*` database per test, and drops it when complete. It must never
+receive production or staging Atlas credentials.
+
+The integration suite also checks sequential deletion followed by Google account
+re-registration: an old signed session cannot create records in the replacement
+account while the new session can. Another test reads a snapshot, inserts a
+record outside the transaction, and verifies that the transaction does not
+see the concurrent write.
+
+These checks cover **real database transaction and snapshot semantics** but
+do not yet exercise overlapping account-deletion transactions, live Auth.js
+cookies, HTTP request concurrency, or the application's full backup route.
+
+A passing CI gate provides real replica-set transaction evidence, **not**
+proof that the production Atlas cluster, large imports, OAuth sessions or
+backup snapshot restore are working. Those remain staging release gates.
+
+## Actual account deletion transaction and overlapping write test
+
+Account deletion now delegates to `lib/account-deletion-transaction.js`, the
+same production helper exercised in real MongoDB CI. It deletes the profile
+and every known owner-scoped collection atomically, refuses obsolete session
+versions, and leaves another user's records untouched.
+
+The integration suite now also starts a Notes write transaction and an
+account-deletion transaction while they overlap. It verifies that a completed
+deletion leaves no orphaned notes; if MongoDB aborts the deletion due to a
+write conflict, a fresh retry must succeed and leave no orphaned notes.
+
+These tests run only on a disposable local replica set. They do not verify
+the full authenticated HTTP deletion flow, edge/proxy CSRF behavior, extension
+token lifecycle from real browser sessions, Atlas operational failures, or
+the complete account retention policy. The deletion feature remains off
+by default until those staging checks are complete.
+
+## Private profile read fencing
+
+Settings profile details, personalized-news preferences, Gemini-key status and
+browser-extension token status now query the user row with the original signed
+session version. If an old request resumes after account deletion and
+re-registration, it cannot read the replacement account's preferences or
+credential status; missing/version-mismatched records are rejected rather than
+silently displayed as empty. Existing HTTP/Next.js and client regression checks
+cover the route wiring, while the shared version-filter behavior is tested
+directly. This still requires live browser-session testing.
 
 ## Required deployment verification (unverified)
 
@@ -89,6 +170,25 @@ This test covers **Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision
 The roadmap still requires runtime account isolation for backup import,
 extension-token workflows, settings and other authenticated
 modules, as well as browser session and OAuth testing.
+
+## Non-destructive authentication and CSRF staging drill
+
+The `scripts/verify-staging-auth-guards.mjs` script tests invalid/missing
+sessions against private APIs, rejects cross-origin subject mutations, and
+requires that the protected health check reject anonymous requests. It sends
+only invalid subject creation payloads; it does not create real records.
+
+Run **only** against a separate staging database with two disposable signed-in
+accounts and the same private environment variables listed above:
+
+```bash
+node scripts/verify-staging-auth-guards.mjs
+```
+
+Ensure the accounts and endpoint configurations match the staging test
+assumptions. The script is not executed in CI because it requires live
+authenticated test sessions. It is **not** a substitute for full browser
+OAuth, session expiration, concurrency, or account deletion testing.
 
 ## Mutation throttling verification
 

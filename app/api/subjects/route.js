@@ -3,6 +3,8 @@ import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { randomUUID } from 'node:crypto';
+import { deleteSubjectAtomically } from '../../../lib/atomic-subject-deletion.js';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,6 +16,7 @@ function json(data, status = 200) {
 export async function GET() {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to view your subjects.' }, 401);
   try {
     const db = await getDatabase();
@@ -28,6 +31,7 @@ export async function GET() {
 export async function POST(request) {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to create a subject.' }, 401);
   let data;
   try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
@@ -37,12 +41,14 @@ export async function POST(request) {
     const db = await getDatabase();
     const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    if (await db.collection('subjects').countDocuments({ ownerId }, { limit: 1000 }) >= 1000) {
-      return json({ error: 'Subject limit reached (1,000).' }, 409);
-    }
-    const subject = { ownerId, slug: randomUUID(), name, createdAt: new Date(), updatedAt: new Date() };
-    await db.collection('subjects').insertOne(subject);
-    return json({ id: String(subject._id), slug: subject.slug, name: subject.name, createdAt: subject.createdAt }, 201);
+    return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      if (await db.collection('subjects').countDocuments({ ownerId }, { limit: 1000, session }) >= 1000) {
+        return json({ error: 'Subject limit reached (1,000).' }, 409);
+      }
+      const subject = { ownerId, slug: randomUUID(), name, createdAt: new Date(), updatedAt: new Date() };
+      await db.collection('subjects').insertOne(subject, { session });
+      return json({ id: String(subject._id), slug: subject.slug, name: subject.name, createdAt: subject.createdAt }, 201);
+    }, { sessionVersion: sessionVersion });
   } catch (error) {
     if (error?.code === 11000) return json({ error: 'That subject already exists.' }, 409);
     console.error('POST /api/subjects failed:', error?.name);
@@ -53,6 +59,7 @@ export async function POST(request) {
 export async function DELETE(request) {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to delete a subject.' }, 401);
   const slug = new URL(request.url).searchParams.get('slug');
   if (!slug) return json({ error: 'Choose a subject.' }, 400);
@@ -60,12 +67,9 @@ export async function DELETE(request) {
     const db = await getDatabase();
     const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const subject = await db.collection('subjects').findOne({ ownerId, slug });
-    if (!subject) return json({ error: 'Subject not found.' }, 404);
-    const count = await db.collection('subjects').countDocuments({ ownerId });
-    if (count <= 1) return json({ error: 'Keep at least one subject. Add another before deleting this one.' }, 400);
-    await db.collection('notes').deleteMany({ ownerId, subjectSlug: slug });
-    await db.collection('subjects').deleteOne({ _id: subject._id, ownerId });
+    const result = await deleteSubjectAtomically(db, ownerId, slug, { sessionVersion });
+    if (result.status === 'not-found') return json({ error: 'Subject not found.' }, 404);
+    if (result.status === 'last-subject') return json({ error: 'Keep at least one subject. Add another before deleting this one.' }, 400);
     return json({ deleted: slug });
   } catch (error) {
     console.error('DELETE /api/subjects failed:', error?.name);

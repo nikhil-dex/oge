@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
@@ -19,7 +20,7 @@ function validId(value) { return typeof value === 'string' && /^[a-f0-9-]{36}$/i
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 
 export async function GET() {
@@ -44,12 +45,14 @@ export async function POST(request) {
     if (!ctx) return json({ error: 'Sign in to save links.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const collection = ctx.db.collection('savedLinks');
-    const order = await collection.countDocuments({ ownerId: ctx.ownerId });
-    const now = new Date();
-    const link = { _id: randomUUID(), ownerId: ctx.ownerId, ...normalized.value, order, createdAt: now, updatedAt: now };
-    await collection.insertOne(link);
-    return json({ id: link._id, ...normalized.value, order, createdAt: now, updatedAt: now }, 201);
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const collection = ctx.db.collection('savedLinks');
+      const order = await collection.countDocuments({ ownerId: ctx.ownerId }, { session });
+      const now = new Date();
+      const link = { _id: randomUUID(), ownerId: ctx.ownerId, ...normalized.value, order, createdAt: now, updatedAt: now };
+      await collection.insertOne(link, { session });
+      return json({ id: link._id, ...normalized.value, order, createdAt: now, updatedAt: now }, 201);
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('POST /api/saved-links failed:', error?.name);
     return json({ error: 'Could not save this link.' }, 500);
@@ -68,13 +71,15 @@ export async function PUT(request) {
     if (!ctx) return json({ error: 'Sign in to edit links.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const result = await ctx.db.collection('savedLinks').findOneAndUpdate(
-      { _id: id, ownerId: ctx.ownerId },
-      { $set: { ...normalized.value, updatedAt: new Date() } },
-      { returnDocument: 'after', includeResultMetadata: false },
-    );
-    if (!result) return json({ error: 'Saved link not found.' }, 404);
-    return json({ id: result._id, title: result.title, url: result.url, description: result.description, category: result.category, tags: result.tags || [], order: result.order, createdAt: result.createdAt, updatedAt: result.updatedAt });
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const result = await ctx.db.collection('savedLinks').findOneAndUpdate(
+        { _id: id, ownerId: ctx.ownerId },
+        { $set: { ...normalized.value, updatedAt: new Date() } },
+        { returnDocument: 'after', includeResultMetadata: false, session },
+      );
+      if (!result) return json({ error: 'Saved link not found.' }, 404);
+      return json({ id: result._id, title: result.title, url: result.url, description: result.description, category: result.category, tags: result.tags || [], order: result.order, createdAt: result.createdAt, updatedAt: result.updatedAt });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PUT /api/saved-links failed:', error?.name);
     return json({ error: 'Could not update this link.' }, 500);
@@ -89,12 +94,17 @@ export async function DELETE(request) {
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid saved link.' }, 400);
-    const collection = ctx.db.collection('savedLinks');
-    const result = await collection.deleteOne({ _id: id, ownerId: ctx.ownerId });
-    if (!result.deletedCount) return json({ error: 'Saved link not found.' }, 404);
-    const remaining = await collection.find({ ownerId: ctx.ownerId }, { projection: { _id: 1, order: 1 } }).sort({ order: 1, createdAt: -1 }).toArray();
-    if (remaining.length) await collection.bulkWrite(remaining.map((link, order) => ({ updateOne: { filter: { _id: link._id, ownerId: ctx.ownerId }, update: { $set: { order } } } })));
-    return json({ deleted: id });
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const collection = ctx.db.collection('savedLinks');
+      const result = await collection.deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
+      if (!result.deletedCount) return json({ error: 'Saved link not found.' }, 404);
+      const remaining = await collection.find({ ownerId: ctx.ownerId }, { session, projection: { _id: 1, order: 1 } }).sort({ order: 1, createdAt: -1 }).toArray();
+      if (remaining.length) await collection.bulkWrite(
+        remaining.map((link, order) => ({ updateOne: { filter: { _id: link._id, ownerId: ctx.ownerId }, update: { $set: { order } } } })),
+        { session },
+      );
+      return json({ deleted: id });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('DELETE /api/saved-links failed:', error?.name);
     return json({ error: 'Could not delete this link.' }, 500);
@@ -111,11 +121,16 @@ export async function PATCH(request) {
     if (!ctx) return json({ error: 'Sign in to reorder links.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const collection = ctx.db.collection('savedLinks');
-    const existingCount = await collection.countDocuments({ ownerId: ctx.ownerId, _id: { $in: ids } });
-    if (existingCount !== ids.length) return json({ error: 'One or more links were not found.' }, 409);
-    if (ids.length) await collection.bulkWrite(ids.map((id, order) => ({ updateOne: { filter: { _id: id, ownerId: ctx.ownerId }, update: { $set: { order, updatedAt: new Date() } } } })));
-    return json({ reordered: ids.length });
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const collection = ctx.db.collection('savedLinks');
+      const existingCount = await collection.countDocuments({ ownerId: ctx.ownerId, _id: { $in: ids } }, { session });
+      if (existingCount !== ids.length) return json({ error: 'One or more links were not found.' }, 409);
+      if (ids.length) await collection.bulkWrite(
+        ids.map((id, order) => ({ updateOne: { filter: { _id: id, ownerId: ctx.ownerId }, update: { $set: { order, updatedAt: new Date() } } } })),
+        { session },
+      );
+      return json({ reordered: ids.length });
+    }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
     console.error('PATCH /api/saved-links failed:', error?.name);
     return json({ error: 'Could not reorder links.' }, 500);

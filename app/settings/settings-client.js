@@ -24,7 +24,7 @@ function readLocal(key, fallback) {
   try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
 }
 
-export default function SettingsClient() {
+export default function SettingsClient({ accountDeletionEnabled = false }) {
   const [subjects, setSubjects] = useState([]);
   const [subjectName, setSubjectName] = useState('');
   const [subjectLoading, setSubjectLoading] = useState(true);
@@ -43,6 +43,8 @@ export default function SettingsClient() {
   const [geminiMessageType, setGeminiMessageType] = useState('status');
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState('');
+  const [accountDeleting, setAccountDeleting] = useState(false);
+  const [accountDeleteError, setAccountDeleteError] = useState('');
   const fileRef = useRef(null);
 
   const refreshSubjects = useCallback(async () => {
@@ -164,6 +166,27 @@ export default function SettingsClient() {
     }
   }
 
+  async function deleteMyAccount() {
+    if (!accountDeletionEnabled || accountDeleting) return;
+    const confirmation = window.prompt('Permanently delete this OgeNotes account and all its stored notes, links and preferences? Type DELETE MY ACCOUNT to proceed.');
+    if (confirmation !== 'DELETE MY ACCOUNT') return;
+    if (!window.confirm('Final confirmation: this cannot be undone. Download your backup first. Continue?')) return;
+    setAccountDeleting(true);
+    setAccountDeleteError('');
+    try {
+      await responseJson(await fetch('/api/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ confirmation }),
+      }));
+      window.location.assign('/register');
+    } catch (error) {
+      setAccountDeleteError(error?.message || 'Account deletion failed.');
+      setAccountDeleting(false);
+    }
+  }
+
   async function restoreBackup(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -180,7 +203,7 @@ export default function SettingsClient() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: raw,
       }));
       await refreshSubjects();
-      setBackupMessage('Restore complete: ' + result.subjectsAdded + ' subjects, ' + result.notesAdded + ' notes, ' + result.savedLinksAdded + ' saved links, and ' + result.quickNotesAdded + ' quick notes added. Existing records skipped: ' + result.skipped + '.');
+      setBackupMessage('Restore complete: ' + result.subjectsAdded + ' subjects, ' + result.notesAdded + ' notes, ' + result.savedLinksAdded + ' saved links, and ' + result.quickNotesAdded + ' quick notes and ' + (result.personalQuickNotesAdded || 0) + ' AirNotes added. Existing records skipped: ' + result.skipped + '.');
     } catch (error) { setBackupMessage(error instanceof SyntaxError ? 'That file is not valid JSON.' : error.message || 'Restore failed.'); }
     finally { setBackupBusy(false); }
   }
@@ -262,6 +285,15 @@ export default function SettingsClient() {
         {backupMessage && <p className="oge-settings-feedback" role="status" aria-live="polite">{backupMessage}</p>}
         <p className="oge-settings-note">Restore adds missing records and skips duplicates. It does not delete existing records. Maximum backup size: 10 MB.</p>
       </section>
+      {accountDeletionEnabled && (
+        <section className="oge-settings-card" id="account-deletion" aria-labelledby="account-deletion-heading">
+          <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">06 · PRIVACY</span><h2 id="account-deletion-heading">Delete account</h2></div></div>
+          <p className="oge-settings-description">Permanently delete your OgeNotes profile, saved notes, AirNotes, links, preferences, encrypted Gemini key and browser extension access. Export a backup first. Existing database snapshots may expire under a separate retention policy.</p>
+          <p className="oge-settings-note">For security, sign out and sign back in with Google within five minutes before confirming deletion.</p>
+          <button type="button" className="oge-settings-danger-button" disabled={accountDeleting} onClick={deleteMyAccount}>{accountDeleting ? 'Deleting account…' : 'Permanently delete account'}</button>
+          {accountDeleteError && <p className="oge-settings-feedback" role="alert">{accountDeleteError}</p>}
+        </section>
+      )}
     </>
   );
 }

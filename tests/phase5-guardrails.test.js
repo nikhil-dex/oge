@@ -15,7 +15,7 @@ test('dictionary route applies shared rate limiting before external fetch', asyn
 test('subject listing is capped and creation is subject to the same cap', async () => {
   const source = await readFile(new URL('../app/api/subjects/route.js', import.meta.url), 'utf8');
   assert.match(source, /\.limit\(1000\)\.toArray\(\)/);
-  assert.ok(source.includes("countDocuments({ ownerId }, { limit: 1000 })"));
+  assert.ok(source.includes("countDocuments({ ownerId }, { limit: 1000, session })"));
   assert.ok(source.includes('Subject limit reached (1,000).'));
 });
 

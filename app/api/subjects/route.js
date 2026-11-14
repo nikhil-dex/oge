@@ -3,6 +3,7 @@ import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { randomUUID } from 'node:crypto';
+import { deleteSubjectAtomically } from '../../../lib/atomic-subject-deletion.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,12 +61,9 @@ export async function DELETE(request) {
     const db = await getDatabase();
     const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const subject = await db.collection('subjects').findOne({ ownerId, slug });
-    if (!subject) return json({ error: 'Subject not found.' }, 404);
-    const count = await db.collection('subjects').countDocuments({ ownerId });
-    if (count <= 1) return json({ error: 'Keep at least one subject. Add another before deleting this one.' }, 400);
-    await db.collection('notes').deleteMany({ ownerId, subjectSlug: slug });
-    await db.collection('subjects').deleteOne({ _id: subject._id, ownerId });
+    const result = await deleteSubjectAtomically(db, ownerId, slug);
+    if (result.status === 'not-found') return json({ error: 'Subject not found.' }, 404);
+    if (result.status === 'last-subject') return json({ error: 'Keep at least one subject. Add another before deleting this one.' }, 400);
     return json({ deleted: slug });
   } catch (error) {
     console.error('DELETE /api/subjects failed:', error?.name);

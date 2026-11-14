@@ -1,5 +1,6 @@
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
+import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { ObjectId } from 'mongodb';
 
@@ -40,6 +41,8 @@ export async function POST(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to create notes.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     let data;
     try { data = JSON.parse(await readLimitedBody(request, 32 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
     const subjectSlug = String(data?.subjectSlug || '');
@@ -65,6 +68,8 @@ export async function PUT(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update notes.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     let data;
     try { data = JSON.parse(await readLimitedBody(request, 32 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
     const id = String(data?.id || '');
@@ -95,6 +100,8 @@ export async function DELETE(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to delete notes.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id');
     if (!ObjectId.isValid(id || '')) return json({ error: 'Choose a valid note.' }, 400);
     const result = await ctx.db.collection('notes').deleteOne({ _id: new ObjectId(id), ownerId: ctx.ownerId });
@@ -110,6 +117,8 @@ export async function PATCH(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update notes.' }, 401);
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     let data;
     try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); } catch (error) { return json({ error: error?.status === 413 ? 'Request body is too large.' : 'Enter valid JSON.' }, error?.status || 400); }
     const id = String(data?.id || '');

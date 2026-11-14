@@ -54,7 +54,7 @@ export default async function SettingsPage() {
             <form action={signOutOfOgeNotes} className="oge-settings-signout"><button className="oge-settings-danger-button" type="submit">Sign out <span aria-hidden="true">↗</span></button></form>
           </section>
 
-          <SettingsClient />
+          <SettingsClient accountDeletionEnabled={process.env.OGE_ACCOUNT_DELETION_ENABLED === 'true'} />
 
           <section className="oge-settings-card" id="news-preferences" aria-labelledby="news-preferences-heading">
             <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">05 · PERSONALIZATION</span><h2 id="news-preferences-heading">News preferences</h2></div></div>

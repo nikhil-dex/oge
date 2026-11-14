@@ -3,6 +3,7 @@ import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { ObjectId } from 'mongodb';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,12 +53,14 @@ export async function POST(request) {
     if (!subjectSlug) return json({ error: 'Choose a subject.' }, 400);
     if (!heading || heading.length > 160) return json({ error: 'Heading must be 1–160 characters.' }, 400);
     if (!answer || answer.length > 20000) return json({ error: 'Note content must be 1–20,000 characters.' }, 400);
-    const subject = await ctx.db.collection('subjects').findOne({ ownerId: ctx.ownerId, slug: subjectSlug });
-    if (!subject) return json({ error: 'Subject not found.' }, 404);
-    const now = new Date();
-    const note = { ownerId: ctx.ownerId, subjectSlug, heading, answer, tags, favorite: false, createdAt: now, updatedAt: now, revisions: [] };
-    await ctx.db.collection('notes').insertOne(note);
-    return json({ id: String(note._id), subjectSlug, heading, answer, tags, favorite: false, createdAt: now, updatedAt: now }, 201);
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const subject = await ctx.db.collection('subjects').findOne({ ownerId: ctx.ownerId, slug: subjectSlug }, { session });
+      if (!subject) return json({ error: 'Subject not found.' }, 404);
+      const now = new Date();
+      const note = { ownerId: ctx.ownerId, subjectSlug, heading, answer, tags, favorite: false, createdAt: now, updatedAt: now, revisions: [] };
+      await ctx.db.collection('notes').insertOne(note, { session });
+      return json({ id: String(note._id), subjectSlug, heading, answer, tags, favorite: false, createdAt: now, updatedAt: now }, 201);
+    });
   } catch (error) {
     console.error('POST /api/notes failed:', error?.name);
     return json({ error: 'Could not save this note.' }, 500);

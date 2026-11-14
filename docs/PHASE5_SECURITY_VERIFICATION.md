@@ -89,6 +89,17 @@ token lifecycle from real browser sessions, Atlas operational failures, or
 the complete account retention policy. The deletion feature remains off
 by default until those staging checks are complete.
 
+## Private profile read fencing
+
+Settings profile details, personalized-news preferences, Gemini-key status and
+browser-extension token status now query the user row with the original signed
+session version. If an old request resumes after account deletion and
+re-registration, it cannot read the replacement account's preferences or
+credential status; missing/version-mismatched records are rejected rather than
+silently displayed as empty. Existing HTTP/Next.js and client regression checks
+cover the route wiring, while the shared version-filter behavior is tested
+directly. This still requires live browser-session testing.
+
 ## Required deployment verification (unverified)
 
 1. On an isolated staging environment, configure real Google OAuth credentials,

@@ -128,7 +128,7 @@ test('core mutations pass authenticated session versions and extension uses veri
   }
   for (const file of ['../app/api/subjects/route.js', '../app/api/revision/route.js', '../app/api/revision-history/route.js']) {
     const src = await readFile(new URL(file, import.meta.url), 'utf8');
-    assert.match(src, /sessionVersion: session\?\.user\?\.sessionVersion/);
+    assert.match(src, /const sessionVersion = session\?\.user\?\.sessionVersion;/);
     assert.match(src, /\}, \{ sessionVersion: sessionVersion \}\)/);
   }
   const extension = await readFile(new URL('../app/api/extension/save-link/route.js', import.meta.url), 'utf8');

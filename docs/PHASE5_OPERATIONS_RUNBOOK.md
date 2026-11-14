@@ -154,6 +154,23 @@ Monitor only sanitized counts, status classes and route templates: never raw
 notes, query strings, cookies, bearer tokens, encrypted key blobs or backup
 archives. Test the alert escalation and incident rollback path in staging.
 
+## Browser asset / secret leak verification
+
+CI injects synthetic (non-credential) canary values into selected server-only
+environment settings during `next build`, then runs
+`node scripts/verify-client-artifacts.mjs`. The scanner checks emitted
+browser files and prerendered HTML/response artifacts. It prints only paths to
+affected files and never prints secret values. Its tests include deliberate
+leaks to verify that detection works.
+
+Passing this gate is **not** proof that real deployment secrets are safe.
+Before launch, inspect deployed JavaScript bundles, publicly reachable build
+artifacts, rendered HTML, network responses and runtime logs using *dummy*
+secrets on an isolated staging environment. Never insert real tokens into
+frontend bundles merely to test them. A server-only build chunk may contain
+server variables legitimately, so do not treat scanning only server chunks as
+a client leak test. Public source maps must also be reviewed.
+
 ## Verification log template
 
 Keep a private record of environment, date, tester, revision SHA, each scenario

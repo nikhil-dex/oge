@@ -62,3 +62,16 @@ test('destructive staging deletion drill is restricted to disposable hosts and a
   assert.ok(script.includes("confirmation: 'DELETE MY ACCOUNT'"));
   assert.ok(!script.includes('process.env.MONGODB_URI'), 'staging script must not read production database credentials');
 });
+
+test('account deletion rejects stale signed session versions after account recreation', async () => {
+  const source = await readFile(new URL('../app/api/account/route.js', import.meta.url), 'utf8');
+  const auth = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  assert.match(auth, /session\.user\.sessionVersion = token\.sessionVersion \?\? 0/);
+  assert.match(source, /projection: \{ _id: 1, sessionVersion: 1 \}/);
+  assert.match(source, /!isCurrentSession\(user, session\.user\.sessionVersion\)/);
+  assert.match(source, /sessionVersion: user\.sessionVersion \?\? \{ \$exists: false \}/);
+  assert.equal(isCurrentSession({ sessionVersion: 'c96a716d-125b-43e9-96dc-992a9b6d34cf' },
+    '6ce8be36-9f52-44ad-b66d-690cd7cda25b'), false);
+  assert.equal(isCurrentSession({ sessionVersion: 'c96a716d-125b-43e9-96dc-992a9b6d34cf' },
+    'c96a716d-125b-43e9-96dc-992a9b6d34cf'), true);
+});

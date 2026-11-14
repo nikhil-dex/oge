@@ -59,3 +59,26 @@ test('CSP report endpoint bypasses sign-in in proxy source', async () => {
   const source = await readFile(new URL('../proxy.js', import.meta.url), 'utf8');
   assert.ok(source.includes("pathname === '/api/csp-report' && request.method === 'POST'"));
 });
+
+test('CSP enforcement requires an explicit opt-in and preserves the policy directives', () => {
+  const previous = process.env.OGE_ENFORCE_CSP;
+  try {
+    delete process.env.OGE_ENFORCE_CSP;
+    const report = applySecurityHeaders(response());
+    const expected = report.headers.get('Content-Security-Policy-Report-Only');
+    assert.ok(expected);
+
+    process.env.OGE_ENFORCE_CSP = 'true';
+    const enforced = applySecurityHeaders(response());
+    assert.equal(enforced.headers.get('Content-Security-Policy'), expected);
+    assert.equal(enforced.headers.get('Content-Security-Policy-Report-Only'), null);
+
+    process.env.OGE_ENFORCE_CSP = 'false';
+    const disabled = applySecurityHeaders(response());
+    assert.equal(disabled.headers.get('Content-Security-Policy'), null);
+    assert.equal(disabled.headers.get('Content-Security-Policy-Report-Only'), expected);
+  } finally {
+    if (previous === undefined) delete process.env.OGE_ENFORCE_CSP;
+    else process.env.OGE_ENFORCE_CSP = previous;
+  }
+});

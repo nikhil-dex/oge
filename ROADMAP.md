@@ -139,6 +139,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
   - A post-build CI check now scans client and prerendered artifacts for synthetic server-only secret canaries; production deployed bundles and real traffic still require inspection.
 - [ ] Configure database backups and perform a restore test.
 - [ ] Define data export, account deletion, retention, and handling of backups after deletion.
+  - JSON backup restores now require an all-or-nothing MongoDB transaction. Unit tests cover transaction invocation and failure propagation; Atlas rollback and concurrent deletion must still be verified in staging.
   - JSON backup includes AirNotes, note revisions and review schedules while preserving older v1 imports. A feature-flagged account-deletion route and global session version checks exist, and a guarded disposable-account staging drill is available. Deletion remains disabled by default pending actual staging security/rollback tests, backup retention policy, and complete preferences review. See `docs/PHASE5_OPERATIONS_RUNBOOK.md`.
 - [ ] Add monitoring and alerts for errors, abnormal request rates, database capacity, and provider/API failures.
   - An authenticated, sanitized `/api/health` endpoint checks app/database readiness with a dedicated server-only bearer token; actual monitor configuration, alert delivery, database-capacity/backup alerts and provider monitoring remain outstanding.

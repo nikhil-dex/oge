@@ -47,3 +47,16 @@ test('auth issues a unique version on account creation and validates current ver
   assert.match(src, /token\.authenticatedAt = Date\.now\(\)/);
   assert.match(src, /session\.user\.authenticatedAt/);
 });
+
+test('destructive staging deletion drill is restricted to disposable hosts and account data', async () => {
+  const script = await readFile(new URL('../scripts/verify-staging-account-deletion.mjs', import.meta.url), 'utf8');
+  assert.ok(script.includes('OGE_STAGING_DELETION_CONFIRM'));
+  assert.ok(script.includes('DELETE DISPOSABLE STAGING ACCOUNT'));
+  assert.ok(script.includes("base.hostname === config.host"));
+  assert.ok(script.includes("base.protocol === 'https:'"));
+  assert.ok(script.includes("backup.payload[name].length === 0"));
+  assert.ok(script.includes("otherSubjects.payload.some"));
+  assert.ok(script.includes("result.status === 401"));
+  assert.ok(script.includes("confirmation: 'DELETE MY ACCOUNT'"));
+  assert.ok(!script.includes('process.env.MONGODB_URI'), 'staging script must not read production database credentials');
+});

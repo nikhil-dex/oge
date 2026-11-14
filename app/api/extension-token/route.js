@@ -36,10 +36,11 @@ export async function POST() {
     const token = createExtensionToken();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-    await db.collection('users').updateOne(
+    const result = await db.collection('users').updateOne(
       { googleSub: ownerId },
       { $set: { extensionTokenHash: hashExtensionToken(token), extensionTokenCreatedAt: now, extensionTokenExpiresAt: expiresAt, updatedAt: now } },
     );
+    if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
     return json({ token, createdAt: now, expiresAt }, 201);
   } catch (error) {
     console.error('POST /api/extension-token failed:', error?.name);

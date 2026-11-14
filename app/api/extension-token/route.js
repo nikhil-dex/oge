@@ -24,7 +24,8 @@ export async function GET() {
     const accountFilter = ownerMutationFilter(ownerId, { sessionVersion });
     const db = await getDatabase();
     const user = await db.collection('users').findOne(accountFilter, { projection: { extensionTokenHash: 1, extensionTokenExpiresAt: 1, extensionTokenCreatedAt: 1 } });
-    const active = Boolean(user?.extensionTokenHash && user.extensionTokenExpiresAt && new Date(user.extensionTokenExpiresAt) > new Date());
+    if (!user) return json({ error: 'Your account session has changed. Sign in again.' }, 401);
+    const active = Boolean(user.extensionTokenHash && user.extensionTokenExpiresAt && new Date(user.extensionTokenExpiresAt) > new Date());
     return json({ connected: active, expiresAt: active ? user.extensionTokenExpiresAt : null, createdAt: active ? user.extensionTokenCreatedAt : null });
   } catch (error) {
     console.error('GET /api/extension-token failed:', error?.name);

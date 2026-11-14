@@ -57,6 +57,16 @@ only accepts a **local** MongoDB URL on port 27017, creates a random
 `oge_ci_*` database per test, and drops it when complete. It must never
 receive production or staging Atlas credentials.
 
+The integration suite also checks sequential deletion followed by Google account
+re-registration: an old signed session cannot create records in the replacement
+account while the new session can. Another test reads a snapshot, inserts a
+record outside the transaction, and verifies that the transaction does not
+see the concurrent write.
+
+These checks cover **real database transaction and snapshot semantics** but
+do not yet exercise overlapping account-deletion transactions, live Auth.js
+cookies, HTTP request concurrency, or the application's full backup route.
+
 A passing CI gate provides real replica-set transaction evidence, **not**
 proof that the production Atlas cluster, large imports, OAuth sessions or
 backup snapshot restore are working. Those remain staging release gates.

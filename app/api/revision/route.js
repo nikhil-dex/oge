@@ -33,6 +33,7 @@ export async function GET() {
 export async function POST(request) {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to record a revision.' }, 401);
   let data;
   try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); }
@@ -56,7 +57,7 @@ export async function POST(request) {
       );
       if (!result) return json({ error: 'Note not found.' }, 404);
       return json({ id: String(result._id), heading: result.heading, reviewDueAt: result.reviewDueAt, reviewCount: result.reviewCount });
-    });
+    }, { sessionVersion: sessionVersion });
   } catch (error) {
     console.error('POST /api/revision failed:', error?.name);
     return json({ error: 'Could not save revision progress.' }, 500);

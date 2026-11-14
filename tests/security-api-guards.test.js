@@ -14,7 +14,7 @@ test('Gemini key action is validated before provider verification', async () => 
 test('backup exports apply a finite per-collection record cap', async () => {
   const source = await readFile(new URL('../app/api/backup/route.js', import.meta.url), 'utf8');
   for (const name of ['subjects', 'notes', 'savedLinks', 'quickNotes', 'personalQuickNotes']) {
-    const line = source.split('\n').find((entry) => entry.includes("db.collection('" + name + "').find({ ownerId: ctx.ownerId })"));
+    const line = source.split('\n').find((entry) => entry.includes("db.collection('" + name + "').find({ ownerId: ctx.ownerId }, { session })"));
     assert.ok(line?.includes('.limit(5001).toArray()'), name + ' export must be capped');
   }
   assert.match(source, /records.length > 5000/);

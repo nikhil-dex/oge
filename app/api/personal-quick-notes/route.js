@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
@@ -45,10 +46,12 @@ export async function POST(request) {
     if (!ctx) return json({ error: 'Sign in to create AirNotes.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
-    const now = new Date();
-    const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
-    await ctx.db.collection('personalQuickNotes').insertOne(note);
-    return json({ id: note._id, content, title: note.title, createdAt: now, updatedAt: now }, 201);
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      const now = new Date();
+      const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
+      await ctx.db.collection('personalQuickNotes').insertOne(note, { session });
+      return json({ id: note._id, content, title: note.title, createdAt: now, updatedAt: now }, 201);
+    });
   } catch (error) {
     console.error('POST /api/quick-notes failed:', error?.name);
     return json({ error: 'Could not create this AirNote.' }, 500);

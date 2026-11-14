@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { getDatabase } from './lib/mongodb.js';
+import { isCurrentSession, sessionVersionOf } from './lib/session-revocation.js';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google],
@@ -38,8 +39,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, account }) {
       if (account?.provider === 'google' && typeof account.providerAccountId === 'string') {
         token.googleSub = account.providerAccountId;
+        token.authenticatedAt = Date.now();
       }
-      return token;
+      if (typeof token.googleSub !== 'string') return null;
+      try {
+        // JWT logout on one device does not revoke other copies by itself.
+        // Check the persisted account on every JWT callback. Missing accounts,
+        // revoked versions and database failures all invalidate the session.
+        const db = await getDatabase();
+        const user = await db.collection('users').findOne(
+          { googleSub: token.googleSub },
+          { projection: { sessionVersion: 1 } },
+        );
+        if (!user) return null;
+        if (account?.provider === 'google') {
+          token.sessionVersion = sessionVersionOf(user);
+        }
+        if (!isCurrentSession(user, token.sessionVersion)) return null;
+        return token;
+      } catch (error) {
+        console.error('Session version validation failed:', error instanceof Error ? error.name : 'UnknownError');
+        return null;
+      }
     },
     async session({ session, token }) {
       if (session.user && typeof token.googleSub === 'string') {

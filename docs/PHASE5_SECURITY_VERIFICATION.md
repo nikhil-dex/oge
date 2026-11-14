@@ -6,7 +6,9 @@ credentials, exported user data, or incident logs containing personal data.
 
 ## Automated controls now present
 
-- Security headers and report-only CSP, with a sanitized violation collector.
+- Security headers and default report-only CSP, with a sanitized violation collector.
+  An explicit `OGE_ENFORCE_CSP=true` deployment flag switches to enforcement;
+  it is **not enabled by default** and must be tested in staging before public use.
 - Same-origin API mutation checks, except the bearer-authenticated extension save endpoint.
 - Shared MongoDB fixed-window request limits for Gemini note cleanup (10/hour),
   browser extension saves (60/hour/token), extension token creation (10/hour/account),
@@ -16,8 +18,11 @@ credentials, exported user data, or incident logs containing personal data.
 - Subject listing is capped at 1,000 per user (and subject creation rejects the same per-account limit). CSP report logging is capped per process at 20 directives per minute; add shared edge/WAF limits for anonymous requests before launch.
 - A staging-only two-account Notes, Subjects, Quick Notes, AirNotes, Saved Links, Revision, Revision History, and Backup export isolation smoke test is available at `scripts/verify-staging-isolation.mjs`.
 - CI node tests, Next.js build, high/critical production dependency audit,
-  and a tracked-file credential-pattern check. Pattern matching is **not** an
-  exhaustive history scan or substitute for purpose-built secret scanning.
+  plus a dedicated Git-history Gitleaks scan and tracked-file credential-pattern
+  check. Gitleaks must pass CI; review any findings and rotate exposed secrets.
+  Passing scans do not prove that no secret ever leaked.
+
+For deployment procedures, see [Phase 5 Operations Runbook](PHASE5_OPERATIONS_RUNBOOK.md).
 
 ## Required deployment verification (unverified)
 

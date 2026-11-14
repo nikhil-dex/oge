@@ -52,10 +52,15 @@ export async function DELETE() {
     const ownerId = await owner();
     if (!ownerId) return json({ error: 'Sign in to revoke your extension token.' }, 401);
     const db = await getDatabase();
-    await db.collection('users').updateOne(
+    const throttle = await checkRateLimit(db, {
+      scope: 'extension-token-revoke', identifier: ownerId, limit: 30, windowMs: 60 * 60 * 1000,
+    });
+    if (!throttle.allowed) return rateLimitResponse(throttle);
+    const result = await db.collection('users').updateOne(
       { googleSub: ownerId },
       { $unset: { extensionTokenHash: '', extensionTokenCreatedAt: '', extensionTokenExpiresAt: '' }, $set: { updatedAt: new Date() } },
     );
+    if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
     return json({ revoked: true });
   } catch (error) {
     console.error('DELETE /api/extension-token failed:', error?.name);

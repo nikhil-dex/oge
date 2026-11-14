@@ -57,18 +57,31 @@ schedules. It does **not** guarantee export of all account preferences or
 provider-related state. Do not advertise it as an exhaustive data portability
 export until those omissions are resolved.
 
-Account deletion is **not yet implemented**. Before implementing a permanent
-deletion flow, design and test all of the following together:
+A feature-flagged account-deletion endpoint and Settings control are now
+implemented behind `OGE_ACCOUNT_DELETION_ENABLED=true`, **disabled by
+default**. When enabled, it requires a Google sign-in within five minutes,
+two user confirmations, same-origin mutation protection, rate limiting,
+MongoDB transactions and owner-scoped deletion. Removing the user record
+invalidates other browser JWTs because every session checks the persisted
+account version; new sign-ins are issued a different account session version.
 
-- Require recent Google reauthentication, explicit user confirmation and
-  anti-CSRF checks before irreversible deletion.
-- Revoke browser-extension tokens and invalidate **all** existing JWT sessions
-  across browsers and devices, not just sign out the current tab.
-- Remove all owner-scoped records, user profile, preferences, revisions and
-  encrypted provider keys; verify that deleting the Google login identity
-  alone does not leave accessible orphaned data.
-- Define transactional/idempotent behavior for database failure partway
-  through deletion and protect against concurrent account recreation.
+**Do not enable this flag on public production yet.** Run staging tests using
+disposable accounts on an Atlas replica set. Verify transaction rollback under
+a forced failure, duplicate concurrent attempts, requests in flight while
+deletion happens, existing sessions on two devices, extension tokens and
+recreation after a fresh Google sign-in. Document the data-retention policy
+and backup treatment before allowing production deletion.
+
+Before enabling a permanent deletion flow, finish these release gates:
+
+- Verify the recently implemented Google-login window, explicit confirmation,
+  proxy same-origin protections and database transaction in a real browser.
+- Verify existing JWTs and extension tokens become unusable on **all** devices
+  immediately after the user record is deleted and again after re-registration.
+- Verify all known owner-scoped collections, user profile, revisions, preferences
+  and encrypted provider keys are removed; audit any new collection added later.
+- Test rollback and idempotence for failures, plus concurrent requests or
+  account recreation; production rollout remains blocked until this passes.
 - Document backup retention and natural expiry for deleted records. A backup
   restoration must not silently resurrect data from deleted accounts.
 - Publish the privacy notice, retention periods, support route and handling of

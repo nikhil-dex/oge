@@ -40,6 +40,16 @@ resources that Next.js and Google sign-in need.
 5. Only enable enforcement in production after a full successful staging
    verification, a documented rollback, and a release-owner approval.
 
+## Atomic subject removal
+
+Deleting a subject now uses a transaction to remove that subject and its
+owned notes together. It rejects deletion of a nonexistent or last subject,
+checks the owning account inside the transaction, and aborts on database
+failure. It requires MongoDB transaction support (Atlas/replica set).
+In a disposable staging workspace, test concurrent note creation and deletion,
+database interruption, and last-subject protection before production sign-off.
+This does not solve every concurrent account deletion or mutation case.
+
 ## JSON backup import atomicity
 
 The app's JSON backup import uses a MongoDB transaction spanning Subjects,

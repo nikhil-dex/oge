@@ -3,6 +3,7 @@ import { getDatabase } from '../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { encryptGeminiKey, maskGeminiKey } from '../../../lib/gemini-key.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ function json(data, status = 200) {
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
 }
 
 async function readBody(request) {
@@ -127,9 +128,10 @@ export async function POST(request) {
       return json({ error: 'Choose save, test, or delete.' }, 400);
     }
     const users = ctx.db.collection('users');
+    const accountFilter = ownerMutationFilter(ctx.ownerId, { sessionVersion: ctx.sessionVersion });
 
     if (action === 'delete') {
-      const result = await users.updateOne({ googleSub: ctx.ownerId }, { $unset: { geminiApiKey: '' } });
+      const result = await users.updateOne(accountFilter, { $unset: { geminiApiKey: '' } });
       if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
       return json({ configured: false, message: 'Gemini API key removed.' });
     }
@@ -144,7 +146,7 @@ export async function POST(request) {
     if (action !== 'save') return json({ error: 'Choose save, test, or delete.' }, 400);
 
     const encrypted = encryptGeminiKey(apiKey);
-    const result = await users.updateOne({ googleSub: ctx.ownerId }, { $set: { geminiApiKey: encrypted, updatedAt: new Date() } });
+    const result = await users.updateOne(accountFilter, { $set: { geminiApiKey: encrypted, updatedAt: new Date() } });
     if (result.matchedCount !== 1) return json({ error: 'Your account is no longer available. Sign in again.' }, 401);
     return json({ configured: true, updatedAt: encrypted.updatedAt, maskedKey: maskGeminiKey(apiKey), message: 'Gemini API key saved securely.' });
   } catch (error) {

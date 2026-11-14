@@ -52,7 +52,7 @@ and who can read restore artifacts.
 ## User data lifecycle and deletion design — pending implementation
 
 The JSON export endpoint currently exports Subjects, Notes, Saved Links, Quick
-Notes, and news interests. It does **not** guarantee export of AirNotes,
+Notes, AirNotes and news interests. It does **not** guarantee export of
 revision metadata or all account preferences. Do not advertise it as an
 exhaustive data portability export until these omissions are resolved.
 

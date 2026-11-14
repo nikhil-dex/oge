@@ -131,7 +131,7 @@ Clarification to preserve: Revision History is for viewing past revision/activit
 - [x] Add baseline security response headers (`nosniff`, frame denial, referrer and permissions policies) and a CSP in report-only mode to gather compatibility signals.
 - [ ] Review CSP reports against the real app and Google sign-in flow, remove unnecessary allowances (especially inline scripts/styles and broad `https:` sources), then enforce a tested CSP. HSTS is added only in production.
 - [ ] Add rate limits, request-size limits, pagination, query bounds, and safe error responses.
-  - In progress: shared MongoDB-backed limits protect Gemini cleanup/key management, extension token creation/saves, news, dictionary, and backup import/export. Subject queries are capped; audit remaining routes, add end-to-end limit tests, and enforce limits on all sensitive/expensive operations.
+  - In progress: shared MongoDB-backed limits protect Gemini cleanup/key management, extension token creation/saves, news, dictionary, backup import/export, and owner-scoped mutations for Notes, Subjects, Quick Notes, AirNotes and Saved Links. Subject queries are capped; runtime load testing and broader API coverage are still needed.
 - [ ] Redact credentials, tokens, session values, and sensitive note content from logs.
 - [ ] Add dependency vulnerability scanning and secret scanning to CI.
   - In progress: CI runs a production dependency audit and a limited tracked-file credential-pattern check; full secret/history scanning and dependency review remain pending.

@@ -43,6 +43,24 @@ These tests simulate MongoDB semantics; they **do not** establish actual
 Atlas transaction rollback or concurrency guarantees. Verify those on
 an isolated replica-set staging environment before final release.
 
+## Replica-set integration CI gate
+
+A dedicated `mongo-integration` GitHub Actions job boots a disposable
+`mongo:7` container on loopback, initializes a single-node replica set,
+and executes `tests/mongodb-replica-integration.test.js` against the real
+MongoDB Node.js driver. The tests verify owner-fenced writes, transaction
+rollback after partial inserts, rejection of stale session epochs,
+cross-owner isolation, and atomic subject/notes cascade deletion.
+
+The test harness requires `OGE_ALLOW_MONGO_INTEGRATION_TESTS=YES_DISPOSABLE_DATABASE`,
+only accepts a **local** MongoDB URL on port 27017, creates a random
+`oge_ci_*` database per test, and drops it when complete. It must never
+receive production or staging Atlas credentials.
+
+A passing CI gate provides real replica-set transaction evidence, **not**
+proof that the production Atlas cluster, large imports, OAuth sessions or
+backup snapshot restore are working. Those remain staging release gates.
+
 ## Required deployment verification (unverified)
 
 1. On an isolated staging environment, configure real Google OAuth credentials,

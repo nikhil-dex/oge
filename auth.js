@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { getDatabase } from './lib/mongodb.js';
@@ -25,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               lastLoginAt: now,
               updatedAt: now,
             },
-            $setOnInsert: { googleSub: profile.sub, createdAt: now, newsInterests: [] },
+            $setOnInsert: { googleSub: profile.sub, createdAt: now, newsInterests: [], sessionVersion: randomUUID() },
           },
           { upsert: true },
         );
@@ -65,6 +66,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user && typeof token.googleSub === 'string') {
         session.user.id = token.googleSub;
+        // Timestamp is minted server-side on fresh Google authentication.
+        // Old sessions without this claim must reauthenticate for deletion.
+        session.user.authenticatedAt = typeof token.authenticatedAt === 'number' ? token.authenticatedAt : null;
       }
       return session;
     },

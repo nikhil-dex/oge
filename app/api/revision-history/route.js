@@ -16,6 +16,7 @@ export async function GET() {
   try {
     const session = await auth();
     const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
     if (!ownerId) return json({ error: 'Sign in to view revision history.' }, 401);
     const db = await getDatabase();
     const notes = await db.collection('notes').find(
@@ -44,6 +45,7 @@ export async function GET() {
 export async function POST(request) {
   const session = await auth();
   const ownerId = session?.user?.id;
+  const sessionVersion = session?.user?.sessionVersion;
   if (!ownerId) return json({ error: 'Sign in to restore a previous version.' }, 401);
   let data;
   try { data = JSON.parse(await readLimitedBody(request, 4 * 1024)); }
@@ -97,7 +99,7 @@ export async function POST(request) {
         updatedAt: result.updatedAt,
         message: 'Previous version restored. The content that was current has been saved in revision history.',
       });
-    });
+    }, { sessionVersion: sessionVersion });
   } catch (error) {
     console.error('POST /api/revision-history failed:', error?.name);
     return json({ error: 'Could not restore this version.' }, 500);

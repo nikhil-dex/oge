@@ -58,7 +58,7 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
     transport.current = clientTransport();
     const onOnline = () => { setOnline(true); controller.current?.retryNow(); };
     const onOffline = () => setOnline(false);
-    setOnline(navigator.onLine);
+    Promise.resolve().then(() => setOnline(navigator.onLine));
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => {
@@ -126,7 +126,7 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
     }
   }, [openNote, ownerId, repoId, activeKey]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { Promise.resolve().then(() => void load()); }, [load]);
 
   const busy = Boolean(snapshot && snapshot.status !== 'synced');
   function newNote() {
@@ -236,7 +236,7 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
             )}
           </> : <p className="oge-settings-description">Select a GitHub note or create one above. Existing MongoDB Notes are not shown here.</p>}
         {pageError && <p role="alert" className="oge-password-error">{pageError}</p>}
-        <p className="oge-settings-note">Experimental preview. Unsynced drafts are kept in this tab's session storage for up to 24 hours; this is not a backup. Use the Sync button to confirm GitHub storage before leaving.</p>
+        <p className="oge-settings-note">Experimental preview. Unsynced drafts are kept in this tab&apos;s session storage for up to 24 hours; this is not a backup. Use the Sync button to confirm GitHub storage before leaving.</p>
         <Link href="/vault" className="oge-primary-link">← Back to Oge Vault</Link>
       </section>
     </div>

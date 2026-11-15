@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { beginGoogleConnection, finishGoogleConnection, resolveOAuthOwner, googleConnectionRequired } from '../lib/google-account-link.js';
 
 function fixture(source, google = null) {
-  const users = [source, ...(google ? [google] : [])];
+  const users = [{ _id: 'source', ...source }, ...(google ? [{ _id: 'google', ...google }] : [])];
   const intents = [];
   const jar = {
     value: null,
@@ -16,14 +16,14 @@ function fixture(source, google = null) {
     get() { return this.value ? { value: this.value } : null; },
     delete() { this.value = null; },
   };
-  const find = (filter) => users.find((u) => Object.entries(filter).every(([key, value]) => {
-    if (key === '$or') return value.some((part) => find(part) === u);
-    if (key === 'googleSub' && value && typeof value === 'object' && '$not' in value) return !value.$not.test(u.googleSub);
-    if (key === 'googleSub' && value && typeof value === 'object' && '$ne' in value) return u.googleSub !== value.$ne;
-    if (key === 'linkedGithubOwnerId' && value && typeof value === 'object' && '$exists' in value) return (u[key] !== undefined) === value.$exists;
-    if (key === 'linkedGoogleSub' && value && typeof value === 'object' && '$exists' in value) return (u[key] !== undefined) === value.$exists;
+  const matches = (u, filter) => Object.entries(filter).every(([key, value]) => {
+    if (key === '$or') return value.some((part) => matches(u, part));
+    if (value && typeof value === 'object' && '$not' in value) return !value.$not.test(u[key]);
+    if (value && typeof value === 'object' && '$ne' in value) return u[key] !== value.$ne;
+    if (value && typeof value === 'object' && '$exists' in value) return (u[key] !== undefined) === value.$exists;
     return u[key] === value;
-  }));
+  });
+  const find = (filter) => users.find((u) => matches(u, filter));
   const db = {
     client: { startSession: () => ({ withTransaction: (callback) => callback(), endSession: async () => {} }) },
     collection(name) {

@@ -10,8 +10,8 @@
     '*{box-sizing:border-box}button,textarea,select{font:inherit}',
     '.oge-dimmed{opacity:.36}.oge-open.oge-dimmed{opacity:.74}.oge-open:focus-within,.oge-open:hover{opacity:1!important}button,textarea,select{outline-offset:2px}@media(prefers-reduced-motion:no-preference){:host{transition:opacity .5s ease}}',
     '.launcher{width:44px;height:44px;border:1px solid #ffffff55;border-radius:14px;background:#316b50;color:#fff;box-shadow:0 8px 26px #10251b40;font:800 19px system-ui;cursor:grab;touch-action:none;user-select:none;letter-spacing:-.05em;transition:box-shadow .18s,background .18s}.launcher:hover{background:#23563d;box-shadow:0 9px 28px #10251b55}.launcher:active{cursor:grabbing}',
-    '.panel{position:absolute;right:0;bottom:54px;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
-    '.hidden{display:none}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
+    '.panel{position:fixed;left:16px;top:16px;right:auto;bottom:auto;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
+    '.hidden{display:none}.resize-corner{position:sticky;bottom:0;float:right;width:24px;height:24px;margin-top:-24px;display:grid;place-items:center;border:0;border-top-left-radius:8px;color:#657a6d;background:#f1f6f2;cursor:nwse-resize;touch-action:none;user-select:none;font-size:15px}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
     '.mark{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#316b50;color:white;font-size:12px;font-weight:800}.heading{flex:1;font-size:12px;font-weight:750;letter-spacing:.01em}',
     '.close{padding:2px 6px;border:0;background:transparent;color:#536c59;font-size:22px;cursor:pointer}',
     '.body{padding:11px 12px}.body[hidden]{display:none}.hint{margin:0 0 9px;color:#6b7b70;font-size:10px;line-height:1.45}',
@@ -37,6 +37,7 @@
     '<div class="body" data-panel="links" hidden><p class="hint">Your social and portfolio URLs from OgeNotes Profile.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
     '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="url" type="button">↗ Save URL</button><button data-tool="links" type="button">☷ My links</button></nav>',
+    '<button class="resize-corner" type="button" aria-label="Resize widget width and height" title="Drag to resize width and height">↘</button>',
   ].join('');
   const launcher = document.createElement('button');
   launcher.className = 'launcher';
@@ -69,18 +70,102 @@
     if (tool === 'note') { note.focus(); void loadSubjects(); }
     if (tool === 'links') void loadLinks();
   }
+  // The panel is viewport-fixed, so it can grow in either dimension
+  // independently of the draggable launcher and avoid clipping at page edges.
+  const GAP = 8;
+  const MIN_PANEL_WIDTH = 265;
+  const MIN_PANEL_HEIGHT = 235;
+  const clamp = (n, low, high) => Math.min(Math.max(n, low), Math.max(low, high));
+  function positionPanel() {
+    if (panel.classList.contains('hidden')) return;
+    const launcherBounds = launcher.getBoundingClientRect();
+    const maxWidth = Math.max(MIN_PANEL_WIDTH, window.innerWidth - GAP * 2);
+    const maxHeight = Math.max(MIN_PANEL_HEIGHT, window.innerHeight - GAP * 2);
+    const width = Math.min(panel.offsetWidth, maxWidth);
+    const height = Math.min(panel.offsetHeight, maxHeight);
+    const x = clamp(launcherBounds.right - width, GAP, window.innerWidth - width - GAP);
+    // Above the button when possible, below it when there is more room.
+    const above = launcherBounds.top - height - GAP;
+    const below = launcherBounds.bottom + GAP;
+    const preferred = above >= GAP ? above :
+      window.innerHeight - below >= height ? below : above;
+    panel.style.left = clamp(x, GAP, window.innerWidth - width - GAP) + 'px';
+    panel.style.top = clamp(preferred, GAP, window.innerHeight - height - GAP) + 'px';
+  }
+  let idleTimer;
+  const IDLE_DELAY_MS = 12000;
+  function wake() {
+    host.style.opacity = '1';
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      const editing = shadow.activeElement === note || shadow.activeElement === subjectSelect ||
+        (shadow.activeElement?.matches && shadow.activeElement.matches('button'));
+      if (!editing) host.style.opacity = panel.classList.contains('hidden') ? '.38' : '.78';
+    }, IDLE_DELAY_MS);
+  }
+  for (const name of ['pointermove', 'keydown', 'wheel', 'touchstart']) {
+    window.addEventListener(name, wake, { passive: true });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) host.style.opacity = '.38';
+    else wake();
+  });
+  shadow.addEventListener('pointerdown', wake);
+  shadow.addEventListener('focusin', wake);
   function openPanel(open) {
     panel.classList.toggle('hidden', !open);
     launcher.setAttribute('aria-expanded', String(open));
-    if (open && active === 'note') { note.focus(); void loadSubjects(); }
+    wake();
+    if (open) {
+      positionPanel();
+      if (active === 'note') { note.focus(); void loadSubjects(); }
+    }
   }
-  launcher.addEventListener('click', () => openPanel(panel.classList.contains('hidden')));
+  let launcherDrag = null;
+  let ignoreLauncherClick = false;
+  function placeLauncher(x, y) {
+    host.style.left = clamp(x, GAP, window.innerWidth - launcher.offsetWidth - GAP) + 'px';
+    host.style.top = clamp(y, GAP, window.innerHeight - launcher.offsetHeight - GAP) + 'px';
+    host.style.right = 'auto';
+    host.style.bottom = 'auto';
+    positionPanel();
+  }
+  launcher.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    const rect = launcher.getBoundingClientRect();
+    launcherDrag = { id: event.pointerId, startX: event.clientX, startY: event.clientY,
+      left: rect.left, top: rect.top, moved: false };
+    launcher.setPointerCapture(event.pointerId);
+    wake();
+  });
+  launcher.addEventListener('pointermove', (event) => {
+    if (!launcherDrag || launcherDrag.id !== event.pointerId) return;
+    const dx = event.clientX - launcherDrag.startX;
+    const dy = event.clientY - launcherDrag.startY;
+    if (!launcherDrag.moved && Math.hypot(dx, dy) < 5) return;
+    launcherDrag.moved = true;
+    placeLauncher(launcherDrag.left + dx, launcherDrag.top + dy);
+  });
+  function finishLauncherDrag(event) {
+    if (!launcherDrag || launcherDrag.id !== event.pointerId) return;
+    if (launcherDrag.moved) ignoreLauncherClick = true;
+    launcherDrag = null;
+  }
+  launcher.addEventListener('pointerup', finishLauncherDrag);
+  launcher.addEventListener('pointercancel', finishLauncherDrag);
+  launcher.addEventListener('click', (event) => {
+    if (ignoreLauncherClick) {
+      ignoreLauncherClick = false;
+      event.preventDefault();
+      return;
+    }
+    openPanel(panel.classList.contains('hidden'));
+  });
   panel.querySelector('.close').addEventListener('click', () => openPanel(false));
   panel.querySelectorAll('[data-tool]').forEach((button) => {
     button.addEventListener('click', () => setPanel(button.dataset.tool));
   });
-  // Prevent host-page keyboard shortcuts while typing without suppressing
-  // regular input handling inside the note editor.
+  // Preserve the original page-shortcut protection while typing notes.
   const stopPageShortcutsWhileTyping = (event) => {
     if (panel.classList.contains('hidden') || shadow.activeElement !== note) return;
     event.stopPropagation();
@@ -89,30 +174,60 @@
   for (const name of ['keydown', 'keyup', 'keypress']) {
     window.addEventListener(name, stopPageShortcutsWhileTyping, true);
   }
-  let dragging = false;
-  let originX = 0, originY = 0, startX = 0, startY = 0;
+  // Header movement remains available when expanded; dragging the launcher
+  // itself now works without opening the panel first.
   const handle = panel.querySelector('.top');
+  let headerDrag = null;
   handle.addEventListener('pointerdown', (event) => {
-    if (event.target.closest('button')) return;
-    dragging = true;
-    startX = event.clientX;
-    startY = event.clientY;
-    const bounds = host.getBoundingClientRect();
-    originX = bounds.left;
-    originY = bounds.top;
-    host.style.left = bounds.left + 'px';
-    host.style.top = bounds.top + 'px';
-    host.style.right = 'auto';
-    host.style.bottom = 'auto';
+    if (event.button !== 0 || event.target.closest('button')) return;
+    const rect = launcher.getBoundingClientRect();
+    headerDrag = { id: event.pointerId, x: event.clientX, y: event.clientY,
+      left: rect.left, top: rect.top };
     handle.setPointerCapture(event.pointerId);
+    wake();
   });
   handle.addEventListener('pointermove', (event) => {
-    if (!dragging) return;
-    host.style.left = Math.max(0, Math.min(window.innerWidth - host.offsetWidth, originX + event.clientX - startX)) + 'px';
-    host.style.top = Math.max(0, Math.min(window.innerHeight - host.offsetHeight, originY + event.clientY - startY)) + 'px';
+    if (!headerDrag || headerDrag.id !== event.pointerId) return;
+    placeLauncher(headerDrag.left + event.clientX - headerDrag.x,
+      headerDrag.top + event.clientY - headerDrag.y);
   });
-  handle.addEventListener('pointerup', () => { dragging = false; });
-  handle.addEventListener('pointercancel', () => { dragging = false; });
+  handle.addEventListener('pointerup', () => { headerDrag = null; });
+  handle.addEventListener('pointercancel', () => { headerDrag = null; });
+
+  const resizeHandle = panel.querySelector('.resize-corner');
+  let resizeDrag = null;
+  resizeHandle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const rect = panel.getBoundingClientRect();
+    resizeDrag = { id: event.pointerId, x: event.clientX, y: event.clientY,
+      width: rect.width, height: rect.height, left: rect.left, top: rect.top };
+    resizeHandle.setPointerCapture(event.pointerId);
+    wake();
+  });
+  resizeHandle.addEventListener('pointermove', (event) => {
+    if (!resizeDrag || resizeDrag.id !== event.pointerId) return;
+    const width = clamp(resizeDrag.width + event.clientX - resizeDrag.x,
+      MIN_PANEL_WIDTH, window.innerWidth - resizeDrag.left - GAP);
+    const height = clamp(resizeDrag.height + event.clientY - resizeDrag.y,
+      MIN_PANEL_HEIGHT, window.innerHeight - resizeDrag.top - GAP);
+    panel.style.width = width + 'px';
+    panel.style.height = height + 'px';
+    wake();
+  });
+  resizeHandle.addEventListener('pointerup', () => { resizeDrag = null; });
+  resizeHandle.addEventListener('pointercancel', () => { resizeDrag = null; });
+  window.addEventListener('resize', () => {
+    const width = Math.min(panel.offsetWidth, window.innerWidth - GAP * 2);
+    const height = Math.min(panel.offsetHeight, window.innerHeight - GAP * 2);
+    panel.style.width = Math.max(0, width) + 'px';
+    panel.style.height = Math.max(0, height) + 'px';
+    if (host.style.left) {
+      const rect = launcher.getBoundingClientRect();
+      placeLauncher(rect.left, rect.top);
+    } else positionPanel();
+  });
+  wake();
 
   const noteSave = panel.querySelector('[data-save-note]');
   async function loadSubjects() {

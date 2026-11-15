@@ -140,6 +140,8 @@ test('journal diagnostics reject an apparently completed operation with a surviv
 test('staging subject preflight is journaled and only exposes read-only diagnostics', async () => {
   const route = await readFile(new URL('../app/api/vault/subjects/preflight/route.js', import.meta.url), 'utf8');
   assert.match(route, /journalVaultSubjectInspection\(db, client, identity\)/);
-  assert.match(route, /inspectVaultSubjectRecovery\(db, identity, operationId\)/);
+  assert.match(route, /inspectVaultSubjectRecovery\(db, \{/);
+  assert.match(route, /ownerMutationFilter\(ownerId/);
+  assert.match(route, /account\.vault\.repoId/);
   assert.doesNotMatch(route, /export async function (?:POST|DELETE|PUT|PATCH)/);
 });

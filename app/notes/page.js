@@ -60,6 +60,23 @@ export default function NotesPage({
   const [hybridReady, setHybridReady] = useState(false);
   const [newDraftId, setNewDraftId] = useState('');
   const [hybridError, setHybridError] = useState('');
+  const [hybridRetryToken, setHybridRetryToken] = useState(0);
+  const hybridConflictRef = useRef(false);
+
+  // Browser connection events are hints, not proof that the server is up.
+  // Retry only the latest editor snapshot; conflict errors require explicit
+  // recovery rather than auto-overwriting a different device's draft.
+  useEffect(() => {
+    if (!hybridDrafts) return undefined;
+    const resume = () => {
+      if (hybridConflictRef.current) return;
+      setHybridError('');
+      setHybridRetryToken((token) => token + 1);
+    };
+    window.addEventListener('online', resume);
+    return () => window.removeEventListener('online', resume);
+  }, [hybridDrafts]);
+
   const hybridKey = (id) => 'oge-hybrid-draft:v1:' + encodeURIComponent(vaultOwnerId) +
     ':' + vaultRepoId + ':' + id;
 
@@ -259,6 +276,7 @@ export default function NotesPage({
     const freshId = hybridDrafts ? crypto.randomUUID() : '';
     setNewDraftId(freshId);
     setHybridError('');
+    hybridConflictRef.current = false;
     editorInitialRef.current = { heading: '', answer: '', tags: '' };
     setEditingId('');
     setHeading('');
@@ -277,6 +295,7 @@ export default function NotesPage({
     const generation = ++hybridGenerationRef.current;
     setHybridReady(!hybridDrafts);
     setHybridError('');
+    hybridConflictRef.current = false;
     editorInitialRef.current = {
       heading: note.heading, answer: note.answer, tags: (note.tags || []).join(', '),
     };
@@ -351,14 +370,19 @@ export default function NotesPage({
         }
       }).catch((err) => {
         if (generation === hybridGenerationRef.current) {
-          setHybridError(err.message || 'Draft could not be saved. Keep this tab open.');
+          if (err.message === 'vault-draft-revision-conflict') {
+            hybridConflictRef.current = true;
+            setHybridError('Draft conflict: another device changed this note. Your browser copy is preserved. Close and reopen the note to review both copies.');
+          } else {
+            setHybridError(err.message || 'Draft could not be saved. Keep this tab open.');
+          }
           setDraftStatus('Draft pending');
         }
       });
     }, 700);
     return () => clearTimeout(timer);
   }, [hybridDrafts, hybridReady, noteDialog, editingId, newDraftId, activeSubject, heading, answer, tagsText,
-    notes, saving, hybridError, hasUnsavedEditorChanges]);
+    notes, saving, hybridError, hybridRetryToken, hasUnsavedEditorChanges]);
 
   async function saveNote(event) {
     event.preventDefault();

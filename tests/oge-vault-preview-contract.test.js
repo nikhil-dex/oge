@@ -25,6 +25,6 @@ test('B3 preview is a separate feature-flagged authenticated GitHub-only workspa
 test('B3 preview does not turn on mandatory GitHub access in legacy Notes editor', async () => {
   const legacy = await readFile(new URL('../app/notes/page.js', import.meta.url), 'utf8');
   const preview = await readFile(new URL('../app/vault/preview/page.js', import.meta.url), 'utf8');
-  assert.match(legacy, /fetch\('\/api\/notes'/);
+  assert.match(legacy, /NotesPage\(\{ notesApi = '\/api\/notes'/);
   assert.match(preview, /VaultPreviewClient/);
 });

@@ -79,6 +79,14 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.match(page, /Draft saved/);
   assert.match(page, /An unsynced draft exists/);
   assert.match(page, /Browser and server drafts differ/);
+  assert.match(page, /crypto\.randomUUID\(\)/);
+  assert.match(page, /recoverNewHybridDraft\(activeSubject, generation\)/);
+  assert.match(page, /newDraftPointerKey\(subjectId\)/);
+  assert.match(page, /sessionStorage\.getItem\(newDraftPointerKey\(subjectId\)\)/);
+  assert.match(page, /hybridDrafts \? \{ \.\.\.payload, id: newDraftId \} : payload/);
+  assert.match(api, /params\.get\('new'\) === 'true'/);
+  assert.match(api, /isNew: true/);
+
   assert.match(page, /Flush the exact editor snapshot before final GitHub Save/);
   assert.match(page, /const revision = hybridRevisionRef\.current \+ 1/);
   assert.match(page, /method: 'DELETE'/);

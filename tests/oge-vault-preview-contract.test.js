@@ -13,6 +13,12 @@ test('B3 preview is a separate feature-flagged authenticated GitHub-only workspa
   assert.match(editor, /\/api\/vault\/batch/);
   assert.match(editor, /\/api\/vault\/notes/);
   assert.match(editor, /Promise\.allSettled/);
+  assert.match(editor, /\/api\/vault\/notes\?paged=true&limit=20/);
+  assert.match(editor, /encodeURIComponent\(nextCursor\)/);
+  assert.match(editor, /setNextCursor\(page\.nextCursor \|\| null\)/);
+  assert.match(editor, /Load more GitHub notes/);
+  assert.match(editor, /error\.status === 409/);
+
   assert.match(editor, /readVaultDraft\(window\.sessionStorage, key\)/);
   assert.match(editor, /createVaultAutosave\(/);
   assert.match(editor, /aria-live="polite"/);

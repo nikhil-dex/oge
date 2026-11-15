@@ -2,6 +2,7 @@ import { auth } from '../../../../auth.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
 import { getVaultNoteClient, readVaultNote } from '../../../../lib/oge-vault-notes.js';
+import { ownerMutationFilter } from '../../../../lib/active-owner-mutation.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 import {
@@ -22,11 +23,20 @@ async function context() {
   const session = await auth();
   if (!session?.user?.id) return { unauthorized: true };
   const db = await getDatabase();
-  // Enforces the signed sessionVersion and connected owner-owned private repo.
-  const client = await getVaultNoteClient(db, {
-    ownerId: session.user.id, sessionVersion: session.user.sessionVersion,
-  });
-  return { db, client, ownerId: session.user.id, repoId: client.vault.repoId };
+  // Autosaving a temporary draft must not require GitHub to be online.
+  // Enforce the original signed account incarnation and verified vault
+  // mapping from MongoDB. Final Save and cleanup re-verify with GitHub.
+  const user = await db.collection('users').findOne(
+    ownerMutationFilter(session.user.id, { sessionVersion: session.user.sessionVersion }),
+    { projection: { vault: 1 } },
+  );
+  if (!user) throw new VaultGitHubError('session-expired', 401);
+  const vault = user.vault;
+  if (vault?.status !== 'connected' || !Number.isSafeInteger(vault.repoId) ||
+      vault.repoId < 1 || !Number.isSafeInteger(vault.installationId) ||
+      vault.installationId < 1) throw new VaultGitHubError('vault-not-connected', 409);
+  return { db, ownerId: session.user.id, repoId: vault.repoId,
+    sessionVersion: session.user.sessionVersion };
 }
 
 function failure(error) {
@@ -112,7 +122,10 @@ export async function DELETE(request) {
     const current = await getHybridDraft(ctx.db.collection('vault_drafts'), scope);
     if (!current || current.revision !== input.revision)
       return json({ cleared: false, reason: 'newer-or-absent-draft' }, 409);
-    const remote = await readVaultNote(ctx.client, scope.noteId);
+    const client = await getVaultNoteClient(ctx.db, {
+      ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion,
+    });
+    const remote = await readVaultNote(client, scope.noteId);
     const draft = current.draft;
     if (remote.sha !== input.sha || remote.subjectId !== draft.subjectId ||
         remote.heading !== draft.heading.trim() ||

@@ -247,7 +247,8 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
               <button type="button" className="oge-google-button" onClick={trySave}
                 disabled={!online || snapshot?.status === 'saving' || snapshot?.status === 'conflict'}>Sync now / Retry</button>
               <button type="button" onClick={() => void load()} disabled={busy}>Reload GitHub notes</button>
-              {busy && <button type="button" onClick={discardUnsyncedDraft}>Discard local draft</button>}
+              {busy && <button type="button" onClick={discardUnsyncedDraft}
+                disabled={snapshot?.status === 'saving'}>Discard local draft</button>}
             </div>
             {snapshot?.status === 'conflict' && (
               <div role="alert" className="oge-vault-preview-conflict">

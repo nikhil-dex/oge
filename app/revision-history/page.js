@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteNavbar from '../components/site-navbar';
 import ThemeToggle from '../components/theme-toggle';
@@ -38,7 +40,11 @@ export default function RevisionHistoryPage() {
     } catch (err) { setError(err.message || 'Could not load revision history.'); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void load(); });
+    return () => { active = false; };
+  }, [load]);
 
   const subjects = useMemo(() => [...new Set(history.map((item) => item.subjectSlug).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [history]);
   const filtered = useMemo(() => {
@@ -67,7 +73,7 @@ export default function RevisionHistoryPage() {
 
   return (
     <main className="shell oge-shell oge-feature-page oge-workflow-page">
-      <SiteNavbar actions={<><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></>} />
+      <SiteNavbar actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
       <section className="oge-notes-hero oge-workflow-hero"><div className="oge-eyebrow"><span className="oge-status-dot" /> YOUR EDIT TRAIL</div><h1>Nothing lost. <span>Everything learned.</span></h1><p className="oge-hero-copy">Find earlier versions, compare the saved content, and safely restore a note when you need to go back.</p></section>
 
       <section className="oge-workflow-summary" aria-label="Revision history summary">
@@ -91,7 +97,7 @@ export default function RevisionHistoryPage() {
             {loading ? <p className="oge-muted">Loading your revision history…</p> : filtered.length ? filtered.map((item) => <button key={item.id} type="button" className={'oge-history-version' + (selected?.id === item.id ? ' is-active' : '')} onClick={() => { setSelected(item); setMessage(''); }} aria-pressed={selected?.id === item.id}>
               <span className="oge-history-version-meta"><span>{item.subjectSlug || 'Unsorted'}</span><time>{dateLabel(item.revisedAt || item.savedAt)}</time></span>
               <strong>{item.previousHeading}</strong><span className="oge-history-version-excerpt">{excerpt(item.previousAnswer, 110) || 'No answer text in this version.'}</span>
-            </button>) : <div className="oge-empty-state oge-history-empty"><span>◷</span><h3>{history.length ? 'No matching versions' : 'No previous versions yet'}</h3><p>{history.length ? 'Try another search or choose a different subject.' : 'When you edit and save a note, the previous content is preserved here.'}</p>{!history.length && <a className="oge-primary-link" href="/notes">Open Notes →</a>}</div>}
+            </button>) : <div className="oge-empty-state oge-history-empty"><span>◷</span><h3>{history.length ? 'No matching versions' : 'No previous versions yet'}</h3><p>{history.length ? 'Try another search or choose a different subject.' : 'When you edit and save a note, the previous content is preserved here.'}</p>{!history.length && <Link className="oge-primary-link" href="/notes">Open Notes →</Link>}</div>}
           </div>
         </aside>
 
@@ -100,14 +106,14 @@ export default function RevisionHistoryPage() {
             <div className="oge-history-inspector-top"><span className="oge-section-kicker">VERSION PREVIEW</span><span className="oge-settings-pill">{selected.subjectSlug || 'Unsorted'}</span></div>
             <h2>{selected.previousHeading}</h2>
             <p className="oge-muted">Saved {dateLabel(selected.revisedAt || selected.savedAt)}</p>
-            <div className="oge-history-current-ref"><span className="oge-section-kicker">CURRENT NOTE</span><strong>{selected.currentHeading || 'Untitled note'}</strong><a href="/notes">Open notes ↗</a></div>
+            <div className="oge-history-current-ref"><span className="oge-section-kicker">CURRENT NOTE</span><strong>{selected.currentHeading || 'Untitled note'}</strong><Link href="/notes">Open notes ↗</Link></div>
             <div className="oge-history-answer"><span className="oge-section-kicker">PREVIOUS CONTENT</span><div>{selected.previousAnswer || 'This version did not contain any text.'}</div></div>
-            <div className="oge-history-restore-actions"><button className="oge-primary-link" type="button" onClick={restoreVersion} disabled={restoring}>{restoring ? 'Restoring…' : 'Restore this version ↶'}</button><a className="oge-secondary-link" href="/notes">Open Notes</a></div>
+            <div className="oge-history-restore-actions"><button className="oge-primary-link" type="button" onClick={restoreVersion} disabled={restoring}>{restoring ? 'Restoring…' : 'Restore this version ↶'}</button><Link className="oge-secondary-link" href="/notes">Open Notes</Link></div>
             <p className="oge-settings-note">Restoring creates another history entry containing the current content first. This action cannot be undone, but you can restore another saved version later.</p>
           </> : <div className="oge-empty-state"><span>↶</span><h3>Select a version</h3><p>Choose a saved version from the list to preview it here.</p></div>}
         </article>
       </section>
-      <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>Every edit tells a story.</span><a href="/revision">Start revision ↗</a></footer>
+      <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>Every edit tells a story.</span><Link href="/revision">Start revision ↗</Link></footer>
     </main>
   );
 }

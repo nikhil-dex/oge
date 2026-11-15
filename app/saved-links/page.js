@@ -41,7 +41,11 @@ export default function SavedLinksPage() {
     }
   }, []);
 
-  useEffect(() => { loadLinks(); }, [loadLinks]);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void loadLinks(); });
+    return () => { active = false; };
+  }, [loadLinks]);
 
   const categories = useMemo(() => [...new Set(links.map((link) => String(link.category || '').trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })), [links]);

@@ -14,10 +14,14 @@ export default defineConfig({
     { name: 'chromium-mobile', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: 'npm run dev -- --hostname 127.0.0.1 --port 3100',
+    // Test the deployed-style Next.js server rather than dev-mode hot reload.
+    // Dev browser navigations can abort in-flight RSC requests and produce
+    // noisy ECONNRESET exceptions that don't represent release behavior.
+    command: 'npm run build && npm run start -- --hostname 127.0.0.1 --port 3100',
     url: 'http://127.0.0.1:3100/register',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    // Reusing an unrelated local dev server would invalidate production diagnostics.
+    reuseExistingServer: false,
+    timeout: 180_000,
     env: {
       AUTH_SECRET: 'oge-local-browser-smoke-synthetic-secret-value',
       AUTH_GOOGLE_ID: 'local-browser-test.apps.googleusercontent.com',

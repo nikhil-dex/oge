@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteNavbar from '../components/site-navbar';
 import ThemeToggle from '../components/theme-toggle';
@@ -33,7 +35,11 @@ export default function RevisionPage() {
     catch (err) { setError(err.message || 'Could not load revision cards.'); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void load(); });
+    return () => { active = false; };
+  }, [load]);
 
   const subjects = useMemo(() => [...new Set(notes.map((note) => note.subjectSlug).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [notes]);
   const queue = useMemo(() => subject === 'all' ? notes : notes.filter((note) => note.subjectSlug === subject), [notes, subject]);
@@ -73,7 +79,7 @@ export default function RevisionPage() {
   const dueTotal = notes.length;
   return (
     <main className="shell oge-shell oge-feature-page oge-workflow-page">
-      <SiteNavbar actions={<><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></>} />
+      <SiteNavbar actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
       <section className="oge-notes-hero oge-workflow-hero"><div className="oge-eyebrow"><span className="oge-status-dot" /> ACTIVE RECALL · SPACED REPETITION</div><h1>Learn it. <span>Keep it.</span></h1><p className="oge-hero-copy">Recall the answer before revealing it. Rate how difficult it felt and OgeNotes schedules when to revisit it.</p></section>
 
       <section className="oge-workflow-summary" aria-label="Revision queue summary">
@@ -92,15 +98,15 @@ export default function RevisionPage() {
             <div className="oge-revision-card-top"><span className="oge-section-kicker">QUESTION</span><span className="oge-revision-card-tag">{note.tags?.length ? note.tags.slice(0, 3).join(' · ') : 'Active recall'}</span></div>
             <h2>{note.heading}</h2>
             {!revealed ? <div className="oge-revision-hidden"><span aria-hidden="true">✳</span><p>Take a moment to answer from memory before revealing the explanation.</p><button type="button" className="oge-primary-link" onClick={() => setRevealed(true)}>Reveal answer <span aria-hidden="true">↓</span></button></div> : <div className="oge-revision-answer oge-revision-answer-refined"><div className="oge-revision-answer-heading"><span className="oge-section-kicker">ANSWER</span><span>Compare with your recall</span></div><p>{note.answer}</p></div>}
-            <div className="oge-revision-card-foot"><span>{note.reviewCount || 0} previous reviews</span><a href="/revision-history">View revision history ↗</a></div>
+            <div className="oge-revision-card-foot"><span>{note.reviewCount || 0} previous reviews</span><Link href="/revision-history">View revision history ↗</Link></div>
           </article>
           {revealed && <section className="oge-revision-rating-section" aria-labelledby="rating-heading"><div className="oge-revision-rating-heading"><h3 id="rating-heading">How well did you remember?</h3><p>Your rating sets the next review date.</p></div><div className="oge-revision-ratings oge-revision-ratings-refined">{ratings.map((rating) => <button key={rating.value} type="button" className={'oge-revision-rating ' + rating.className} disabled={saving} onClick={() => rate(rating.value)}><span className="oge-rating-hint" aria-hidden="true">{rating.hint}</span><strong>{rating.label}</strong><span>{rating.description}</span><small>Again in {rating.interval}</small></button>)}</div></section>}
           <div className="oge-revision-controls oge-revision-controls-refined"><button type="button" className="oge-secondary-link" onClick={skipCard} disabled={queue.length < 2 || saving}>Skip for now <span aria-hidden="true">→</span></button><span>Skipped cards return to the end of your queue.</span><button type="button" className="oge-secondary-link" onClick={load} disabled={loading || saving}>Refresh queue ↻</button></div>
-        </> : <div className="oge-revision-stage oge-revision-stage-refined"><div className="oge-empty-state"><span>✦</span><h3>{subject === 'all' ? "You're caught up." : 'No cards due for this subject.'}</h3><p>{subject === 'all' ? 'You have reviewed every card currently due. New reviews will appear here when they are scheduled.' : 'Choose another subject or come back when a card is due.'}</p><a className="oge-primary-link" href="/notes">Create or edit notes →</a></div><button type="button" className="oge-secondary-link" onClick={load} disabled={loading}>Check for due cards ↻</button></div>}
+        </> : <div className="oge-revision-stage oge-revision-stage-refined"><div className="oge-empty-state"><span>✦</span><h3>{subject === 'all' ? "You're caught up." : 'No cards due for this subject.'}</h3><p>{subject === 'all' ? 'You have reviewed every card currently due. New reviews will appear here when they are scheduled.' : 'Choose another subject or come back when a card is due.'}</p><Link className="oge-primary-link" href="/notes">Create or edit notes →</Link></div><button type="button" className="oge-secondary-link" onClick={load} disabled={loading}>Check for due cards ↻</button></div>}
 
         {error && <p className="oge-form-error" role="alert">{error}</p>}{message && <p className="oge-form-success" role="status">{message}</p>}
       </section>
-      <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>Recall beats rereading.</span><a href="/revision-history">Revision history ↗</a></footer>
+      <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>Recall beats rereading.</span><Link href="/revision-history">Revision history ↗</Link></footer>
     </main>
   );
 }

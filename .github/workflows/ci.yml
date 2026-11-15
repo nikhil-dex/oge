@@ -41,6 +41,8 @@ jobs:
             echo 'Potential secret found in tracked files' >&2
             exit 1
           fi
+      - name: Enforce ESLint error-free baseline
+        run: npm run lint -- --quiet
       - name: Run baseline tests
         run: npm test
       - name: Build application

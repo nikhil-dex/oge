@@ -54,10 +54,12 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
 
   useEffect(() => {
     let cancelled = false;
-    refreshSubjects().catch((error) => { if (!cancelled) setSubjectMessage(error.message); }).finally(() => { if (!cancelled) setSubjectLoading(false); });
+    Promise.resolve().then(() => { if (!cancelled) return refreshSubjects(); }).catch((error) => { if (!cancelled) setSubjectMessage(error.message); }).finally(() => { if (!cancelled) setSubjectLoading(false); });
     fetch('/api/gemini-key', { cache: 'no-store' }).then(responseJson).then((data) => {
       if (!cancelled) { setGeminiConfigured(Boolean(data.configured)); setGeminiUpdatedAt(data.updatedAt || null); }
     }).catch((error) => { if (!cancelled) { setGeminiMessage(error.message); setGeminiMessageType('alert'); } });
+    Promise.resolve().then(() => {
+      if (cancelled) return;
     const savedTheme = readLocal('theme', 'dark');
     const savedAccent = readLocal('accent', 'green');
     const savedSecondary = readLocal('secondary', 'blue');
@@ -74,6 +76,7 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
         density: ['fine', 'normal', 'bold'].includes(saved.density) ? saved.density : 'normal',
       });
     } catch { /* Keep safe defaults if stored preferences are malformed. */ }
+    });
     return () => { cancelled = true; };
   }, [refreshSubjects]);
 
@@ -180,6 +183,8 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
         cache: 'no-store',
         body: JSON.stringify({ confirmation }),
       }));
+      // Explicitly reset the browser document after deleting the account/session.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign('/register');
     } catch (error) {
       setAccountDeleteError(error?.message || 'Account deletion failed.');
@@ -281,7 +286,9 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
       <section className="oge-settings-card" id="data" aria-labelledby="backup-heading">
         <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">05 · RECOVERY</span><h2 id="backup-heading">Backup & restore</h2></div></div>
         <p className="oge-settings-description">Export your subjects, notes, Quick Notes, Saved Links, and news preferences as a JSON file. Keep a backup somewhere private.</p>
-        <div className="oge-settings-data-actions"><a className="oge-settings-secondary-link" href="/api/backup">↓ Download backup</a><button className="oge-settings-secondary-button" type="button" onClick={() => fileRef.current?.click()} disabled={backupBusy}>{backupBusy ? 'Restoring…' : 'Restore from backup ↑'}</button><input ref={fileRef} className="oge-settings-file-input" type="file" accept="application/json,.json" onChange={restoreBackup} aria-label="Choose an OgeNotes backup file" /></div>
+        <div className="oge-settings-data-actions">{/* Backup is a file-response endpoint, not a client-side page route. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a className="oge-settings-secondary-link" href="/api/backup">↓ Download backup</a><button className="oge-settings-secondary-button" type="button" onClick={() => fileRef.current?.click()} disabled={backupBusy}>{backupBusy ? 'Restoring…' : 'Restore from backup ↑'}</button><input ref={fileRef} className="oge-settings-file-input" type="file" accept="application/json,.json" onChange={restoreBackup} aria-label="Choose an OgeNotes backup file" /></div>
         {backupMessage && <p className="oge-settings-feedback" role="status" aria-live="polite">{backupMessage}</p>}
         <p className="oge-settings-note">Restore adds missing records and skips duplicates. It does not delete existing records. Maximum backup size: 10 MB.</p>
       </section>

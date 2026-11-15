@@ -8,7 +8,7 @@ export default function ThemeToggle() {
   useEffect(() => {
     const stored = localStorage.getItem('theme');
     const nextTheme = stored === 'light' || stored === 'dark' ? stored : 'dark';
-    setTheme(nextTheme);
+    Promise.resolve().then(() => setTheme(nextTheme));
     document.documentElement.dataset.theme = nextTheme;
     localStorage.setItem('theme', nextTheme);
   }, []);

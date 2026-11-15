@@ -2,7 +2,7 @@ import { auth } from '../../../../auth.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
-import { getVaultNoteClient, listVaultNotes, readVaultNote } from '../../../../lib/oge-vault-notes.js';
+import { getVaultNoteClient, listVaultNotes, listVaultNotePage, readVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { commitVaultNoteBatch } from '../../../../lib/oge-vault-batch.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 
@@ -76,7 +76,14 @@ export async function GET(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in before reading notes.' }, 401);
-    const subject = new URL(request.url).searchParams.get('subject');
+    const params = new URL(request.url).searchParams;
+    const subject = params.get('subject');
+    if (params.get('paged') === 'true') {
+      const limit = params.has('limit') ? Number(params.get('limit')) : 20;
+      const page = await listVaultNotePage(ctx.client, { limit, cursor: params.get('cursor') });
+      return json({ ...page, notes: page.notes
+        .filter((note) => !subject || note.subjectId === subject).map(legacyVaultNote) });
+    }
     const notes = await listVaultNotes(ctx.client);
     return json(notes.filter((note) => !subject || note.subjectId === subject).map(legacyVaultNote));
   } catch (error) { return vaultError(error); }

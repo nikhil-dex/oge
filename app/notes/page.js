@@ -342,7 +342,13 @@ export default function NotesPage({
           cache: 'no-store', body: JSON.stringify({ id: noteId, revision, draft }),
         }));
         hybridRevisionRef.current = response.revision;
-        if (generation === hybridGenerationRef.current) setDraftStatus('Draft saved');
+        if (generation === hybridGenerationRef.current) {
+          let stillLatest = false;
+          try {
+            stillLatest = window.sessionStorage.getItem(key) === JSON.stringify({ draft });
+          } catch { /* A browser-disabled store cannot prove freshness. */ }
+          setDraftStatus(stillLatest ? 'Draft saved' : 'Draft pending');
+        }
       }).catch((err) => {
         if (generation === hybridGenerationRef.current) {
           setHybridError(err.message || 'Draft could not be saved. Keep this tab open.');
@@ -700,9 +706,9 @@ export default function NotesPage({
           <p className="form-subtitle">{editingId ? 'Update the heading, tags, or answer.' : 'Give it a clear heading and capture what you learned.'}</p>
           <form id="noteForm" onSubmit={saveNote}>
             <label htmlFor="heading">HEADING</label>
-            <input id="heading" maxLength={160} placeholder="e.g. What does chmod do?" value={heading} onChange={(event) => setHeading(event.target.value)} disabled={hybridDrafts && !hybridReady} required />
+            <input id="heading" maxLength={160} placeholder="e.g. What does chmod do?" value={heading} onChange={(event) => { setHeading(event.target.value); setDraftStatus('Unsaved changes'); }} disabled={hybridDrafts && !hybridReady} required />
             <label htmlFor="noteTags">TAGS <span className="field-hint">comma-separated · up to 10</span></label>
-            <input id="noteTags" maxLength={260} placeholder="e.g. arrays, exam, important" value={tagsText} onChange={(event) => setTagsText(event.target.value)} disabled={hybridDrafts && !hybridReady} />
+            <input id="noteTags" maxLength={260} placeholder="e.g. arrays, exam, important" value={tagsText} onChange={(event) => { setTagsText(event.target.value); setDraftStatus('Unsaved changes'); }} disabled={hybridDrafts && !hybridReady} />
             {answerFullscreen ? createPortal(
               <div className="answer-workspace is-fullscreen">
                 <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span>{editingId && !vaultMode && <button type="button" className="answer-expand-button oge-gemini-cleanup-button" onClick={cleanupWithGemini} disabled={aiCleanupBusy || saving} title="Ask Gemini to improve clarity and Markdown; review before saving">{aiCleanupBusy ? '✦ Cleaning…' : '✦ Gemini clean up'}</button>}<button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(false)} aria-label="Exit full-screen writing area" title="Exit full screen (Esc)">↙ Exit full screen</button></div>

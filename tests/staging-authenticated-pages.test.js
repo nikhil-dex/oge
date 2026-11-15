@@ -21,7 +21,7 @@ async function runProbe(mode) {
       'Content-Type': 'text/html; charset=utf-8',
       'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'nonce-" + nonce + "'",
       ...(mode === 'enforced' ? { 'Content-Security-Policy': "script-src 'self'" } : {}),
-      'Cache-Control': 'private, no-store',
+      'Cache-Control': mode === 'public-cache' ? 'public, max-age=60' : mode === 'shared-cache' ? 'private, s-maxage=600' : 'private, no-store',
     });
     res.end('<!doctype html><html><head><script nonce="' + inlineNonce + '">void 0;</script></head><body>test</body></html>');
   });
@@ -60,7 +60,7 @@ test('authenticated staging CSP checker passes with distinct full-document nonce
   assert.equal(result.calls, 6);
 });
 
-for (const mode of ['mismatch', 'reused', 'redirect', 'enforced']) {
+for (const mode of ['mismatch', 'reused', 'redirect', 'enforced', 'public-cache', 'shared-cache']) {
   test('authenticated staging CSP checker fails closed for ' + mode, async () => {
     const result = await runProbe(mode);
     assert.notEqual(result.code, 0, 'checker must fail for ' + mode);

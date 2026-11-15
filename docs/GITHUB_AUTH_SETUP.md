@@ -16,13 +16,18 @@ OgeNotes requests `read:user user:email` for sign-in and calls GitHub's authenti
 
 - Google continues to identify existing accounts by their original stable Google `sub`.
 - GitHub sign-in identifies accounts by the stable GitHub numerical account ID with a `github:` prefix. This maintains the existing owner-key storage model without treating matching email addresses as the same identity.
-- **Accounts are NOT automatically linked by matching email.** Using a different provider can create a separate OgeNotes workspace even if both providers supply the same verified email. Any future provider linking needs an explicit, authenticated, identity-verified workflow and migration policy.
+- **Accounts are not linked automatically by matching email.** GitHub-created accounts can connect Google explicitly from Profile. The connection requires a fresh Google OAuth verification and matching verified email, with a short-lived one-use link challenge.
+- **Required connection for matching existing Gmail accounts:** When a GitHub login's verified email matches an existing Google-backed OgeNotes account, only Profile and authentication remain available until the user verifies the Google identity. GitHub accounts without that collision may connect Google optionally.
+- After verification, both OAuth providers resolve to the same established Oge workspace. Existing Google notes and ownership stay unchanged. If the separate GitHub workspace already has notes, a password, username, or other personalized data, linking stops safely with a migration-required message; no content is silently combined or deleted.
+- Google OAuth for login is separate from future Oge Vault GitHub App permission grants. Linking identity does not authorize repository creation, GitHub contents access, or notes migration.
 - Existing account data stays unchanged. Password sign-in is available only when an account explicitly enables an OgeNotes password. Profile password setup supports reauthentication with the account's own OAuth provider.
 - The eventual mandatory GitHub **notes-vault connection** is a separate project requiring explicit repository authorization; GitHub sign-in alone is not a vault connection.
 
 ## Security and release checks
 
 - Keep OAuth credentials in server-side secret settings; do not put them in browser extension code or Git.
-- Verify sign-in, sign-out, same-provider return visits, mismatched emails, revoked credentials, and provider-specific reauthentication in a real OAuth environment before production.
+- Verify sign-in, sign-out, same-provider return visits, matching/mismatched verified emails, expired/replayed link intents, revoked credentials, account deletion, and provider-specific reauthentication in a real OAuth environment before production.
+- GitHub/Google linked account deletion must remove both sign-in identities; do not treat a separate GitHub source record as a second independent workspace after linking.
+- Cross-device concurrent links and accounts containing data require dedicated staging validation. In the latter case, a migration flow is a future task rather than automatically transferring personal data.
 - Review GitHub OAuth application policies, rate limits, required permissions, consent, account deletion and privacy disclosures before rollout.
 - OAuth can fail when an organization's or user's policies restrict app authorization.

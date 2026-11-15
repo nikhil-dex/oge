@@ -70,7 +70,9 @@ function fixture({ plan = { ready: true, advisoryOnly: true, snapshot: base,
       assert.equal(options.body.tree, newTree);
       return { sha: nextHead };
     }
-    if (path === '/git/commits/' + nextHead) return { tree: { sha: newTree } };
+    if (path === '/git/commits/' + nextHead) return {
+      tree: { sha: newTree }, parents: [{ sha: base }],
+    };
     throw Error('Unexpected GitHub call ' + path);
   } };
   return { db, client, job, subject, calls, plan: async () => plan };

@@ -4,6 +4,7 @@ import { ownerMutationFilter } from '../../../../lib/active-owner-mutation.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 import { getVaultNoteClient } from '../../../../lib/oge-vault-notes.js';
 import { synchronizeVaultFileIndex } from '../../../../lib/oge-vault-file-index-sync.js';
+import { inspectVaultFileIndexRecovery, reconcileVaultFileIndexVerification } from '../../../../lib/oge-vault-file-index-recovery.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 
 export const runtime = 'nodejs';
@@ -47,10 +48,14 @@ export async function GET(request) {
   try {
     const ctx = await context();
     if (ctx.response) return ctx.response;
-    const subjectId = new URL(request.url).searchParams.get('subject');
+    const params = new URL(request.url).searchParams;
+    const scope = { ownerId: ctx.ownerId, repoId: ctx.repoId };
+    if (params.get('diagnostic') === 'true')
+      return json({ ...(await inspectVaultFileIndexRecovery(ctx.db, scope)),
+        lastKnownOnly: true, advisoryOnly: true });
+    const subjectId = params.get('subject');
     if (subjectId !== null && !UUID.test(subjectId))
       return json({ error: 'Invalid subject.' }, 400);
-    const scope = { ownerId: ctx.ownerId, repoId: ctx.repoId };
     const filter = { ...scope, ...(subjectId ? { subjectId: subjectId.toLowerCase() } : {}) };
     const [state, rows] = await Promise.all([
       ctx.db.collection('vault_file_index_state').findOne(scope, {
@@ -70,7 +75,7 @@ export async function GET(request) {
 
 // Explicit manual refresh, not an implicit per-note autosave or destructive
 // operation. The user-owned GitHub repository is revalidated before each run.
-export async function POST() {
+export async function POST(request) {
   try {
     const ctx = await context();
     if (ctx.response) return ctx.response;
@@ -79,9 +84,14 @@ export async function POST() {
     const client = await getVaultNoteClient(ctx.db, {
       ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion,
     });
-    const result = await synchronizeVaultFileIndex(ctx.db, client, {
-      ownerId: ctx.ownerId, repoId: ctx.repoId,
-    }, { credential: { sessionVersion: ctx.sessionVersion } });
+    const identity = { ownerId: ctx.ownerId, repoId: ctx.repoId };
+    const credential = { sessionVersion: ctx.sessionVersion };
+    // The only self-service recovery is a fully committed "verifying" state.
+    // A "syncing" state remains fenced for audited operator intervention.
+    const reconcile = new URL(request.url).searchParams.get('reconcile') === 'true';
+    const result = reconcile
+      ? await reconcileVaultFileIndexVerification(ctx.db, client, identity, { credential })
+      : await synchronizeVaultFileIndex(ctx.db, client, identity, { credential });
     return json(result);
   } catch (error) { return failure(error); }
 }

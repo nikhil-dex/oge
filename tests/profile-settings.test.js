@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PROFILE_AVATARS, normalizeUsername, normalizeProfileDisplayName, isAllowedAvatar } from '../lib/profile-settings.js';
+import { PROFILE_AVATARS, normalizeUsername, normalizeProfileDisplayName, isAllowedAvatar, normalizeSocialLink } from '../lib/profile-settings.js';
 
 test('usernames are normalized, bounded and safe for uniqueness', () => {
   assert.equal(normalizeUsername(' Student_42 '), 'student_42');
@@ -34,4 +34,32 @@ test('MongoDB enforces global uniqueness for normalized usernames', async () => 
   assert.match(actions, /normalizeUsername\(formData\.get\('username'\)\)/);
   assert.match(actions, /error\?\.code === 11000/);
   assert.match(actions, /ownerMutationFilter\(ownerId,/);
+});
+
+test('optional GitHub and LinkedIn links only accept actual HTTPS profile URLs', () => {
+  assert.equal(normalizeSocialLink('github', ''), null);
+  assert.equal(normalizeSocialLink('linkedin', '   '), null);
+  assert.equal(normalizeSocialLink('github', 'https://github.com/Student-42/'), 'https://github.com/Student-42');
+  assert.equal(normalizeSocialLink('linkedin', 'https://linkedin.com/in/student_name-42/'), 'https://www.linkedin.com/in/student_name-42');
+  for (const input of ['http://github.com/student', 'https://github.com.evil.test/student',
+    'https://github.com/repository/name', 'https://github.com/student?tab=repositories',
+    'https://student:password@github.com/student', 'javascript:alert(1)',
+    'https://github.com/student#anchor']) {
+    assert.equal(normalizeSocialLink('github', input), undefined, input);
+  }
+  for (const input of ['https://evil-linkedin.com/in/student', 'https://linkedin.com/company/student',
+    'http://linkedin.com/in/student', 'https://www.linkedin.com/in/student?x=1']) {
+    assert.equal(normalizeSocialLink('linkedin', input), undefined, input);
+  }
+});
+test('portfolio supports public HTTPS domains and blocks local/private URL hosts', () => {
+  assert.equal(normalizeSocialLink('portfolio', ''), null);
+  assert.equal(normalizeSocialLink('portfolio', 'https://student.dev/projects?tab=latest'), 'https://student.dev/projects?tab=latest');
+  for (const input of ['http://student.dev', 'https://localhost:3000', 'https://127.0.0.1/',
+    'https://192.168.1.10/', 'https://internal.local', 'https://foo.internal/',
+    'https://[::1]/', 'https://example.test', 'https://user:pass@example.com',
+    'https://public.dev/#fragment', 'javascript:alert(1)', 'ftp://student.dev/']) {
+    assert.equal(normalizeSocialLink('portfolio', input), undefined, input);
+  }
+  assert.equal(normalizeSocialLink('something-else', ''), undefined);
 });

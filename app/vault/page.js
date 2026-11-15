@@ -39,6 +39,7 @@ export default async function VaultPage({ searchParams }) {
   const result = (await searchParams)?.result;
   const vault = user.vault?.status === 'connected' ? user.vault : null;
   const configured = vaultConfigured();
+  const previewEnabled = process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true';
   const installUrl = typeof process.env.OGE_VAULT_GITHUB_APP_SLUG === 'string' &&
     /^[a-zA-Z0-9-]{1,80}$/.test(process.env.OGE_VAULT_GITHUB_APP_SLUG)
     ? 'https://github.com/apps/' + process.env.OGE_VAULT_GITHUB_APP_SLUG + '/installations/new'
@@ -67,7 +68,8 @@ export default async function VaultPage({ searchParams }) {
           <>
             <p className="oge-settings-description">Connected to a private GitHub repository owned by <strong>{vault.githubLogin}</strong>.</p>
             <p className="oge-vault-repository"><span aria-hidden="true">▣</span> {vault.githubLogin}/{vault.repoName} <span>PRIVATE</span></p>
-            <p className="oge-settings-note">This is the provisioning milestone. Your existing Notes, Quick Notes and AirNotes are still stored in MongoDB while safe synchronization and migration are built and tested.</p>
+            <p className="oge-settings-note">The GitHub Notes preview is separate from the main Notes workspace. The current Notes, Quick Notes and AirNotes still use legacy MongoDB endpoints until cutover. Existing records have been identified as disposable test data, pending inventory and cleanup.</p>
+            {previewEnabled && <Link className="oge-primary-link" href="/vault/preview">Open GitHub-only Notes preview →</Link>}
           </>
         ) : (
           <>
@@ -85,7 +87,7 @@ export default async function VaultPage({ searchParams }) {
           </>
         )}
       </div>
-      <p className="oge-vault-footnote">Your current notes are not moved, deleted, or copied by connecting your vault. Migration and mandatory GitHub-backed Notes access will be enabled only after a separate verified release.</p>
+      <p className="oge-vault-footnote">Your current notes are not moved, deleted, or copied by connecting your vault. Mandatory GitHub-backed Notes access will be enabled only after full cutover tests and reviewed cleanup of disposable MongoDB test records.</p>
     </main>
   );
 }

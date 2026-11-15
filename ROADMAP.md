@@ -219,7 +219,7 @@ These criteria are release blockers, not optional polish:
 - [x] **B5.2 — Snapshot GitHub pagination:** paged tree/blob reads and `/vault/preview` Load More.
 - [x] **B5.3a — Familiar Notes pagination/edit warnings:** paged `/vault/notes`, unsaved-change guards; not autosave.
 - [ ] **B5.3b — Hybrid draft autosave (existing/new note editor integration and reconnect safety committed; live staging verification pending):** feature-flagged, revision-fenced MongoDB drafts and sessionStorage recovery, preserving local input under offline/retry failure, and no changes to production `/notes`. Owner/session/repository permissions and validation tests required.
-- [ ] **B5.3c — GitHub-aware subject deletion:** inventory all associated GitHub notes, commit deletions safely with SHA checks, coordinate MongoDB metadata, and recover partial failures. Never delete a subject with unsynced drafts silently.
+- [ ] **B5.3c — GitHub-aware subject deletion (read-only safety preflight committed; destructive operation still disabled):** inventory all associated GitHub notes, commit deletions safely with SHA checks, coordinate MongoDB metadata, and recover partial failures. Never delete a subject with unsynced drafts silently.
 - [ ] **B6 — GitHub file catalog:** metadata-only `vault_files`, compound indexes, idempotent reconciliation from GitHub tree and stale-index tests.
 - [ ] **B7 — Reliable final Save:** explicit Save button, atomic GitHub commit/reconciliation, pending-state UX, server retries/failed-sync recovery, post-confirmation conditional draft cleanup; optional periodic commits after testing.
 - [ ] **C — Legacy test-data inventory and cleanup:** per-environment validation and explicit operator approval; retain pending vault drafts.

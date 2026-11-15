@@ -144,3 +144,30 @@ test('a stored recovery draft is not treated as remotely saved content', () => {
   assert.equal(notesMatch({ ...base(SHA_A) }, base()), true);
   assert.equal(notesMatch({ ...base(SHA_A), answer: 'Different' }, base()), false);
 });
+
+test('incomplete new notes stay in the tab and are not sent to GitHub', async () => {
+  const f = fixture({ initial: { ...base(), heading: '', answer: '' } });
+  assert.equal(f.controls.getState().status, 'new');
+  f.controls.edit({ heading: 'A title' });
+  await f.controls.flush();
+  assert.equal(f.batchCalls.length, 0);
+  assert.equal(f.controls.getState().status, 'incomplete');
+  f.controls.edit({ answer: 'A body' });
+  await f.controls.flush();
+  assert.equal(f.batchCalls.length, 1);
+  assert.equal(f.controls.getState().status, 'synced');
+});
+
+test('remote deleted note produces explicit conflict without erasing draft', async () => {
+  const f = fixture({ initial: base(SHA_A),
+    save: async () => { throw Object.assign(new Error('conflict'), { status: 409 }); },
+    remote: async () => { throw Object.assign(new Error('not found'), { status: 404 }); } });
+  f.controls.edit({ answer: 'My important content' });
+  await f.controls.flush();
+  const state = f.controls.getState();
+  assert.equal(state.status, 'conflict');
+  assert.equal(state.conflict.deleted, true);
+  assert.equal(state.draft.answer, 'My important content');
+  assert.throws(() => f.controls.discardConflict(), TypeError);
+  assert.equal(readVaultDraft(f.storage, f.key).answer, 'My important content');
+});

@@ -57,6 +57,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === 'google' && typeof account.providerAccountId === 'string') {
         token.googleSub = account.providerAccountId;
         token.authenticatedAt = Date.now();
+        delete token.passwordSignedInAt;
       }
       if (account?.provider === 'credentials') {
         if (typeof user?.id !== 'string' || !user.id ||
@@ -65,7 +66,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.sessionVersion = user.sessionVersion;
         // Credentials sign-in is not evidence of recent Google reauthentication.
         token.authenticatedAt = null;
+        // A shared-device password session expires after 8 hours even if
+        // the general Google-authenticated JWT lifetime is longer.
+        token.passwordSignedInAt = Date.now();
       }
+      if (token.passwordSignedInAt !== undefined &&
+          (!Number.isSafeInteger(token.passwordSignedInAt) ||
+           token.passwordSignedInAt > Date.now() ||
+           Date.now() - token.passwordSignedInAt > 8 * 60 * 60 * 1000)) return null;
       if (typeof token.googleSub !== 'string') return null;
       try {
         // JWT logout on one device does not revoke other copies by itself.

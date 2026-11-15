@@ -784,7 +784,7 @@ export default function NotesPage({
               {hybridReady ? draftStatus || 'Draft ready' : 'Checking saved drafts…'}
             </p>}
             {hybridError && <p role="alert" className="form-error">{hybridError}</p>}
-            {hybridDrafts && hybridReady && hybridError && !hybridConflictRef.current &&
+            {hybridDrafts && hybridReady && hybridError && !hybridError.startsWith('Draft conflict:') &&
               <button type="button" className="answer-expand-button" onClick={() => {
                 setHybridError('');
                 setHybridRetryToken((token) => token + 1);

@@ -11,7 +11,7 @@
     '.oge-dimmed{opacity:.36}.oge-open.oge-dimmed{opacity:.74}.oge-open:focus-within,.oge-open:hover{opacity:1!important}button,textarea,select{outline-offset:2px}@media(prefers-reduced-motion:no-preference){:host{transition:opacity .5s ease}}',
     '.launcher{width:44px;height:44px;border:1px solid #ffffff55;border-radius:14px;background:#316b50;color:#fff;box-shadow:0 8px 26px #10251b40;font:800 19px system-ui;cursor:grab;touch-action:none;user-select:none;letter-spacing:-.05em;transition:box-shadow .18s,background .18s}.launcher:hover{background:#23563d;box-shadow:0 9px 28px #10251b55}.launcher:active{cursor:grabbing}',
     '.panel{position:fixed;left:16px;top:16px;right:auto;bottom:auto;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
-    '.hidden{display:none}.resize-corner{position:sticky;bottom:0;float:right;width:24px;height:24px;margin-top:-24px;display:grid;place-items:center;border:0;border-top-left-radius:8px;color:#657a6d;background:#f1f6f2;cursor:nwse-resize;touch-action:none;user-select:none;font-size:15px}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
+    '.hidden{display:none}.resize-corner{position:sticky;bottom:0;float:right;width:24px;height:24px;margin-top:-24px;display:grid;place-items:center;border:0;border-top-left-radius:8px;color:#657a6d;background:#f1f6f2;cursor:nwse-resize;touch-action:none;user-select:none;font-size:15px}.resize-corner-left{float:left;border-radius:0 8px 0 0;cursor:nesw-resize}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
     '.mark{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#316b50;color:white;font-size:12px;font-weight:800}.heading{flex:1;font-size:12px;font-weight:750;letter-spacing:.01em}',
     '.close{padding:2px 6px;border:0;background:transparent;color:#536c59;font-size:22px;cursor:pointer}',
     '.body{padding:11px 12px}.body[hidden]{display:none}.hint{margin:0 0 9px;color:#6b7b70;font-size:10px;line-height:1.45}',
@@ -37,6 +37,7 @@
     '<div class="body" data-panel="links" hidden><p class="hint">Your social and portfolio URLs from OgeNotes Profile.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
     '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="url" type="button">↗ Save URL</button><button data-tool="links" type="button">☷ My links</button></nav>',
+    '<button class="resize-corner resize-corner-left" type="button" aria-label="Resize widget from left corner" title="Drag left or down to resize">↙</button>',
     '<button class="resize-corner" type="button" aria-label="Resize widget width and height" title="Drag to resize width and height">↘</button>',
   ].join('');
   const launcher = document.createElement('button');
@@ -99,7 +100,7 @@
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
       const editing = shadow.activeElement === note || shadow.activeElement === subjectSelect ||
-        (shadow.activeElement?.matches && shadow.activeElement.matches('button'));
+        false;
       if (!editing) host.style.opacity = panel.classList.contains('hidden') ? '.38' : '.78';
     }, IDLE_DELAY_MS);
   }
@@ -194,29 +195,35 @@
   handle.addEventListener('pointerup', () => { headerDrag = null; });
   handle.addEventListener('pointercancel', () => { headerDrag = null; });
 
-  const resizeHandle = panel.querySelector('.resize-corner');
+  const resizeHandles = panel.querySelectorAll('.resize-corner');
   let resizeDrag = null;
+  for (const resizeHandle of resizeHandles) {
   resizeHandle.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
     const rect = panel.getBoundingClientRect();
     resizeDrag = { id: event.pointerId, x: event.clientX, y: event.clientY,
-      width: rect.width, height: rect.height, left: rect.left, top: rect.top };
+      width: rect.width, height: rect.height, left: rect.left, top: rect.top,
+      fromLeft: resizeHandle.classList.contains('resize-corner-left') };
     resizeHandle.setPointerCapture(event.pointerId);
     wake();
   });
   resizeHandle.addEventListener('pointermove', (event) => {
     if (!resizeDrag || resizeDrag.id !== event.pointerId) return;
-    const width = clamp(resizeDrag.width + event.clientX - resizeDrag.x,
-      MIN_PANEL_WIDTH, window.innerWidth - resizeDrag.left - GAP);
+    const dx = event.clientX - resizeDrag.x;
+    const width = resizeDrag.fromLeft
+      ? clamp(resizeDrag.width - dx, MIN_PANEL_WIDTH, resizeDrag.left + resizeDrag.width - GAP)
+      : clamp(resizeDrag.width + dx, MIN_PANEL_WIDTH, window.innerWidth - resizeDrag.left - GAP);
     const height = clamp(resizeDrag.height + event.clientY - resizeDrag.y,
       MIN_PANEL_HEIGHT, window.innerHeight - resizeDrag.top - GAP);
     panel.style.width = width + 'px';
+    if (resizeDrag.fromLeft) panel.style.left = resizeDrag.left + resizeDrag.width - width + 'px';
     panel.style.height = height + 'px';
     wake();
   });
   resizeHandle.addEventListener('pointerup', () => { resizeDrag = null; });
   resizeHandle.addEventListener('pointercancel', () => { resizeDrag = null; });
+  }
   window.addEventListener('resize', () => {
     const width = Math.min(panel.offsetWidth, window.innerWidth - GAP * 2);
     const height = Math.min(panel.offsetHeight, window.innerHeight - GAP * 2);

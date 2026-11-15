@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function POST() {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: 'Sign in before setting up Oge Vault.' }, { status: 401 });
-  if (!vaultConfigured()) return NextResponse.redirect(new URL('/vault?result=not-configured', vaultCallbackUrlSafe()), 303);
+  if (!vaultConfigured()) return Response.json({ error: 'Oge Vault is not configured yet.' }, { status: 503 });
   try {
     const db = await getDatabase();
     const throttle = await checkRateLimit(db, {
@@ -36,10 +36,4 @@ export async function POST() {
     console.error('Vault authorization start failed:', error?.name);
     return NextResponse.redirect(new URL('/vault?result=start-failed', vaultCallbackUrl()), 303);
   }
-}
-
-function vaultCallbackUrlSafe() {
-  // No untrusted Host header in redirect targets, even when environment
-  // configuration is incomplete: use an application-relative fallback.
-  return 'http://localhost:3000';
 }

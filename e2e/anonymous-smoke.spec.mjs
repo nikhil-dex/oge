@@ -75,3 +75,21 @@ test('registration records sanitized report-only CSP compatibility signals', asy
   console.log('[CSP diagnostic] ' + (summary.join(', ') || 'no violations observed'));
   expect(reports.every((report) => report.disposition === 'report')).toBe(true);
 });
+
+// Nonce prototype contract: a fresh report-only header must authorize every
+// inline script on the production-rendered registration page.
+test('registration inline scripts carry the response CSP nonce', async ({ page }) => {
+  const response = await page.goto('/register');
+  expect(response?.status()).toBe(200);
+  const policy = response.headers()['content-security-policy-report-only'] || '';
+  const nonce = policy.match(/'nonce-([A-Za-z0-9+/_=-]+)'/)?.[1];
+  expect(nonce, 'response must include a CSP nonce').toBeTruthy();
+  const scriptStats = await page.evaluate(() => {
+    const scripts = [...document.querySelectorAll('script:not([src])')];
+    return { total: scripts.length, withoutNonce: scripts.filter((script) => !script.nonce).length,
+      mismatched: scripts.filter((script) => script.nonce && script.nonce !== document.querySelector('script[nonce]')?.nonce).length };
+  });
+  console.log('[Nonce diagnostic] inline count=' + scriptStats.total + ', missing=' + scriptStats.withoutNonce + ', mismatch=' + scriptStats.mismatched);
+  expect(scriptStats.withoutNonce).toBe(0);
+  expect(scriptStats.mismatched).toBe(0);
+});

@@ -108,6 +108,14 @@ The experimental `/vault/preview` page is now visible to an authenticated owner 
 
 **Safety / release blockers:** The classic subject deletion API can still delete MongoDB subject metadata without deleting corresponding GitHub files, so subject deletion must be redesigned before switching production Notes. GitHub listing is capped; the classic Notes editor's current attachment/backup/revision and external extension integrations are not wired to Vault yet. The other MongoDB note-content endpoints still exist, and the production Notes workspace has **not** cut over. Real GitHub App staging and per-user isolation verification are still required.
 
+## Phase B5.1 — Subject safety and bounded scale (staging)
+
+Connected GitHub Vault accounts are now **blocked from deleting subjects through the legacy `DELETE /api/subjects` endpoint**. The legacy transaction only deletes MongoDB note records and subject metadata; it does not delete GitHub files. Allowing it to run for a Vault-connected account could orphan GitHub notes and break their subject references. The endpoint first authenticates and checks the active owner and `vault.status`, then returns HTTP 409 without deleting anything for connected accounts. Legacy accounts without a connected Vault retain the original transactional subject deletion behavior. This is a **temporary safety gate**, not complete cross-store subject deletion.
+
+The separate GitHub Notes preview now permits **up to 500 notes** in the repository-directory listing, instead of 100. Reads remain in batches of five; lists with more than 500 entries fail explicitly rather than returning an incomplete collection, and the application does not write note bodies to MongoDB to cache the list. GitHub API consumption will grow with note count, so the permanent solution requires pagination and rate-limit-aware indexing.
+
+**Remaining B5 blockers:** An owner-scoped, retryable subject-deletion protocol that cannot race new note creations; full pagination and efficient GitHub snapshot reads; B3 autosave integration with the familiar Notes editor; review of other subject deletion and backup/import entry points; live GitHub App security testing and narrower installation permissions. The production `/notes` route is still unchanged and MongoDB-backed.
+
 ## Revised rollout — no legacy user-data migration
 
 The project owner confirms that existing MongoDB note records are **disposable app-test fixtures**, not student data requiring preservation. Therefore the prior **copy-and-verify MongoDB-to-GitHub user-content migration milestone is removed from the active launch sequence**. We must not infer this from the database automatically or silently delete unverified records.

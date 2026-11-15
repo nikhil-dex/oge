@@ -71,7 +71,7 @@ export default async function VaultPage({ searchParams }) {
             <p className="oge-vault-repository"><span aria-hidden="true">▣</span> {vault.githubLogin}/{vault.repoName} <span>PRIVATE</span></p>
             <p className="oge-settings-note">The GitHub Notes preview is separate from the main Notes workspace. The current Notes, Quick Notes and AirNotes still use legacy MongoDB endpoints until cutover. Existing records have been identified as disposable test data, pending inventory and cleanup.</p>
             {previewEnabled && <Link className="oge-primary-link" href="/vault/preview">Open GitHub-only Notes preview →</Link>}
-            {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open familiar Notes interface (GitHub-only) →</Link>
+            {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open familiar Notes interface (GitHub-only) →</Link>}
           </>
         ) : (
           <>

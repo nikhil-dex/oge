@@ -54,10 +54,12 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
 
   useEffect(() => {
     let cancelled = false;
-    refreshSubjects().catch((error) => { if (!cancelled) setSubjectMessage(error.message); }).finally(() => { if (!cancelled) setSubjectLoading(false); });
+    Promise.resolve().then(() => { if (!cancelled) return refreshSubjects(); }).catch((error) => { if (!cancelled) setSubjectMessage(error.message); }).finally(() => { if (!cancelled) setSubjectLoading(false); });
     fetch('/api/gemini-key', { cache: 'no-store' }).then(responseJson).then((data) => {
       if (!cancelled) { setGeminiConfigured(Boolean(data.configured)); setGeminiUpdatedAt(data.updatedAt || null); }
     }).catch((error) => { if (!cancelled) { setGeminiMessage(error.message); setGeminiMessageType('alert'); } });
+    Promise.resolve().then(() => {
+      if (cancelled) return;
     const savedTheme = readLocal('theme', 'dark');
     const savedAccent = readLocal('accent', 'green');
     const savedSecondary = readLocal('secondary', 'blue');
@@ -74,6 +76,7 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
         density: ['fine', 'normal', 'bold'].includes(saved.density) ? saved.density : 'normal',
       });
     } catch { /* Keep safe defaults if stored preferences are malformed. */ }
+    });
     return () => { cancelled = true; };
   }, [refreshSubjects]);
 

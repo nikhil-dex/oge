@@ -100,6 +100,15 @@ test('vault setup provisions a new private user-owned repo and marker with repo-
   assert.equal(JSON.parse(Buffer.from(marker.body.content, 'base64')).format, 'ogenotes-vault');
 });
 
+test('a mismatched GitHub sign-in identity cannot create any repository', async () => {
+  const mock = mockGitHub();
+  await assert.rejects(() => provisionVault('token', {
+    env: { OGE_VAULT_GITHUB_APP_ID: '999' }, fetcher: mock.github,
+    expectedGitHubId: '88',
+  }), (error) => error.message === 'github-account-mismatch');
+  assert.equal(mock.calls.some((c) => c.path === '/user/repos'), false);
+});
+
 test('vault never creates repo before installation checks and never accepts public or wrong-owner repo', async () => {
   const mock = mockGitHub({ selected: true });
   await assert.rejects(() => provisionVault('token', { env: { OGE_VAULT_GITHUB_APP_ID: '999' },

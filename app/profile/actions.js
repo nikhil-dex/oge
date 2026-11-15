@@ -12,7 +12,6 @@ export async function saveProfileSettings(formData) {
   const session = await auth();
   const ownerId = session?.user?.id;
   if (typeof ownerId !== 'string' || !ownerId) redirect('/register');
-  if (session.user.googleConnectionRequired) redirect('/profile?google=required');
 
   const username = normalizeUsername(formData.get('username'));
   const displayName = normalizeProfileDisplayName(formData.get('displayName'));

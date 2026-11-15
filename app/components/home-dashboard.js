@@ -140,7 +140,7 @@ export default function HomeDashboard() {
         <section className="home-dashboard-actions" aria-labelledby="home-actions-title">
           <p className="eyebrow">SHORTCUTS</p>
           <h3 id="home-actions-title">Quick actions</h3>
-          <Link href="/notes"><span className="home-dashboard-action-icon" aria-hidden="true">＋</span><span><strong>Write a note</strong><small>Capture what you're learning</small></span><span aria-hidden="true">→</span></Link>
+          <Link href="/notes"><span className="home-dashboard-action-icon" aria-hidden="true">＋</span><span><strong>Write a note</strong><small>Capture what you&apos;re learning</small></span><span aria-hidden="true">→</span></Link>
           <Link href="/saved-links"><span className="home-dashboard-action-icon" aria-hidden="true">↗</span><span><strong>Save a link</strong><small>Keep a useful resource close</small></span><span aria-hidden="true">→</span></Link>
           <Link href="/quick-notes"><span className="home-dashboard-action-icon" aria-hidden="true">✳</span><span><strong>Open Quick Notes</strong><small>Capture a passing thought</small></span><span aria-hidden="true">→</span></Link>
           <Link href="/extension"><span className="home-dashboard-action-icon" aria-hidden="true">⌁</span><span><strong>Browser extension</strong><small>Capture ideas from websites</small></span><span aria-hidden="true">→</span></Link>

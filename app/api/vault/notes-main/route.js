@@ -5,6 +5,7 @@ import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate
 import { getVaultNoteClient, listVaultNotes, listVaultNotePage, readVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { commitVaultNoteBatch } from '../../../../lib/oge-vault-batch.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
+import { withVaultSubjectWrite, VaultSubjectLockedError } from '../../../../lib/oge-vault-subject-fence.js';
 
 // Staging adapter for the existing Notes UI. NEVER falls back to MongoDB
 // note-content storage. The production /api/notes route is unchanged.
@@ -25,6 +26,7 @@ export function legacyVaultNote(note) {
 }
 
 function vaultError(error) {
+  if (error instanceof VaultSubjectLockedError) return json({ error: error.message }, 409);
   if (error instanceof SyntaxError || error instanceof TypeError)
     return json({ error: 'Invalid note request.' }, 400);
   if (error instanceof VaultGitHubError) {
@@ -103,12 +105,13 @@ export async function POST(request) {
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(suppliedId))) {
       return json({ error: 'Invalid hybrid note ID.' }, 400);
     }
-    const change = await commitVaultNoteBatch(ctx.client, [{
+    const change = await withVaultSubjectWrite(ctx.db, ctx.ownerId, data.subjectSlug,
+      () => commitVaultNoteBatch(ctx.client, [{
       action: 'create', ...(suppliedId ? { id: suppliedId } : {}), note: {
         subjectId: data.subjectSlug, heading: data.heading, answer: data.answer,
         tags: data.tags, favorite: false,
       },
-    }]);
+    }])); 
     return json(legacyVaultNote(change.results[0]), 201);
   });
 }
@@ -121,11 +124,12 @@ export async function PUT(request) {
     if (data.subjectSlug !== previous.subjectId ||
         !await subjectExists(ctx, previous.subjectId))
       return json({ error: 'Changing subjects is not supported.' }, 409);
-    const change = await commitVaultNoteBatch(ctx.client, [{
-      action: 'update', id: data.id, sha: data.sha,
-      note: { subjectId: previous.subjectId, heading: data.heading,
-        answer: data.answer, tags: data.tags, favorite: previous.favorite },
-    }]);
+    const change = await withVaultSubjectWrite(ctx.db, ctx.ownerId, previous.subjectId,
+      () => commitVaultNoteBatch(ctx.client, [{
+        action: 'update', id: data.id, sha: data.sha,
+        note: { subjectId: previous.subjectId, heading: data.heading,
+          answer: data.answer, tags: data.tags, favorite: previous.favorite },
+      }]));
     return json(legacyVaultNote(change.results[0]));
   });
 }
@@ -138,11 +142,12 @@ export async function PATCH(request) {
     const previous = await readVaultNote(ctx.client, data.id);
     if (!await subjectExists(ctx, previous.subjectId))
       return json({ error: 'Subject not found.' }, 404);
-    const change = await commitVaultNoteBatch(ctx.client, [{
-      action: 'update', id: data.id, sha: data.sha,
-      note: { subjectId: previous.subjectId, heading: previous.heading,
-        answer: previous.answer, tags: previous.tags, favorite: data.favorite },
-    }]);
+    const change = await withVaultSubjectWrite(ctx.db, ctx.ownerId, previous.subjectId,
+      () => commitVaultNoteBatch(ctx.client, [{
+        action: 'update', id: data.id, sha: data.sha,
+        note: { subjectId: previous.subjectId, heading: previous.heading,
+          answer: previous.answer, tags: previous.tags, favorite: data.favorite },
+      }]));
     return json(legacyVaultNote(change.results[0]));
   }, 4096);
 }
@@ -160,7 +165,9 @@ export async function DELETE(request) {
     const id = url.searchParams.get('id');
     const sha = url.searchParams.get('sha');
     if (!id || !sha) return json({ error: 'Note ID and revision required.' }, 400);
-    const result = await commitVaultNoteBatch(ctx.client, [{ action: 'delete', id, sha }]);
+    const previous = await readVaultNote(ctx.client, id);
+    const result = await withVaultSubjectWrite(ctx.db, ctx.ownerId, previous.subjectId,
+      () => commitVaultNoteBatch(ctx.client, [{ action: 'delete', id, sha }]));
     return json({ deleted: result.results[0].id });
   } catch (error) { return vaultError(error); }
 }

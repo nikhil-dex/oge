@@ -68,3 +68,19 @@ test('draft routes are preview-gated and production Notes remains separate', asy
   assert.match(mongo, /vault_files.*createIndex/);
   assert.doesNotMatch(mongo, /vault_drafts.*expireAfterSeconds/);
 });
+
+test('familiar Notes hybrid editor is opt-in and preserves legacy production mode', async () => {
+  const page = await readFile(new URL('../app/notes/page.js', import.meta.url), 'utf8');
+  const vaultPage = await readFile(new URL('../app/vault/notes/page.js', import.meta.url), 'utf8');
+  const api = await readFile(new URL('../app/api/vault/drafts/route.js', import.meta.url), 'utf8');
+  assert.match(page, /hybridDrafts = false/);
+  assert.match(page, /fetch\('\/api\/vault\/drafts/);
+  assert.match(page, /window\.sessionStorage\.setItem/);
+  assert.match(page, /Draft saved/);
+  assert.match(page, /An unsynced draft exists/);
+  assert.match(page, /method: 'DELETE'/);
+  assert.match(vaultPage, /OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true'/);
+  assert.match(vaultPage, /vaultOwnerId=\{session\.user\.id\}/);
+  assert.match(api, /readVaultNote\(ctx\.client, scope\.noteId\)/);
+  assert.match(api, /clearConfirmedDraft/);
+});

@@ -12,6 +12,22 @@ test('anonymous registration renders without OAuth or database access', async ({
   await expect(page).toHaveTitle(/OgeNotes/);
 });
 
+test('retro sign-in preserves accessible providers and password form on desktop and mobile', async ({ page }) => {
+  await page.goto('/register');
+  await expect(page.locator('.oge-retro-stage')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /your ideas are waiting/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /continue with github/i })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /email address/i })).toBeVisible();
+  await expect(page.getByLabel('OgeNotes password')).toBeVisible();
+  await expect(page.getByRole('button', { name: /sign in with password/i })).toBeEnabled();
+  const sizes = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  expect(sizes.document).toBeLessThanOrEqual(sizes.viewport + 1);
+});
+
 test('private pages redirect anonymous browsers back to registration', async ({ page }) => {
   for (const path of ['/', '/notes', '/settings', '/profile', '/saved-links', '/airnotes']) {
     await page.goto(path);

@@ -50,6 +50,7 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
   const [draftStatus, setDraftStatus] = useState('');
   const [aiCleanupBusy, setAiCleanupBusy] = useState(false);
   const answerRef = useRef(null);
+  const editorInitialRef = useRef(null);
 
   const load = useCallback(async (preferredSubject = '') => {
     setLoading(true);
@@ -128,6 +129,7 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
   const active = subjects.find((subject) => subject.slug === activeSubject);
 
   function openNewNote() {
+    editorInitialRef.current = { heading: '', answer: '', tags: '' };
     setEditingId('');
     setHeading('');
     setAnswer('');
@@ -141,6 +143,9 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
   }
 
   function editNote(note) {
+    editorInitialRef.current = {
+      heading: note.heading, answer: note.answer, tags: (note.tags || []).join(', '),
+    };
     setEditingId(note.id);
     setHeading(note.heading);
     setAnswer(note.answer);
@@ -152,6 +157,21 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
     setAnswerFullscreen(false);
     setDraftStatus('');
     setNoteDialog(true);
+  }
+
+  const hasUnsavedEditorChanges = useCallback(() => {
+    if (!vaultMode || !noteDialog || !editorInitialRef.current) return false;
+    const baseline = editorInitialRef.current;
+    return heading !== baseline.heading || answer !== baseline.answer ||
+      tagsText !== baseline.tags;
+  }, [vaultMode, noteDialog, heading, answer, tagsText]);
+
+  function closeNoteEditor() {
+    if (saving) return;
+    if (hasUnsavedEditorChanges() &&
+        !window.confirm('Discard unsaved GitHub note edits? These changes have not been committed to your vault.')) return;
+    setNoteDialog(false);
+    setPreview(false);
   }
 
   async function saveNote(event) {
@@ -171,6 +191,7 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
         body: JSON.stringify(editingId ? { ...payload, id: editingId,
           ...(vaultMode ? { sha: current.sha } : {}) } : payload),
       }));
+      editorInitialRef.current = null;
       setNoteDialog(false);
       setAnswerFullscreen(false);
       setPreview(false);
@@ -335,16 +356,30 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
   }
 
   useEffect(() => {
+    if (!vaultMode || !noteDialog || !hasUnsavedEditorChanges()) return undefined;
+    const guard = (event) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [vaultMode, noteDialog, hasUnsavedEditorChanges]);
+
+  useEffect(() => {
     if (!noteDialog && !readerNote) return undefined;
     const onKeyDown = (event) => {
       if (event.key !== 'Escape') return;
       if (answerFullscreen) { setAnswerFullscreen(false); return; }
-      if (noteDialog && !saving) { setNoteDialog(false); setPreview(false); return; }
+      if (noteDialog && !saving) {
+        if (!hasUnsavedEditorChanges() ||
+            window.confirm('Discard unsaved GitHub note edits? These changes are not saved.')) {
+          setNoteDialog(false);
+          setPreview(false);
+        }
+        return;
+      }
       setReaderNote(null);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [noteDialog, readerNote, answerFullscreen, saving]);
+  }, [noteDialog, readerNote, answerFullscreen, saving, hasUnsavedEditorChanges]);
 
   return (
     <main className="shell">
@@ -435,9 +470,9 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
 
       <footer><span>Built for learning, one note at a time.</span><span>PRIVATE · SUBJECT BASED</span></footer>
 
-      {noteDialog && <div className="modal-backdrop editor-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setNoteDialog(false); }}>
+      {noteDialog && <div className="modal-backdrop editor-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeNoteEditor(); }}>
         <section className="dialog editor-dialog" role="dialog" aria-modal="true" aria-labelledby="formTitle">
-          <button className="close-button" type="button" onClick={() => !saving && setNoteDialog(false)} aria-label="Close form">×</button>
+          <button className="close-button" type="button" onClick={closeNoteEditor} aria-label="Close form">×</button>
           <p className="eyebrow">{editingId ? 'EDIT NOTE' : 'GROW YOUR LIBRARY'}</p>
           <h2 id="formTitle">{editingId ? 'Edit note' : 'Add a note'}<span className="period">.</span></h2>
           <p className="form-subtitle">{editingId ? 'Update the heading, tags, or answer.' : 'Give it a clear heading and capture what you learned.'}</p>

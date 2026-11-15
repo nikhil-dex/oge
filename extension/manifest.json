@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "OgeNotes — Study Toolbelt",
-  "version": "0.1.0",
-  "description": "Save tabs and quickly copy or visit your profile's social and portfolio links.",
+  "version": "0.2.0",
+  "description": "Floating Quick Notes, Save URL and My Links toolbelt on websites, plus the extension popup.",
   "permissions": [
     "activeTab",
     "storage",
@@ -18,5 +18,20 @@
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
   ]
 }

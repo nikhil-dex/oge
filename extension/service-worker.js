@@ -1,0 +1,102 @@
+// All OgeNotes requests are made from the extension service worker.
+// The floating content script never receives the bearer token or app origin.
+const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK']);
+const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
+
+function normalizeBase(value) {
+  const url = new URL(value);
+  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash ||
+      (url.protocol !== 'https:' &&
+        !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))) {
+    throw new Error('Enter a valid HTTPS OgeNotes origin in the extension popup.');
+  }
+  return url.origin;
+}
+async function getConnection() {
+  const stored = await chrome.storage.local.get(['baseUrl', 'token']);
+  if (!stored.baseUrl || !TOKEN_PATTERN.test(stored.token || '')) {
+    throw new Error('Connect the extension from its toolbar popup first.');
+  }
+  const origin = normalizeBase(stored.baseUrl);
+  if (!await chrome.permissions.contains({ origins: [origin + '/*'] })) {
+    throw new Error('Grant OgeNotes site permission from the Connect tab.');
+  }
+  return { origin, token: stored.token };
+}
+async function apiRequest(path, options = {}) {
+  const { origin, token } = await getConnection();
+  const response = await fetch(origin + path, {
+    ...options,
+    cache: 'no-store',
+    redirect: 'error',
+    headers: { Authorization: 'Bearer ' + token, ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'OgeNotes could not complete this request.');
+  return data;
+}
+function validWebsiteUrl(value) {
+  if (typeof value !== 'string' || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password;
+  } catch { return false; }
+}
+async function handleAction(message, sender) {
+  // Only extension-injected content scripts in real tabs can use this channel.
+  if (sender.id !== chrome.runtime.id || !sender.tab?.id ||
+      !validWebsiteUrl(sender.tab.url) || !EXTENSION_ACTIONS.has(message?.type)) {
+    throw new Error('Unsupported extension action.');
+  }
+  if (message.type === 'CREATE_QUICK_NOTE') {
+    const content = message.content;
+    if (typeof content !== 'string' || !content.trim() || content.length > 20000) {
+      throw new Error('Write a note of up to 20,000 characters.');
+    }
+    const data = await apiRequest('/api/extension/quick-note', {
+      method: 'POST', body: JSON.stringify({ content }),
+    });
+    return { title: data.title };
+  }
+  if (message.type === 'SAVE_CURRENT_TAB') {
+    const url = sender.tab.url;
+    const data = await apiRequest('/api/extension/save-link', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: (sender.tab.title || url).slice(0, 120), url, description: '',
+        category: 'Browser', tags: ['browser'],
+      }),
+    });
+    return { title: data.title };
+  }
+  if (message.type === 'GET_PROFILE_LINKS') {
+    const data = await apiRequest('/api/extension/profile-links');
+    // Only validated URLs are returned; no token or account identifiers.
+    const links = {};
+    for (const kind of LINK_KINDS) {
+      if (typeof data.links?.[kind] === 'string') links[kind] = data.links[kind];
+    }
+    return { links };
+  }
+  if (message.type === 'VISIT_PROFILE_LINK') {
+    if (!LINK_KINDS.has(message.kind)) throw new Error('Unknown profile link.');
+    // Always refetch current URL from the server rather than trust a link
+    // supplied by a potentially compromised webpage.
+    const data = await apiRequest('/api/extension/profile-links');
+    const url = data.links?.[message.kind];
+    if (typeof url !== 'string' || !validWebsiteUrl(url) || !url.startsWith('https://')) {
+      throw new Error('This profile link is unavailable.');
+    }
+    await chrome.tabs.create({ url, active: true });
+    return { opened: true };
+  }
+  throw new Error('Unsupported extension action.');
+}
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!EXTENSION_ACTIONS.has(message?.type)) return false;
+  handleAction(message, sender)
+    .then((data) => sendResponse({ ok: true, ...data }))
+    .catch((error) => sendResponse({ ok: false, error: error.message || 'Extension request failed.' }));
+  return true;
+});

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useState } from 'react';
 import ThemeToggle from '../components/theme-toggle';
 
@@ -56,9 +58,9 @@ export default function QuickNotesPage() {
   return (
     <main className="shell oge-shell oge-feature-page">
       <header className="oge-topbar">
-        <a className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a>
-        <nav className="oge-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/notes">Notes</a><a href="/news">News</a></nav>
-        <div className="oge-top-actions"><a className="oge-signin" href="/settings">Settings ↗</a><ThemeToggle /></div>
+        <Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link>
+        <nav className="oge-nav" aria-label="Main navigation"><Link href="/">Home</Link><Link href="/notes">Notes</Link><Link href="/news">News</Link></nav>
+        <div className="oge-top-actions"><Link className="oge-signin" href="/settings">Settings ↗</Link><ThemeToggle /></div>
       </header>
       <section className="oge-notes-hero"><div className="oge-eyebrow"><span className="oge-status-dot" /> LIGHTWEIGHT CAPTURE</div><h1>Quick <span>Notes.</span></h1><p className="oge-hero-copy">Catch a thought before it disappears. Short notes, without the ceremony.</p></section>
       <section className="oge-notes-workspace oge-quick-workspace">
@@ -82,7 +84,7 @@ export default function QuickNotesPage() {
           </form>
         </section>
       </section>
-      <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>Capture it before you forget.</span><a href="/">Home ↗</a></footer>
+      <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>Capture it before you forget.</span><Link href="/">Home ↗</Link></footer>
     </main>
   );
 }

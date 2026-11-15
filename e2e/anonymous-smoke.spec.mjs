@@ -108,3 +108,33 @@ test('separate registration responses use distinct nonces without enabling CSP e
   expect(first.headers()['content-security-policy']).toBeUndefined();
   expect(second.headers()['content-security-policy']).toBeUndefined();
 });
+
+
+test('nonce rotates across full navigations and all inline scripts match each response', async ({ page }) => {
+  const values = [];
+  for (const path of ['/register', '/notes', '/register']) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+    await expect(page).toHaveURL(/\/register$/);
+    await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
+
+    const header = response.headers()['content-security-policy-report-only'] || '';
+    const nonce = header.match(/'nonce-([A-Za-z0-9+/_=-]+)'/)?.[1];
+    expect(nonce, 'the rendered page should carry a report-only CSP nonce').toBeTruthy();
+    expect(response.headers()['content-security-policy']).toBeUndefined();
+
+    const counts = await page.evaluate((currentNonce) => {
+      const scripts = [...document.querySelectorAll('script:not([src])')];
+      return {
+        total: scripts.length,
+        missing: scripts.filter((script) => !script.nonce).length,
+        mismatched: scripts.filter((script) => script.nonce && script.nonce !== currentNonce).length,
+      };
+    }, nonce);
+    expect(counts.total).toBeGreaterThan(0);
+    expect(counts.missing).toBe(0);
+    expect(counts.mismatched).toBe(0);
+    values.push(nonce);
+  }
+  expect(new Set(values).size).toBe(values.length);
+});

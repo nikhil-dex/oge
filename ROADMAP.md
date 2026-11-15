@@ -195,7 +195,16 @@ These criteria are release blockers, not optional polish:
 
 ## Future milestone — Oge Vault (Phase A in progress)
 
-The previously deferred Oge Vault project is now approved for a **safe foundation milestone**, without any production data migration. Full migration and mandatory GitHub-backed note storage remain gated on tested reliability and authorization.
+The previously deferred Oge Vault project is now approved for a **safe foundation milestone**, without any production data migration. The final architecture is **mandatory GitHub Vault and GitHub-only persistence of all note content**; this is a firm product requirement, not an optional or hybrid-storage mode. Full migration and mandatory enforcement remain gated on tested reliability and authorization.
+
+**Required storage contract after Oge Vault cutover:**
+- **GitHub is the source of truth** for Notes, subject-owned notes, Quick Notes, AirNotes, revision bodies/history, Learning Tracks topic notes and all note-content fields. Every creation, edit, deletion, restore, import, extension save, and revision operation goes through the authorized user-owned private vault; no MongoDB mirror or content-based cache.
+- **MongoDB is metadata-only for note features:** account identity, Google/GitHub links, vault installation and repository IDs, note/subject IDs and GitHub paths, permissions, collaboration, review schedules, progress and sync job status. No note headings, text, bodies, snippets, revision snapshots or other user-authored note content in MongoDB. Even filenames/paths should use opaque IDs to avoid duplicating private titles.
+- **GitHub Vault is required** for all users to read or mutate GitHub-backed note workspaces once cutover is activated, regardless of whether they signed in with Google, GitHub or a password. Login with GitHub is not sufficient: users must separately install and authorize Oge Vault. Other account and non-note features may remain available.
+- **No silent fallback to MongoDB** when GitHub is unavailable, permissions are revoked, the installation is missing or the repository cannot be reached. The UI must clearly show pending/failed sync and protect unsaved work; a durable pending-write queue may hold encrypted payloads temporarily with strict TTL and cleanup, but it must never become a second durable notes database.
+- **Migration is non-destructive:** preserve existing MongoDB notes only during the transition, freeze or safely forward new writes, copy and verify all content and versions in GitHub, enable per-account GitHub-only writes after successful verification, and then purge legacy note bodies with a reviewed retention/deletion policy. Do not claim GitHub-only storage while residual MongoDB note bodies or backup snapshots remain.
+- **Acceptance test:** instrument or test every notes-related API, backup import/export and restore, browser extension endpoint, revision/history operation, and future learning-track notes to prove that no persistent MongoDB collection receives note content after cutover. Test offline/revoked installation/429/conflict behavior and ensure failed saves aren't acknowledged as persisted.
+
 
 - [x] Draft standalone GitHub App OAuth flow with one-time state, server-side app JWT, and separate setup from GitHub sign-in.
 - [x] Implement new user-owned private `ogenotes-vault` repository provisioning, owner/privacy verification, and a vault initialization marker.
@@ -204,7 +213,10 @@ The previously deferred Oge Vault project is now approved for a **safe foundatio
 - [ ] Perform live staging GitHub App authorization and GitHub account/repository checks.
 - [ ] Solve selected-repository installation without exposing other user repositories to the App. **All-repositories installation in the first implementation is a release blocker requiring explicit review.**
 - [ ] Add safe retries/reconciliation after partial provisioning and revocation, renames, deletions, and quota/rate-limit failures.
-- [ ] Add stable note files, durable/debounced sync queue, conflict handling, and read-after-write verification.
+- [ ] Add stable opaque-ID note files, durable/debounced sync queue, conflict handling, and read-after-write verification.
+- [ ] Replace **all** existing MongoDB note-content storage across Notes, Quick Notes, AirNotes, revisions/history, backups/imports, extension saves and future topic notes with GitHub Vault persistence; MongoDB keeps only non-content operational metadata.
+- [ ] Enforce **mandatory vault authorization** before accessing note workspaces only when their GitHub-backed read/write and recovery paths are fully verified. No fallback to MongoDB note-content storage.
+- [ ] Prove via automated and staging tests that post-cutover note operations never persist note text/headings/revisions to MongoDB, including failure and rollback paths.
 - [ ] Migrate MongoDB Notes per user with complete reconciliation and rollback; do not delete source records without verified, approved retention.
 - [ ] Only after migration is safe, enable the mandatory GitHub Notes gate and integrate Quick Notes, AirNotes, Learning Tracks, and the extension.
 

@@ -100,12 +100,17 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
     setLoading(true);
     setPageError('');
     try {
-      const [subjectList, noteList] = await Promise.all([
+      const [subjectOutcome, notesOutcome] = await Promise.allSettled([
         responseJson(await fetch('/api/subjects', { cache: 'no-store' })),
         responseJson(await fetch('/api/vault/notes', { cache: 'no-store' })),
       ]);
+      const subjectList = subjectOutcome.status === 'fulfilled' ? subjectOutcome.value : [];
+      const noteList = notesOutcome.status === 'fulfilled' ? notesOutcome.value : [];
       setSubjects(subjectList);
       setNotes(noteList);
+      if (subjectOutcome.status === 'rejected' || notesOutcome.status === 'rejected') {
+        setPageError('Could not reach all storage services. Any locally recoverable draft from this tab is shown below; it has not been confirmed on GitHub.');
+      }
       const existingId = window.sessionStorage.getItem(activeKey);
       const existing = noteList.find((item) => item.id === existingId);
       if (existing) openNote(existing);

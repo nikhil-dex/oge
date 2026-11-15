@@ -18,6 +18,7 @@ const messages = {
   'permission-denied': 'GitHub authorization was declined. No changes were made to your notes.',
   'invalid-state': 'The connection attempt expired or was already used. Please start again.',
   'unsupported-github-owner': 'A personal GitHub account is required for your private Oge Vault.',
+  'github-account-mismatch': 'The authorized GitHub account does not match the GitHub identity you already linked to OgeNotes.',
   'github-permission-denied': 'GitHub did not grant the repository creation or contents permissions required.',
   'github-repository-conflict': 'A repository named ogenotes-vault already exists on this GitHub account. Oge will not overwrite it.',
   'vault-app-installation-required': 'Install the OgeNotes GitHub App on your personal account before connecting.',

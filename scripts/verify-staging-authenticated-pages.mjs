@@ -39,10 +39,14 @@ async function inspect(path, cookie) {
     check(value === nonce, path + ' includes an inline script with missing/mismatched nonce.');
   }
   const cache = response.headers.get('cache-control') || '';
-  // Report this, do not mistake a local response for verification of real CDN caching.
+  // Explicit shared-cache directives on private HTML are a release blocker.
+  // A safe-looking origin header alone is NOT proof of correct CDN behavior.
+  const directives = cache.split(',').map(part => part.trim().toLowerCase());
+  check(!directives.some(value => value === 'public' || /^s-maxage\\s*=/.test(value)),
+    path + ' permits shared caching of authenticated HTML.');
   console.log('PASS: ' + path + ' authenticated HTML, report-only CSP and ' + inlineScripts.length + ' inline script nonces match.');
   console.log('INFO: ' + path + ' cache-control=' +
-    (cache ? (/public|s-maxage/i.test(cache) ? 'REVIEW-PUBLIC-CACHE-DIRECTIVE' : 'present') : 'absent; review CDN behavior'));
+    (cache ? 'no explicit shared-cache directive' : 'absent; verify CDN caching separately'));
   return nonce;
 }
 try {

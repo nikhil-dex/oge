@@ -240,6 +240,7 @@ export default function NotesPage({
     catch { /* Server copy still available if the next request succeeds. */ }
     const generation = hybridGenerationRef.current;
     const timer = setTimeout(() => {
+      if (generation === hybridGenerationRef.current) setDraftStatus('Draft saving…');
       hybridPendingRef.current = hybridPendingRef.current.catch(() => {}).then(async () => {
         if (generation !== hybridGenerationRef.current) return;
         const revision = hybridRevisionRef.current + 1;
@@ -262,7 +263,7 @@ export default function NotesPage({
 
   async function saveNote(event) {
     event.preventDefault();
-    if (saving || !activeSubject || (hybridDrafts && editingId && (!hybridReady || hybridError))) return;
+    if (saving || !activeSubject || (hybridDrafts && editingId && !hybridReady)) return;
     setSaving(true);
     if (hybridDrafts && editingId) await hybridPendingRef.current.catch(() => {});
     setError('');
@@ -469,11 +470,7 @@ export default function NotesPage({
       if (event.key !== 'Escape') return;
       if (answerFullscreen) { setAnswerFullscreen(false); return; }
       if (noteDialog && !saving && (!hybridDrafts || hybridReady)) {
-        if (!hasUnsavedEditorChanges() ||
-            window.confirm('Discard unsaved GitHub note edits? These changes are not saved.')) {
-          setNoteDialog(false);
-          setPreview(false);
-        }
+        closeNoteEditor();
         return;
       }
       setReaderNote(null);
@@ -603,7 +600,7 @@ export default function NotesPage({
             </p>}
             {hybridError && <p role="alert" className="form-error">{hybridError}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="submit-button" type="submit" disabled={saving || !activeSubject || (hybridDrafts && editingId && (!hybridReady || Boolean(hybridError)))}><span>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
+            <button className="submit-button" type="submit" disabled={saving || !activeSubject || (hybridDrafts && editingId && !hybridReady)}><span>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
           </form>
         </section>
       </div>}

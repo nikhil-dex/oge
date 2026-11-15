@@ -8,7 +8,7 @@ import { isPasswordSessionActive } from './lib/password-auth.js';
 import { getDatabase } from './lib/mongodb.js';
 import { isCurrentSession, sessionVersionOf } from './lib/session-revocation.js';
 import { githubOwnerId, getVerifiedGitHubEmail } from './lib/github-login.js';
-import { finishGoogleConnection, resolveOAuthOwner, googleConnectionRequired } from './lib/google-account-link.js';
+import { finishGoogleConnection, resolveOAuthOwner } from './lib/google-account-link.js';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google, GitHub({ authorization: { params: { scope: 'read:user user:email' } } }), Credentials({
@@ -116,7 +116,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.sessionVersion = sessionVersionOf(user);
         }
         if (!isCurrentSession(user, token.sessionVersion)) return null;
-        token.googleConnectionRequired = await googleConnectionRequired(db, token.googleSub);
         return token;
       } catch (error) {
         console.error('Session version validation failed:', error instanceof Error ? error.name : 'UnknownError');
@@ -133,7 +132,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Old sessions without this claim must reauthenticate for deletion.
         session.user.authenticatedAt = typeof token.authenticatedAt === 'number' ? token.authenticatedAt : null;
         session.user.authProvider = typeof token.authProvider === 'string' ? token.authProvider : null;
-        session.user.googleConnectionRequired = token.googleConnectionRequired === true;
       }
       return session;
     },

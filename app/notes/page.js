@@ -63,7 +63,10 @@ export default function NotesPage({
   const hybridKey = (id) => 'oge-hybrid-draft:v1:' + encodeURIComponent(vaultOwnerId) +
     ':' + vaultRepoId + ':' + id;
 
-  async function recoverNewHybridDraft(subjectId, generation, freshId) {
+  const newDraftPointerKey = (subjectId) => 'oge-hybrid-new:v1:' +
+    encodeURIComponent(vaultOwnerId) + ':' + vaultRepoId + ':' + subjectId;
+
+  async function recoverNewHybridDraft(subjectId, generation) {
     try {
       const response = await responseJson(await fetch(
         '/api/vault/drafts?new=true&subject=' + encodeURIComponent(subjectId),
@@ -72,6 +75,17 @@ export default function NotesPage({
       if (generation !== hybridGenerationRef.current) return;
       const items = response.items || [];
       if (!Array.isArray(items)) throw new Error('Invalid draft recovery response.');
+      // A browser-only draft may not have reached MongoDB before a reload.
+      let localId = null;
+      try { localId = window.sessionStorage.getItem(newDraftPointerKey(subjectId)); }
+      catch { /* Storage can be disabled. */ }
+      if (localId && !items.some((item) => item.id === localId)) {
+        try {
+          const local = JSON.parse(window.sessionStorage.getItem(hybridKey(localId)) || 'null')?.draft;
+          if (local?.subjectId === subjectId && local?.baseSha === null)
+            items.unshift({ id: localId, revision: 0, draft: local });
+        } catch { /* Corrupt local data is never trusted. */ }
+      }
       if (items.length > 0) {
         // Multiple uncommitted notes may coexist. Never discard or silently
         // overwrite one: ask which draft the user wants to resume.
@@ -243,7 +257,7 @@ export default function NotesPage({
     setAnswerFullscreen(false);
     setDraftStatus('');
     setNoteDialog(true);
-    if (hybridDrafts) void recoverNewHybridDraft(activeSubject, generation, freshId);
+    if (hybridDrafts) void recoverNewHybridDraft(activeSubject, generation);
   }
 
   function editNote(note) {
@@ -295,8 +309,10 @@ export default function NotesPage({
     const draft = { subjectId: current?.subjectSlug || activeSubject, heading, answer,
       tags: [...new Set(tagsText.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10),
       favorite: Boolean(current?.favorite), baseSha: current?.sha || null };
-    try { window.sessionStorage.setItem(key, JSON.stringify({ draft })); }
-    catch { /* Server copy still available if the next request succeeds. */ }
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify({ draft }));
+      if (!editingId) window.sessionStorage.setItem(newDraftPointerKey(activeSubject), noteId);
+    } catch { /* Server copy still available if the next request succeeds. */ }
     const generation = hybridGenerationRef.current;
     const timer = setTimeout(() => {
       if (generation === hybridGenerationRef.current) setDraftStatus('Draft saving…');
@@ -371,7 +387,12 @@ export default function NotesPage({
               id: draftNoteId, revision: hybridRevisionRef.current, sha: note.sha,
             }),
           }));
-          if (cleaned.cleared) window.sessionStorage.removeItem(hybridKey(draftNoteId));
+          if (cleaned.cleared) {
+            window.sessionStorage.removeItem(hybridKey(draftNoteId));
+            if (!editingId &&
+                window.sessionStorage.getItem(newDraftPointerKey(activeSubject)) === draftNoteId)
+              window.sessionStorage.removeItem(newDraftPointerKey(activeSubject));
+          }
         } catch { /* Retain draft; next editor visit will reconcile. */ }
       }
       hybridGenerationRef.current += 1;

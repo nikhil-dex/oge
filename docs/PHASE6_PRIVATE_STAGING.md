@@ -1,6 +1,8 @@
 # Phase 6 — Private staging deployment checklist
 
-**Status: preflight tooling implemented; no staging environment has been provisioned or tested.**
+**Status: an isolated Vercel project (`oge-staging`) has been created and protected, but no staging deployment or live authenticated verification has been completed.**
+
+See [Phase 6 release gate status](PHASE6_RELEASE_GATE_STATUS.md) for verified CI evidence, pending gates and the handoff procedure.
 
 Phase 6 is a release-validation phase, **not a new feature-development phase**.
 Do not open public registration or treat passing CI as deployment approval.
@@ -88,7 +90,8 @@ protection just to pass the check.
 - Verify dashboard/Notes/AirNotes/Quick Notes/Saved Links and revision
   history in Chrome and Firefox, including desktop/mobile viewport sizes.
 - Create two **disposable** Google test accounts with different identities.
-  Run `scripts/verify-staging-auth-guards.mjs` and
+  Run `scripts/verify-staging-auth-guards.mjs`,
+  `scripts/verify-staging-authenticated-pages.mjs`, and
   `scripts/verify-staging-isolation.mjs` with their two session cookies,
   carefully following `docs/PHASE5_SECURITY_VERIFICATION.md`.
 - Test the extension-token flow and news/dictionary outage handling.

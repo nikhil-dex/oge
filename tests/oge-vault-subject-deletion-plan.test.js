@@ -107,4 +107,8 @@ test('deletion planner cannot mutate GitHub, MongoDB or production subject delet
   assert.doesNotMatch(source, /deleteOne\(|deleteMany\(|commitVaultNoteBatch\(|method: 'PATCH'/);
   assert.match(source, /advisoryOnly: true/);
   assert.match(legacy, /Subject deletion is temporarily disabled for connected Oge Vault accounts/);
+  const route = await readFile(new URL('../app/api/vault/subjects/preflight/route.js', import.meta.url), 'utf8');
+  assert.match(route, /planVaultSubjectDeletion\(github, drafts, scoped\)/);
+  assert.match(route, /journalVaultSubjectInspection\(db, client, identity/);
+  assert.doesNotMatch(route, /export async function DELETE/);
 });

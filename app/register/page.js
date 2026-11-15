@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { auth } from '../../auth.js';
 import { redirect } from 'next/navigation';
 import { signInWithGoogle } from './actions.js';
@@ -10,7 +11,7 @@ export default async function RegisterPage() {
   if (session?.user?.id) redirect('/');
   return (
     <main className="shell oge-placeholder oge-register-page">
-      <a className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a>
+      <Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link>
       <div className="oge-eyebrow"><span className="oge-status-dot" /> YOUR PERSONAL KNOWLEDGE SPACE</div>
       <h1>Keep what<br /><span>matters.</span></h1>
       <p className="oge-placeholder-copy">Sign in to keep your notes, links, and learning workflow together.</p>

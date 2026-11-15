@@ -1,0 +1,134 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID, createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { commitVaultNoteBatch } from '../lib/oge-vault-batch.js';
+import { VaultGitHubError } from '../lib/oge-vault-github.js';
+
+const H = (value) => createHash('sha1').update(value).digest('hex');
+function fixture() {
+  const files = new Map();
+  let head = H('head-0');
+  const commits = new Map([[head, { sha: head, tree: { sha: H('tree-0') } }]]);
+  const trees = new Map([[H('tree-0'), new Map()]]);
+  const failRef = { value: false };
+  const client = {
+    branch: 'main',
+    async call(path, options = {}) {
+      if (path === '/git/ref/heads/main' && !options.method) return { object: { sha: head } };
+      if (path === '/git/ref/heads/main' && options.method === 'PATCH') {
+        if (failRef.value) throw new VaultGitHubError('github-api-error', 422);
+        if (options.body.force !== false || !commits.get(options.body.sha)?.parents.includes(head)) {
+          throw new VaultGitHubError('github-api-error', 422);
+        }
+        head = options.body.sha;
+        return { object: { sha: head } };
+      }
+      if (path.startsWith('/git/commits/') && !options.method) return commits.get(path.slice(13));
+      if (path.startsWith('/git/trees/') && !options.method) {
+        const tree = trees.get(path.slice(11).split('?')[0]);
+        return { truncated: false, tree: [...tree].map(([filePath, value]) => ({
+          path: filePath, type: 'blob', sha: value.sha,
+        })) };
+      }
+      if (path === '/git/trees' && options.method === 'POST') {
+        const copy = new Map(trees.get(options.body.base_tree));
+        for (const change of options.body.tree) {
+          if (change.sha === null) copy.delete(change.path);
+          else copy.set(change.path, { text: change.content, sha: H(change.content) });
+        }
+        const next = H('tree' + trees.size);
+        trees.set(next, copy);
+        return { sha: next };
+      }
+      if (path === '/git/commits' && options.method === 'POST') {
+        const next = H('commit' + commits.size);
+        commits.set(next, { sha: next, tree: { sha: options.body.tree },
+          parents: options.body.parents });
+        return { sha: next };
+      }
+      if (path.startsWith('/contents/')) {
+        const filePath = path.slice(10).split('?')[0];
+        const current = trees.get(commits.get(head).tree.sha).get(filePath);
+        if (!current) throw new VaultGitHubError('github-api-error', 404);
+        return { type: 'file', encoding: 'base64', sha: current.sha,
+          content: Buffer.from(current.text).toString('base64') };
+      }
+      throw new Error('Unexpected GitHub request: ' + path);
+    },
+  };
+  return { client, failRef, files, getHead: () => head, getFiles: () => trees.get(commits.get(head).tree.sha) };
+}
+
+test('one Git commit persists multiple notes atomically and verifies all content', async () => {
+  const f = fixture();
+  const subjectId = randomUUID();
+  const a = randomUUID();
+  const b = randomUUID();
+  const result = await commitVaultNoteBatch(f.client, [
+    { action: 'create', id: a, note: { subjectId, heading: 'One', answer: 'First note' } },
+    { action: 'create', id: b, note: { subjectId, heading: 'Two', answer: 'Second note' } },
+  ]);
+  assert.equal(result.results.length, 2);
+  assert.equal(f.getFiles().size, 2);
+  assert.equal(result.commitSha, f.getHead());
+  assert.equal(result.results[0].answer, 'First note');
+  assert.equal(result.results[1].answer, 'Second note');
+  const changed = await commitVaultNoteBatch(f.client, [
+    { action: 'update', id: a, sha: result.results[0].sha,
+      note: { subjectId, heading: 'One edited', answer: 'Updated' } },
+    { action: 'delete', id: b, sha: result.results[1].sha },
+  ]);
+  assert.equal(changed.results[0].createdAt, result.results[0].createdAt);
+  assert.equal(changed.results[1].deleted, true);
+  assert.equal(f.getFiles().size, 1);
+});
+
+test('SHA conflicts, duplicate IDs and non-fast-forward updates never publish a bad batch', async () => {
+  const f = fixture();
+  const subjectId = randomUUID();
+  const id = randomUUID();
+  const first = await commitVaultNoteBatch(f.client, [
+    { action: 'create', id, note: { subjectId, heading: 'Existing', answer: 'A' } },
+  ]);
+  const originalHead = f.getHead();
+  const change = { action: 'update', id, sha: 'f'.repeat(40),
+    note: { subjectId, heading: 'Wrong', answer: 'B' } };
+  await assert.rejects(() => commitVaultNoteBatch(f.client, [change]),
+    (error) => error.message === 'vault-note-conflict');
+  assert.equal(f.getHead(), originalHead);
+  await assert.rejects(() => commitVaultNoteBatch(f.client, [
+    { action: 'create', id, note: { subjectId, heading: 'Duplicate', answer: 'B' } },
+  ]), (error) => error.message === 'vault-note-conflict');
+  await assert.rejects(() => commitVaultNoteBatch(f.client, [
+    { action: 'delete', id, sha: first.results[0].sha },
+    { action: 'delete', id, sha: first.results[0].sha },
+  ]), TypeError);
+  f.failRef.value = true;
+  await assert.rejects(() => commitVaultNoteBatch(f.client, [
+    { action: 'update', id, sha: first.results[0].sha,
+      note: { subjectId, heading: 'Stale', answer: 'B' } },
+  ]), (error) => error.message === 'vault-note-conflict');
+  assert.equal(f.getHead(), originalHead);
+});
+
+test('batch rejects oversized, invalid actions or paths before mutating Github', async () => {
+  const f = fixture();
+  const subjectId = randomUUID();
+  const op = { action: 'create', id: randomUUID(), note: { subjectId, heading: 'X', answer: 'A' } };
+  for (const batch of [[], Array(13).fill(op), [{ action: 'drop-database' }],
+    [{ action: 'delete', id: '../admin', sha: 'a'.repeat(40) }]]) {
+    await assert.rejects(() => commitVaultNoteBatch(f.client, batch), TypeError);
+  }
+  assert.equal(f.getFiles().size, 0);
+});
+
+test('batch API is disabled by default and never writes note content to MongoDB', async () => {
+  const source = await readFile(new URL('../app/api/vault/batch/route.js', import.meta.url), 'utf8');
+  assert.match(source, /OGE_VAULT_NOTE_API_PREVIEW !== 'true'/);
+  assert.match(source, /commitVaultNoteBatch\(client, items\)/);
+  assert.match(source, /ownerId, slug: subjectId/);
+  assert.doesNotMatch(source, /collection\(['"]notes['"]\)/);
+  assert.doesNotMatch(source, /insertOne\(/);
+  assert.doesNotMatch(source, /\.updateOne\(/);
+});

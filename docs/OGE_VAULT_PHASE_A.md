@@ -134,7 +134,9 @@ The feature-gated `/vault/notes` route now uses the snapshot-pinned `GET /api/va
 
 The interface reports the **total repository note count** separately from the loaded count and clearly states that search/filter/sort run on **loaded notes only**. If GitHub's current branch changes between requests, it rejects the stale page and instructs the student to refresh after securing any unsaved work. Loading another page is disabled during an open edit dialog to avoid disrupting it. This is not yet server-side global search or a complete production list UX.
 
-**Remaining B5.3 work:** integrate tab-scoped recoverable autosave from B3 into the familiar edit dialog, test navigation/modal dismissal while there are unconfirmed edits, add a safe GitHub-aware subject deletion workflow, and verify provider permissions and note ownership against live staging accounts. No production Notes cutover is authorized.
+The familiar Vault edit dialog also now warns before discarding unsaved edits when clicking the close button, clicking the backdrop, pressing Escape, or leaving/reloading the browser page. This is a **loss-prevention warning only**, not durable draft recovery: the familiar dialog still uses manual Save, and B3's recoverable autosave remains isolated in the other staging preview.
+
+**Remaining B5.3 work:** integrate tab-scoped recoverable autosave from B3 into the familiar edit dialog, add a safe GitHub-aware subject deletion workflow, and verify provider permissions and note ownership against live staging accounts. No production Notes cutover is authorized.
 
 ## Revised rollout — no legacy user-data migration
 

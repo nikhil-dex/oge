@@ -45,10 +45,9 @@
   panel.innerHTML = [
     '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
     '<div class="body" data-panel="note"><p class="hint">First line = title · Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
-    '<div class="body" data-panel="url" hidden><p class="hint">Save the current website link directly to your Saved Links collection.</p><button class="primary" type="button" data-save-url>Save page link →</button></div>',
-    '<div class="body" data-panel="links" hidden><p class="hint">Your social and portfolio URLs from OgeNotes Profile.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div></div>',
+    '<div class="body" data-panel="links" hidden><p class="hint">Your GitHub, LinkedIn and portfolio links.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div><button class="primary" type="button" data-save-url>＋ Save current page to Saved Links</button></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
-    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="url" type="button">↗ Saved Links</button><button data-tool="links" type="button">☷ My links</button></nav>',
+    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="links" type="button">☷ My links</button><button type="button" disabled aria-label="Reserved for future tool">＋ Coming soon</button></nav>',
     '<button class="resize-corner resize-corner-left" type="button" aria-label="Resize widget from left corner" title="Drag left or down to resize">↙</button>',
     '<button class="resize-corner" type="button" aria-label="Resize widget width and height" title="Drag to resize width and height">↘</button>',
   ].join('');

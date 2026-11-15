@@ -66,7 +66,7 @@ async function mutation(request, execute, maxBytes = 32768) {
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const data = request ? JSON.parse(await readLimitedBody(request, maxBytes)) : null;
-    return execute(ctx, data);
+    return await execute(ctx, data);
   } catch (error) { return vaultError(error); }
 }
 

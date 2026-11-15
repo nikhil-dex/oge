@@ -1,17 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "OgeNotes — Save Link",
+  "name": "OgeNotes — Study Toolbelt",
   "version": "0.1.0",
-  "description": "Save the current browser tab to your OgeNotes Saved Links.",
+  "description": "Save tabs and quickly copy or visit your profile's social and portfolio links.",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "http://localhost:3000/*"
   ],
   "action": {
-    "default_title": "Save to OgeNotes",
+    "default_title": "OgeNotes Study Toolbelt",
     "default_popup": "popup.html"
   },
   "optional_host_permissions": [

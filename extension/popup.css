@@ -1,1 +1,31 @@
 :root{color-scheme:light;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17251b;background:#f8faf7}*{box-sizing:border-box}body{width:320px;margin:0;background:#f8faf7}main{padding:17px}header{display:flex;align-items:center;gap:10px;margin-bottom:18px}.mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#82b493;color:#102018;font-weight:900;font-size:20px}header strong,header small{display:block}header strong{font-size:15px}header small{margin-top:2px;color:#68766b;font-size:11px}label{display:block;margin:12px 0 5px;font-size:11px;font-weight:700;color:#566459}input{width:100%;padding:10px;border:1px solid #d7e0d7;border-radius:8px;background:white;color:#17251b;font:12px system-ui;outline:none}input:focus{border-color:#548463}button{width:100%;margin-top:12px;padding:11px;border:1px solid #568565;border-radius:8px;background:#82b493;color:#102018;font-size:12px;font-weight:750;cursor:pointer}button:disabled{opacity:.6;cursor:wait}button.secondary{margin-top:8px;background:transparent;color:#315b3d}.divider{height:1px;margin:17px 0;background:#dfe6df}#status{min-height:18px;margin:12px 0 4px;color:#315b3d;font-size:11px;line-height:1.5}#status.error{color:#b42318}.foot{display:block;color:#7b877e;font-size:10px;line-height:1.5}
+
+
+/* OgeNotes extension toolbelt; tools remain in a bottom navigation strip. */
+body{width:360px}
+main{min-height:330px;display:flex;flex-direction:column;padding:17px}
+header{order:0;margin-bottom:10px}
+.tool-panel{order:1;flex:1;min-height:175px;animation:oge-slide-in .18s ease}
+.tool-panel[hidden]{display:none}
+.toolbelt{order:4;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px 0 2px;margin-top:12px;border-top:1px solid #dfe6df}
+.toolbelt .tool{margin:0;min-width:0;padding:10px 5px;font-size:11px;background:transparent;color:#465a4c;border-color:transparent}
+.toolbelt .tool span{display:block;font-size:19px;line-height:1.2;margin-bottom:5px}
+.toolbelt .tool.active{background:#e4f1e7;color:#245b38;border-color:#95c2a1}
+#status{order:3;margin:10px 0 0;min-height:16px}
+.tool-panel .hint{display:block;margin-top:14px;color:#748275;font-size:10px;line-height:1.55}
+.panel-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 0 14px}
+.panel-heading strong,.panel-heading small{display:block}
+.panel-heading strong{font-size:14px}
+.panel-heading small{margin-top:4px;color:#718073;font-size:11px}
+button.icon-button{width:33px;height:33px;margin:0;padding:5px;font-size:18px;background:transparent}
+.links-list{display:grid;gap:10px}
+.link-item{border:1px solid #dce6dd;border-radius:10px;padding:12px;display:grid;gap:11px;background:#fff}
+.link-details{display:grid;gap:5px;min-width:0}
+.link-details strong{font-size:12px}
+.link-address{font-size:11px;color:#6f7c72;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.link-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.link-actions button{margin:0}
+button.mini-button{padding:8px;font-size:11px}
+.empty{font-size:12px;color:#6f7c72;line-height:1.5;margin:14px 0}
+@keyframes oge-slide-in{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.tool-panel{animation:none}}

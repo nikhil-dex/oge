@@ -1,6 +1,18 @@
 # Oge Vault — Phase A: GitHub App provisioning foundation
 
-**Status: draft / private staging only. Not production ready.** Connecting a vault currently creates a new private GitHub repository and records verified repository/install metadata, **but does not sync or migrate any note content**. Notes, Subjects, Quick Notes, AirNotes, history, revision, backup, and the Chrome extension continue using their existing MongoDB-backed data paths.
+**Status: draft / private staging only. Not production ready.** Connecting a vault currently creates a new private GitHub repository and records verified repository/install metadata, **but does not sync or migrate any note content**. Notes, Subjects, Quick Notes, AirNotes, history, revision, backup, and the Chrome extension currently still use MongoDB-backed data paths. This is a temporary legacy state, **not the accepted storage architecture**.
+
+## Non-negotiable GitHub-only notes architecture
+
+After migration and before Oge Vault ships, every student's **GitHub private vault is mandatory** for accessing note workspaces. It must be the **sole persistent source of note content** for subject notes, Notes, Quick Notes, AirNotes, revisions and version history, future Learning Tracks topic notes, extension-created notes, and imported/restored note content. There is **no optional MongoDB note-storage mode**, no MongoDB mirror, and no fallback to MongoDB during GitHub outages.
+
+MongoDB remains for identity/session and linked providers; user and GitHub installation/repository mappings; subject and note opaque IDs and path references; friendships, collaboration and sharing permissions; learning progress and study/review schedules; operational sync states and non-content indexes. Avoid note titles in database metadata, filenames, events, logs, queues, or analytics. Git history remains in the private repo, but a private GitHub repository does not guarantee end-to-end encryption.
+
+A save may be acknowledged as GitHub-persisted **only after confirmed remote write**. For connection loss, local unsaved drafts can be temporarily held on the user's device with clear pending/error states, but **no note content can be written into MongoDB, including a retry queue or backup copy**. On reconnect, retry safely with conflict detection and version checks. Private note content must never leak into log entries, metrics, or MongoDB error records.
+
+For accounts with legacy MongoDB note content, preserve source data through a **controlled, owner-scoped and resumable migration**. Verify content, versions and counts in GitHub before switching that user to GitHub-only access. Remove historical MongoDB note bodies, snapshots, old backup formats and other residual content only after explicit policy review and verified recovery; do not destroy data mid-migration. The change is complete only after all note-related API/extension/import/revision paths and backup/export operations are tested to ensure they persist **zero note text, headings, or revision bodies** to MongoDB.
+
+**Release gate:** Mandatory vault access must not be activated until GitHub note reads/writes, recovery, migration and no-MongoDB-content checks are complete. The Phase A connection form is not a functional note editor and cannot be described as enforcing the final architecture.
 
 ## Intended student flow
 

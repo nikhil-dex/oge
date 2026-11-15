@@ -4,6 +4,7 @@ import { ownerMutationFilter } from '../../../../../lib/active-owner-mutation.js
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../../lib/rate-limit.js';
 import { getVaultNoteClient } from '../../../../../lib/oge-vault-notes.js';
 import { journalVaultSubjectInspection, inspectVaultSubjectRecovery } from '../../../../../lib/oge-vault-subject-journal.js';
+import { planVaultSubjectDeletion } from '../../../../../lib/oge-vault-subject-deletion-plan.js';
 import { VaultGitHubError } from '../../../../../lib/oge-vault-github.js';
 
 export const runtime = 'nodejs';
@@ -56,6 +57,18 @@ export async function GET(request) {
       ownerId, sessionVersion: session.user.sessionVersion,
     });
     const identity = { ownerId, repoId: client.vault.repoId, subjectId: slug };
+    if (new URL(request.url).searchParams.get('plan') === 'true') {
+      // A preview manifest is returned ONLY while holding the same
+      // token-scoped, non-destructive inspection lock. Release immediately;
+      // the manifest is advisory and cannot authorize a later delete.
+      const result = await journalVaultSubjectInspection(db, client, identity, {
+        inspector: async (github, drafts, scoped) => {
+          const plan = await planVaultSubjectDeletion(github, drafts, scoped);
+          return { ...plan, safeToDelete: plan.ready && plan.files.length === 0 };
+        },
+      });
+      return json(result);
+    }
     const result = await journalVaultSubjectInspection(db, client, identity);
     return json(result);
   } catch (error) {

@@ -2,7 +2,7 @@ import { auth } from '../../../../auth.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
-import { getVaultNoteClient, listVaultNotes, readVaultNote, saveVaultNote, deleteVaultNote } from '../../../../lib/oge-vault-notes.js';
+import { getVaultNoteClient, listVaultNotes, listVaultNotePage, readVaultNote, saveVaultNote, deleteVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 
 // Isolated experimental API; it does NOT replace any existing MongoDB note
@@ -47,8 +47,15 @@ export async function GET(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in first.' }, 401);
-    const id = new URL(request.url).searchParams.get('id');
-    return json(id ? await readVaultNote(ctx.client, id) : await listVaultNotes(ctx.client));
+    const params = new URL(request.url).searchParams;
+    const id = params.get('id');
+    if (id) return json(await readVaultNote(ctx.client, id));
+    if (params.get('paged') === 'true') {
+      const limit = params.has('limit') ? Number(params.get('limit')) : 20;
+      const cursor = params.get('cursor');
+      return json(await listVaultNotePage(ctx.client, { limit, cursor }));
+    }
+    return json(await listVaultNotes(ctx.client));
   } catch (error) { return errorResponse(error); }
 }
 

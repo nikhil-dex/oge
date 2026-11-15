@@ -49,3 +49,29 @@ test('registration stays within viewport and avoids horizontal overflow', async 
   expect(sizes.page).toBeLessThanOrEqual(sizes.viewport + 1);
   await expect(page.getByRole('button', { name: /continue with google/i })).toBeInViewport();
 });
+
+// Inspect report-only CSP on an actual production build, without collecting
+// document URLs, referrers, source code, or credential-bearing blocked URLs.
+test('registration records sanitized report-only CSP compatibility signals', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__ogeCspDiagnostics = [];
+    document.addEventListener('securitypolicyviolation', (event) => {
+      const blockedType = event.blockedURI === 'inline' ? 'inline'
+        : event.blockedURI === 'eval' ? 'eval'
+          : event.blockedURI === 'data' ? 'data' : 'other';
+      window.__ogeCspDiagnostics.push({
+        directive: event.effectiveDirective,
+        disposition: event.disposition,
+        blockedType,
+      });
+    });
+  });
+  await page.goto('/register');
+  await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
+  const reports = await page.evaluate(() => window.__ogeCspDiagnostics || []);
+  const summary = [...new Set(reports.map((report) =>
+    report.directive + ':' + report.blockedType + ':' + report.disposition))].sort();
+  // This is diagnostic telemetry; do not assert that violations must remain.
+  console.log('[CSP diagnostic] ' + (summary.join(', ') || 'no violations observed'));
+  expect(reports.every((report) => report.disposition === 'report')).toBe(true);
+});

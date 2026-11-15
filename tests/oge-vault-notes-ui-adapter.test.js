@@ -55,6 +55,17 @@ test('familiar vault Notes paginates without changing the legacy production endp
   assert.doesNotMatch(adapter, /collection\(['"]notes['"]\)/);
 });
 
+test('familiar GitHub editor warns before losing unsaved changes', async () => {
+  const page = await read('../app/notes/page.js');
+  assert.match(page, /editorInitialRef = useRef\(null\)/);
+  assert.match(page, /hasUnsavedEditorChanges = useCallback/);
+  assert.match(page, /window\.addEventListener\('beforeunload', guard\)/);
+  assert.match(page, /Discard unsaved GitHub note edits\?/);
+  assert.match(page, /onClick=\{closeNoteEditor\}/);
+  assert.match(page, /if \(event\.target === event\.currentTarget\) closeNoteEditor\(\)/);
+  assert.match(page, /editorInitialRef\.current = null/);
+});
+
 test('GitHub Notes adapter translates GitHub SHA and owner-scoped subject fields for classic UI', async () => {
   const adapter = await read('../app/api/vault/notes-main/route.js');
   assert.match(adapter, /subjectSlug: note\.subjectId/);

@@ -128,6 +128,14 @@ The optional `GET /api/vault/notes?paged=true&limit=20&cursor=...` endpoint now 
 
 **Remaining production work:** large tree indexing/sharding for more than 30,000 entries; rate-limit-aware loading and per-user concurrency controls; paginated UX in the familiar editor; safe subject deletion/reparenting and autosave integration; narrow GitHub App permissions and live staging verification. Pagination alone does not authorize a production cutover.
 
+## Phase B5.3a — Familiar Notes pagination integration
+
+The feature-gated `/vault/notes` route now uses the snapshot-pinned `GET /api/vault/notes-main?paged=true&limit=20&cursor=...` API. It initially loads 20 GitHub-backed notes and provides an explicit **Load more GitHub notes** control. Each page is scoped to the signed-in user's verified private vault and deduplicated by note UUID. Existing production `/notes` still receives its legacy array response and writes to MongoDB until the final controlled cutover.
+
+The interface reports the **total repository note count** separately from the loaded count and clearly states that search/filter/sort run on **loaded notes only**. If GitHub's current branch changes between requests, it rejects the stale page and instructs the student to refresh after securing any unsaved work. Loading another page is disabled during an open edit dialog to avoid disrupting it. This is not yet server-side global search or a complete production list UX.
+
+**Remaining B5.3 work:** integrate tab-scoped recoverable autosave from B3 into the familiar edit dialog, test navigation/modal dismissal while there are unconfirmed edits, add a safe GitHub-aware subject deletion workflow, and verify provider permissions and note ownership against live staging accounts. No production Notes cutover is authorized.
+
 ## Revised rollout — no legacy user-data migration
 
 The project owner confirms that existing MongoDB note records are **disposable app-test fixtures**, not student data requiring preservation. Therefore the prior **copy-and-verify MongoDB-to-GitHub user-content migration milestone is removed from the active launch sequence**. We must not infer this from the database automatically or silently delete unverified records.

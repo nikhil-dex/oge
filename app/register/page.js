@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { auth } from '../../auth.js';
 import { redirect } from 'next/navigation';
-import { signInWithGoogle } from './actions.js';
+import { signInWithGoogle, signInWithGitHub } from './actions.js';
 import PasswordSignIn from './password-sign-in.js';
 
 export const metadata = { title: 'Sign in' };
@@ -20,6 +20,9 @@ export default async function RegisterPage({ searchParams }) {
       {query?.password === 'enabled' && <p role="status" className="oge-password-success">OgeNotes password saved. Sign in again to continue.</p>}
       <form action={signInWithGoogle}>
         <button className="oge-google-button" type="submit"><span className="oge-google-g" aria-hidden="true">G</span> Continue with Google <span aria-hidden="true">→</span></button>
+      </form>
+      <form action={signInWithGitHub}>
+        <button className="oge-google-button oge-github-login-button" type="submit"><span className="oge-github-login-mark" aria-hidden="true">GH</span> Continue with GitHub <span aria-hidden="true">→</span></button>
       </form>
       <p className="oge-login-separator">or sign in with your OgeNotes password</p>
       <PasswordSignIn />

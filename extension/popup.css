@@ -29,3 +29,10 @@ button.mini-button{padding:8px;font-size:11px}
 .empty{font-size:12px;color:#6f7c72;line-height:1.5;margin:14px 0}
 @keyframes oge-slide-in{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.tool-panel{animation:none}}
+
+/* Local extension reset: separate destructive control from Save connection. */
+.connection-reset{margin-top:18px;padding-top:14px;border-top:1px solid #dfe6df}
+.connection-reset strong{display:block;font-size:12px;color:#8f3028}
+.connection-reset small{display:block;margin-top:7px;color:#718073;font-size:10px;line-height:1.6}
+button.danger{background:#fff6f5;border-color:#d8a09b;color:#9d2c26}
+button.danger:hover{background:#ffedea}

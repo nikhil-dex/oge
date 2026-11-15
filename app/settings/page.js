@@ -25,11 +25,13 @@ export default async function SettingsPage() {
   if (!user) redirect('/register');
 
   return (
-    <main className="shell oge-shell oge-settings-page">
+    <main className="shell oge-shell oge-settings-page oge-retro-workspace">
       <SiteNavbar actions={<Link className="oge-signin" href="/">Back to dashboard <span aria-hidden="true">↗</span></Link>} />
+      <div className="oge-retro-workspace-ribbon" aria-hidden="true"><span>✳ OGE / PERSONAL ARCHIVE</span><span>FIELD NOTES · VOL. 01</span><span>✦ MADE FOR CURIOUS MINDS</span></div>
       <section className="oge-settings-hero">
         <p className="oge-eyebrow"><span className="oge-status-dot" /> YOUR WORKSPACE</p>
         <h1>Settings<span>.</span></h1>
+        <span className="oge-retro-workspace-stamp" aria-hidden="true">✳<small>YOUR SPACE</small></span>
         <p>Make OgeNotes work the way you do. Manage your subjects, personalize the interface, and keep your data safe.</p>
       </section>
 

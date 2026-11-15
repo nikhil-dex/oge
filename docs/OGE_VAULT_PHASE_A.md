@@ -58,6 +58,22 @@ Account ownership uses the stable authenticated Oge owner ID, not supplied GitHu
 
 The server refuses a repo that isn't private or isn't owned by the approved GitHub identity. The marker is written only after receiving a scoped installation token for that exact repository ID.
 
+## Phase B1 — GitHub-only Notes storage prototype (implemented, feature-flagged)
+
+The new server-only `lib/oge-vault-notes.js` and `/api/vault/notes` provide a **separate test-only Notes CRUD path** for already connected user-owned private repositories. They do not read from or write to the existing MongoDB `notes` collection. The API is **disabled by default**; enabling `OGE_VAULT_NOTE_API_PREVIEW=true` is for disposable private staging users only.
+
+- `GET /api/vault/notes` lists up to 100 GitHub-stored notes; `GET /api/vault/notes?id=UUID` fetches one.
+- `POST /api/vault/notes` creates an opaque UUID-named `notes/{uuid}.json` file under the user's GitHub vault. The `subjectId` must refer to an existing, owner-scoped subject ID in MongoDB; no note content is stored in that database.
+- `PUT /api/vault/notes` requires `id`, previous GitHub blob `sha`, heading, answer and tags. Stale edits return a conflict instead of overwriting the new version.
+- `DELETE /api/vault/notes?id=UUID&sha=BLOB_SHA` rejects stale deletes and verifies removal from the current branch. Git history retains old content.
+- Each operation validates the signed Auth.js user session and vault repository mapping, mints a short-lived **repository-ID-restricted** installation token, and verifies the GitHub repo remains private and owned by the linked account.
+- New and updated note files are read back after the GitHub API write to verify content and SHA before acknowledging persistence. Note filenames use opaque IDs, not headings.
+- No note text, heading, revision history or queued payload is written into MongoDB by this prototype. MongoDB is used only to validate the account and subject reference and enforce operation rate limits.
+
+**Prototype limitations / release blockers:** Preview currently performs one commit per note mutation and list reads many files from GitHub. It is not yet a durable debounce/batch sync queue and has a temporary 100-note listing cap. No resilient offline autosave, multi-device reconciliation, per-note restore, revision/history migration, subject deletion propagation, bulk import, extension integration, reconnect, or safe legacy migration exists yet. The main `/api/notes` and other note APIs **still use MongoDB**, so do not activate the mandatory vault gate or claim cutover.
+
+**Test requirement:** Unit tests cover the GitHub file contract, normal create/read/update/delete flows, SHA conflicts, invalid payloads, malformed repository content, and unconfirmed writes. Live end-to-end GitHub App tests and multi-account isolation tests are still mandatory.
+
 ## Current caveats and planned milestones
 
 **Important:** The provision-and-initialize process spans several GitHub API calls and is not atomic. A failure after repo creation can leave a user-owned private repo while Oge is still unconnected. The app fails closed and never deletes or overwrites it. Phase B must add resumable reconciliation for partially created repositories.

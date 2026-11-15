@@ -64,7 +64,9 @@ test('draft routes are preview-gated and production Notes remains separate', asy
   const mongo = await readFile(new URL('../lib/mongodb.js', import.meta.url), 'utf8');
   assert.match(api, /OGE_VAULT_HYBRID_DRAFT_PREVIEW/);
   assert.match(api, /getVaultNoteClient/);
-  assert.match(api, /client\.vault\.repoId/);
+  assert.match(api, /ownerMutationFilter\(session\.user\.id/);
+  assert.match(api, /repoId: vault\.repoId/);
+  assert.match(api, /readVaultNote\(client, scope\.noteId\)/);
   assert.match(api, /readLimitedBody\(request, 32768\)/);
   assert.match(mongo, /vault_drafts.*createIndex/);
   assert.match(mongo, /vault_files.*createIndex/);
@@ -103,6 +105,6 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.match(page, /method: 'DELETE'/);
   assert.match(vaultPage, /OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true'/);
   assert.match(vaultPage, /vaultOwnerId=\{session\.user\.id\}/);
-  assert.match(api, /readVaultNote\(ctx\.client, scope\.noteId\)/);
+  assert.match(api, /readVaultNote\(client, scope\.noteId\)/);
   assert.match(api, /clearConfirmedDraft/);
 });

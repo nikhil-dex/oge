@@ -193,6 +193,16 @@ These criteria are release blockers, not optional polish:
 - Public launch before the security and operational release gates pass.
 - Unreviewed changes to the original `ogenotes` repository or its deployment.
 
+## Future candidate — Oge Learning Tracks (deferred)
+
+- [ ] **Planned, not implemented:** subject-owned YouTube playlist tracks under `Notes → Subject → Playlists`, separate from ordinary subject notes.
+- [ ] Capture/import public playlist metadata; preview and adjust AI-suggested topic grouping; maintain video-to-topic-to-note mapping with existing user-scoped authentication.
+- [ ] Suggest flexible daily assignments by videos **and** duration, promote today's unfinished topic note, and roll incomplete videos to future days without penalties.
+- [ ] Add a securely scoped YouTube browser-extension course mode that links the active video to an existing topic note; later integrate revision.
+- [ ] Evaluate YouTube API quotas, terms, metadata refresh, missing/private videos, multi-tab behavior, data privacy, and test coverage before implementation.
+
+**Sequencing:** backlog for after the user's next prioritized feature and existing release/security work. See [README — Oge Learning Tracks](./README.md#planned-feature-oge-learning-tracks-future-roadmap) for the complete product proposal. This is not approved as part of the initial release.
+
 ## 7. Working rules
 
 1. Read before changing: inspect the existing implementation and tests first.

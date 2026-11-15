@@ -40,6 +40,7 @@ export default async function VaultPage({ searchParams }) {
   const vault = user.vault?.status === 'connected' ? user.vault : null;
   const configured = vaultConfigured();
   const previewEnabled = process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true';
+  const mainPreviewEnabled = process.env.OGE_VAULT_MAIN_PREVIEW === 'true';
   const installUrl = typeof process.env.OGE_VAULT_GITHUB_APP_SLUG === 'string' &&
     /^[a-zA-Z0-9-]{1,80}$/.test(process.env.OGE_VAULT_GITHUB_APP_SLUG)
     ? 'https://github.com/apps/' + process.env.OGE_VAULT_GITHUB_APP_SLUG + '/installations/new'
@@ -70,6 +71,7 @@ export default async function VaultPage({ searchParams }) {
             <p className="oge-vault-repository"><span aria-hidden="true">▣</span> {vault.githubLogin}/{vault.repoName} <span>PRIVATE</span></p>
             <p className="oge-settings-note">The GitHub Notes preview is separate from the main Notes workspace. The current Notes, Quick Notes and AirNotes still use legacy MongoDB endpoints until cutover. Existing records have been identified as disposable test data, pending inventory and cleanup.</p>
             {previewEnabled && <Link className="oge-primary-link" href="/vault/preview">Open GitHub-only Notes preview →</Link>}
+            {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open familiar Notes interface (GitHub-only) →</Link>
           </>
         ) : (
           <>

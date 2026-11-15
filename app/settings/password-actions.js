@@ -20,7 +20,6 @@ export async function setLinkedPassword(formData) {
   const session = await auth();
   const ownerId = session?.user?.id;
   if (!ownerId) redirect('/register');
-  if (session.user.googleConnectionRequired) redirect('/profile?google=required');
   if (!isRecentOAuthAuthentication(session)) redirect('/profile?password=reauth');
 
   const password = formData.get('password');

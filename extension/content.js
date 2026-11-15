@@ -13,7 +13,7 @@
     '.panel{position:fixed;left:16px;top:16px;right:auto;bottom:auto;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
     '.hidden{display:none}.resize-corner{position:sticky;bottom:0;float:right;width:24px;height:24px;margin-top:-24px;display:grid;place-items:center;border:0;border-top-left-radius:8px;color:#657a6d;background:#f1f6f2;cursor:nwse-resize;touch-action:none;user-select:none;font-size:15px}.resize-corner-left{float:left;border-radius:0 8px 0 0;cursor:nesw-resize}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
     '.mark{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#316b50;color:white;font-size:12px;font-weight:800}.heading{flex:1;font-size:12px;font-weight:750;letter-spacing:.01em}',
-    '.close{padding:2px 6px;border:0;background:transparent;color:#536c59;font-size:22px;cursor:pointer}',
+    ' .corner-button{display:grid;place-items:center;width:27px;height:27px;flex:0 0 auto;padding:0;border:1px solid #dbe5de;border-radius:7px;background:transparent;color:#536c59;font-size:16px;cursor:pointer}.corner-button:hover{background:#eaf1ec;color:#245b38}.close{padding:2px 6px;border:0;background:transparent;color:#536c59;font-size:22px;cursor:pointer}',
     '.body{padding:11px 12px}.body[hidden]{display:none}.hint{margin:0 0 9px;color:#6b7b70;font-size:10px;line-height:1.45}',
     'textarea{display:block;width:100%;height:116px;min-height:75px;padding:10px;resize:vertical;border:1px solid #d5e0d8;border-radius:8px;color:#15251b;background:#fff;font:12px/1.5 ui-monospace,monospace;outline-color:#40795e}',
     '.primary{display:block;width:100%;margin-top:9px;padding:9px;border:0;border-radius:8px;background:#316b50;color:white;font-size:11px;font-weight:750;cursor:pointer}.primary:hover{background:#23563d}',
@@ -33,9 +33,11 @@
     ':host([data-oge-theme="dark"]) textarea,:host([data-oge-theme="dark"]) .subject-select{background:#222e26;color:#e4ebe6;border-color:#3b4d40}'+
     ':host([data-oge-theme="dark"]) .belt button{color:#b8c8bd}'+
     ':host([data-oge-theme="dark"]) .belt button.selected,:host([data-oge-theme="dark"]) .link-actions button{background:#293c30;color:#a9d3b8;border-color:#44654d}'+
-    ':host([data-oge-theme="dark"]) .link{border-color:#303b35}'+
+    ':host([data-oge-theme="dark"])  .link{border-color:#303b35}'+
     ':host([data-oge-theme="dark"]) .resize-corner{background:#27372d;color:#bad2c0}'+
     ':host([data-oge-theme="dark"]) .status{color:#a9d3b8}',
+    ':host([data-oge-theme="dark"]) .corner-button{color:#a2afa7;border-color:#3b4d40}'+
+    ':host([data-oge-theme="dark"]) .corner-button:hover{background:#293c30;color:#e4ebe6}',
     '.empty{font-size:11px;color:#637568}.subject-label{display:block;margin:8px 0 4px;font-size:10px;font-weight:700;color:#546d5b}.subject-select{display:block;width:100%;padding:8px;border:1px solid #d5e0d8;border-radius:8px;background:#fff;color:#15251b;font:11px system-ui}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
   ].join('');
   const panel = document.createElement('section');
@@ -43,7 +45,7 @@
   panel.setAttribute('aria-label', 'OgeNotes floating toolbelt');
   // HTML is static extension-owned markup; user content uses textContent.
   panel.innerHTML = [
-    '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
+    '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="corner-button" type="button" aria-label="Move widget to top-right corner" title="Move to top-right corner">⌖</button><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
     '<div class="body" data-panel="note"><p class="hint">First line = title · Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your GitHub, LinkedIn and portfolio links.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div><button class="primary" type="button" data-save-url>＋ Save current page to Saved Links</button></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
@@ -112,8 +114,42 @@
   const MIN_PANEL_WIDTH = 265;
   const MIN_PANEL_HEIGHT = 235;
   const clamp = (n, low, high) => Math.min(Math.max(n, low), Math.max(low, high));
+  const CORNERS = ['top-right', 'bottom-right', 'bottom-left', 'top-left'];
+  let snappedCorner = null;
+  let nextCornerIndex = 0;
+  const cornerButton = panel.querySelector('.corner-button');
+  function updateCornerButton() {
+    const next = CORNERS[nextCornerIndex];
+    cornerButton.setAttribute('aria-label', 'Move widget to ' + next + ' corner');
+    cornerButton.title = 'Move to ' + next + ' corner';
+  }
+  function placeSnappedCorner() {
+    if (!snappedCorner || panel.classList.contains('hidden')) return;
+    const width = panel.offsetWidth;
+    const height = panel.offsetHeight;
+    const left = snappedCorner.endsWith('right') ? window.innerWidth - width - GAP : GAP;
+    const top = snappedCorner.startsWith('bottom') ? window.innerHeight - height - GAP : GAP;
+    panel.style.left = clamp(left, GAP, window.innerWidth - width - GAP) + 'px';
+    panel.style.top = clamp(top, GAP, window.innerHeight - height - GAP) + 'px';
+    // Keep the invisible launcher in the same footprint. Closing the panel
+    // restores the O at this corner instead of leaving it elsewhere.
+    const launcherLeft = snappedCorner.endsWith('right') ? left + width - launcher.offsetWidth : left;
+    const launcherTop = top + height - launcher.offsetHeight;
+    host.style.left = clamp(launcherLeft, GAP, window.innerWidth - launcher.offsetWidth - GAP) + 'px';
+    host.style.top = clamp(launcherTop, GAP, window.innerHeight - launcher.offsetHeight - GAP) + 'px';
+    host.style.right = 'auto';
+    host.style.bottom = 'auto';
+  }
+  cornerButton.addEventListener('click', () => {
+    snappedCorner = CORNERS[nextCornerIndex];
+    nextCornerIndex = (nextCornerIndex + 1) % CORNERS.length;
+    placeSnappedCorner();
+    updateCornerButton();
+    wake();
+  });
   function positionPanel() {
     if (panel.classList.contains('hidden')) return;
+    if (snappedCorner) { placeSnappedCorner(); return; }
     const launcherBounds = launcher.getBoundingClientRect();
     const maxWidth = Math.max(MIN_PANEL_WIDTH, window.innerWidth - GAP * 2);
     const maxHeight = Math.max(MIN_PANEL_HEIGHT, window.innerHeight - GAP * 2);
@@ -163,6 +199,7 @@
   let launcherDrag = null;
   let ignoreLauncherClick = false;
   function placeLauncher(x, y) {
+    snappedCorner = null;
     host.style.left = clamp(x, GAP, window.innerWidth - launcher.offsetWidth - GAP) + 'px';
     host.style.top = clamp(y, GAP, window.innerHeight - launcher.offsetHeight - GAP) + 'px';
     host.style.right = 'auto';
@@ -257,6 +294,7 @@
     panel.style.width = width + 'px';
     if (resizeDrag.fromLeft) panel.style.left = resizeDrag.left + resizeDrag.width - width + 'px';
     panel.style.height = height + 'px';
+    if (snappedCorner) placeSnappedCorner();
     wake();
   });
   resizeHandle.addEventListener('pointerup', () => { resizeDrag = null; });

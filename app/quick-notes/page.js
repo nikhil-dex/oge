@@ -30,7 +30,11 @@ export default function QuickNotesPage() {
     catch (err) { setError(err.message || 'Could not load Quick Notes.'); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => {\n    let active = true;\n    Promise.resolve().then(() => { if (active) void load(); });\n    return () => { active = false; };\n  }, [load]);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void load(); });
+    return () => { active = false; };
+  }, [load]);
 
   function select(note) { setSelectedId(note.id); setContent(note.content || ''); setError(''); setMessage(''); }
   function newNote() { setSelectedId(''); setContent(''); setError(''); setMessage(''); }

@@ -116,6 +116,18 @@ The separate GitHub Notes preview now permits **up to 500 notes** in the reposit
 
 **Remaining B5 blockers:** An owner-scoped, retryable subject-deletion protocol that cannot race new note creations; full pagination and efficient GitHub snapshot reads; B3 autosave integration with the familiar Notes editor; review of other subject deletion and backup/import entry points; live GitHub App security testing and narrower installation permissions. The production `/notes` route is still unchanged and MongoDB-backed.
 
+## Phase B5.2 — GitHub snapshot pagination backend
+
+The optional `GET /api/vault/notes?paged=true&limit=20&cursor=...` endpoint now reads GitHub's commit/tree/blob APIs instead of GitHub's 1,000-entry Contents directory listing. The server verifies the repository and note paths through the existing owner-scoped GitHub App installation token, loads the current branch commit, reads a bounded Git tree, and returns **up to 25 note files per request** with an opaque page cursor and total note count.
+
+- Pagination is tied to the **branch commit SHA**. If the branch changes between page requests, the API returns `vault-page-stale` instead of mixing two different snapshots. The UI must restart loading from the first page and preserve unsaved edits.
+- A page cursor is validated, bounded and cannot select a new repository; the repository owner and installation are taken from the authenticated OgeNotes account, not a cursor or browser input.
+- Git blobs are read by immutable SHA, with at most five concurrent requests. Malformed note files, unexpected paths, oversized blobs, a truncated Git tree, or trees over 30,000 entries fail closed.
+- This is an **isolated preview endpoint** behind `OGE_VAULT_NOTE_API_PREVIEW=true`. The legacy array-returning preview read and familiar UI adapter remain capped at 500 until they are updated to page through this backend.
+- No note bodies or headings are mirrored or cached in MongoDB. Testing covers 1,201 notes across pages and the invalid/stale snapshot cases.
+
+**Remaining production work:** large tree indexing/sharding for more than 30,000 entries; rate-limit-aware loading and per-user concurrency controls; paginated UX in the familiar editor; safe subject deletion/reparenting and autosave integration; narrow GitHub App permissions and live staging verification. Pagination alone does not authorize a production cutover.
+
 ## Revised rollout — no legacy user-data migration
 
 The project owner confirms that existing MongoDB note records are **disposable app-test fixtures**, not student data requiring preservation. Therefore the prior **copy-and-verify MongoDB-to-GitHub user-content migration milestone is removed from the active launch sequence**. We must not infer this from the database automatically or silently delete unverified records.

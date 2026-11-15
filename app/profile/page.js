@@ -55,7 +55,7 @@ export default async function ProfilePage({ searchParams }) {
               </div>
               <div>
                 <label htmlFor="profile-username">Username</label>
-                <input id="profile-username" name="username" defaultValue={user.username || ''} placeholder="nikhil-dex" autoCapitalize="none" autoComplete="off" minLength={3} maxLength={24} pattern="[a-zA-Z][a-zA-Z0-9_-]{1,22}[a-zA-Z0-9]" required />
+                <input id="profile-username" name="username" defaultValue={user.username || ''} placeholder="your_username" autoCapitalize="none" autoComplete="off" minLength={3} maxLength={24} pattern="[a-zA-Z][a-zA-Z0-9_-]{1,22}[a-zA-Z0-9]" required />
                 <small>Unique across OgeNotes, 3–24 characters. Start with a letter; use letters, numbers, hyphens or underscores; end with a letter or number.</small>
               </div>
             </div>

@@ -41,6 +41,7 @@ function fixture(source, google = null) {
           const match = find(filter);
           if (!match) return { matchedCount: 0 };
           Object.assign(match, update.$set);
+          for (const key of Object.keys(update.$unset || {})) delete match[key];
           return { matchedCount: 1 };
         },
       };
@@ -64,7 +65,7 @@ test('GitHub matching Google email needs explicit connection and does not auto-l
 test('verified Google OAuth links an empty GitHub account to existing matching Google account', async () => {
   const version = '12345678-1234-1234-1234-123456789012';
   const { db, jar, users } = fixture(
-    { googleSub: 'github:123', email: 'student@example.com', sessionVersion: version, newsInterests: [] },
+    { googleSub: 'github:123', email: 'student@example.com', sessionVersion: version, newsInterests: [], extensionTokenHash: 'old-token-hash' },
     { googleSub: 'google-sub', email: 'student@example.com' },
   );
   await beginGoogleConnection('github:123', version, { database: async () => db, cookieJar: async () => jar });
@@ -75,6 +76,7 @@ test('verified Google OAuth links an empty GitHub account to existing matching G
   assert.equal(jar.value, null);
   assert.equal(users[0].linkedGoogleSub, 'google-sub');
   assert.equal(users[1].linkedGithubOwnerId, 'github:123');
+  assert.equal(users[0].extensionTokenHash, undefined, 'orphaned extension token must be revoked');
   assert.notEqual(users[0].sessionVersion, version);
   assert.equal(await resolveOAuthOwner(db, 'github', '123'), 'google-sub');
   assert.equal(await googleConnectionRequired(db, 'github:123'), false);

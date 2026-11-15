@@ -349,3 +349,143 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-social-login-options .oge-google-button{width:100%;min-width:0;margin-top:0;padding:14px 12px;gap:9px;white-space:nowrap}
 .oge-github-login-mark{display:grid;place-items:center;width:23px;height:23px;flex:0 0 23px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:9px;font-weight:800;letter-spacing:-.03em}
 @media(max-width:580px){.oge-social-login-options{grid-template-columns:1fr;max-width:380px}}
+
+/* ───────────────────────────────────────────────────────────
+   RETRO LOGIN · editorial paper / deep forest / burnt orange
+   Scoped entirely to /register: other workspaces retain Oge styling.
+   ─────────────────────────────────────────────────────────── */
+.oge-retro-login{
+  --retro-ink:#213e37;--retro-cream:#f9f4e8;--retro-paper:#fffaf1;
+  --retro-orange:#db734b;--retro-accent:#f4cc7b;--retro-line:#bdc6b7;
+  background:#e8e9db;
+  color:var(--retro-ink);
+  min-height:100svh;
+  padding:22px clamp(16px,4vw,58px) 14px;
+  font-family:var(--sans);
+}
+.oge-retro-login *{box-sizing:border-box}
+.oge-retro-wrap{max-width:1460px;margin:0 auto}
+.oge-retro-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:4px 0 20px}
+.oge-retro-brand{text-decoration:none;display:inline-flex;align-items:center;gap:12px;color:var(--retro-ink);font-family:var(--display);font-size:23px;font-weight:800;letter-spacing:-1.4px}
+.oge-retro-brand>span:last-child span{color:var(--retro-orange)}
+.oge-retro-logo{display:flex;align-items:center;justify-content:center;position:relative;width:43px;height:43px;background:var(--retro-ink);color:var(--retro-paper);border-radius:10px 10px 4px 10px;font-size:27px;letter-spacing:-3px}
+.oge-retro-logo span{position:absolute;right:-6px;top:-10px;font-size:15px;color:var(--retro-orange);letter-spacing:0}
+.oge-retro-header-caption{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-align:right;font-weight:700}
+.oge-retro-header-caption span{color:var(--retro-orange);font-size:16px}
+.oge-retro-stage{display:grid;grid-template-columns:minmax(0,1.07fr) minmax(0,.93fr);min-height:730px;border:2px solid var(--retro-ink);box-shadow:9px 9px 0 var(--retro-ink)}
+.oge-retro-story{background:#d8dfcd;position:relative;min-width:0;padding:46px clamp(27px,5vw,80px) 26px;overflow:hidden;border-right:2px solid var(--retro-ink);isolation:isolate}
+.oge-retro-story:before{content:"";position:absolute;inset:0;z-index:-1;opacity:.34;background-image:radial-gradient(#466554 0.75px,transparent 0.75px);background-size:13px 13px;pointer-events:none}
+.oge-retro-stamp{position:absolute;right:36px;top:30px;border:1.5px solid var(--retro-ink);border-radius:50%;width:89px;height:89px;transform:rotate(15deg);display:flex;flex-direction:column;justify-content:center;text-align:center;gap:5px;background:#e6e9d9}
+.oge-retro-stamp span{font-family:var(--mono);font-size:7px;letter-spacing:.5px;font-weight:700}
+.oge-retro-stamp strong{font-family:var(--display);font-size:16px}
+.oge-retro-overline{margin:28px 0 20px;font-size:10px;font-weight:800;font-family:var(--mono);letter-spacing:1.4px}
+.oge-retro-overline span{font-size:20px;color:var(--retro-orange);vertical-align:middle;margin-right:8px}
+.oge-retro-story h1{margin:0;max-width:700px;color:var(--retro-ink);font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:clamp(70px,7.4vw,128px);letter-spacing:-.075em;line-height:.94}
+.oge-retro-story h1 em{font-weight:400;color:#bb6444;letter-spacing:-.068em}
+.oge-retro-intro{font-size:clamp(14px,1.4vw,18px);line-height:1.7;max-width:390px;margin:27px 0 7px}
+.oge-retro-art{position:relative;height:292px;margin-top:12px;min-width:0}
+.oge-retro-orbit{position:absolute;border:1.5px solid #708b79;border-radius:50%;left:12%;top:13%;width:68%;aspect-ratio:1.5;transform:rotate(-17deg)}
+.oge-retro-orbit-two{left:24%;top:18%;width:60%;transform:rotate(21deg)}
+.oge-retro-sheet{position:absolute;background:var(--retro-paper);border:2px solid var(--retro-ink);box-shadow:5px 6px 0 var(--retro-ink);border-radius:2px}
+.oge-retro-sheet-back{width:210px;height:212px;left:19%;top:35px;transform:rotate(-13deg);padding:20px}
+.oge-retro-sheet-front{width:245px;height:225px;left:32%;top:29px;transform:rotate(9deg);padding:23px;display:flex;flex-direction:column}
+.oge-retro-paper-kicker,.oge-retro-paper-foot{font-family:var(--mono);font-size:9px;letter-spacing:1.2px;font-weight:700}
+.oge-retro-paper-rule{display:block;height:1px;width:90%;background:#b4b7ab;margin-top:28px}
+.oge-retro-paper-rule.short{width:55%;margin-top:18px}
+.oge-retro-paper-title{font-family:Georgia,serif;font-size:35px;line-height:1.07;letter-spacing:-1.5px;margin-top:20px;font-weight:700}
+.oge-retro-paper-title span{color:var(--retro-orange)}
+.oge-retro-paper-doodle{color:var(--retro-orange);font-size:37px;position:absolute;right:19px;bottom:29px}
+.oge-retro-paper-foot{margin-top:auto;font-size:8px}
+.oge-retro-art-spark{position:absolute;z-index:2;font-size:28px;color:var(--retro-orange)}
+.oge-retro-art-spark-one{left:12%;top:33%}
+.oge-retro-art-spark-two{right:10%;top:18%;font-size:37px}
+.oge-retro-art-label{position:absolute;bottom:0;right:0;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1px}
+.oge-retro-story-bottom{display:flex;justify-content:space-between;gap:14px;border-top:2px solid var(--retro-ink);margin-top:18px;padding-top:15px;font-size:9px;font-family:var(--mono);font-weight:700;letter-spacing:.3px}
+.oge-retro-story-bottom i{font-style:normal;color:var(--retro-orange);padding:0 4px}
+.oge-retro-auth{background:var(--retro-paper);min-width:0;display:flex;flex-direction:column}
+.oge-retro-auth-top,.oge-retro-auth-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.oge-retro-auth-top{padding:22px 32px 17px;border-bottom:1px solid var(--retro-line)}
+.oge-retro-signature{font-family:var(--mono);font-size:10px;letter-spacing:.8px;font-weight:800}
+.oge-retro-ticket{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:#7a6245;border:1px dashed #bd9874;border-radius:3px;padding:7px 12px;transform:rotate(-3deg);background:#f6e9ce}
+.oge-retro-auth-content{padding:42px clamp(25px,4vw,65px) 33px;flex:1}
+.oge-retro-number{font-family:var(--mono);letter-spacing:1.2px;font-size:10px;font-weight:700;color:#986849}
+.oge-retro-auth h2{font-family:Georgia,"Times New Roman",serif;font-size:clamp(48px,4.1vw,73px);letter-spacing:-.065em;line-height:1.03;color:var(--retro-ink);margin:20px 0 17px;font-weight:700}
+.oge-retro-auth h2 em{color:var(--retro-orange);font-weight:400}
+.oge-retro-auth-lede{font-size:13px;line-height:1.75;max-width:400px;margin:0 0 20px;color:#63756a}
+.oge-retro-auth .oge-social-login-options{display:grid;grid-template-columns:1fr;max-width:100%;gap:12px;margin:25px 0 0}
+.oge-retro-auth .oge-social-login-options .oge-google-button{
+  display:flex;justify-content:flex-start;width:100%;min-width:0;min-height:54px;margin:0;
+  border:1.5px solid var(--retro-ink);border-radius:7px;padding:13px 17px;
+  background:var(--retro-paper);box-shadow:3px 3px 0 var(--retro-ink);
+  color:var(--retro-ink);font-size:13px;font-weight:800;gap:13px;
+  transition:transform .15s,box-shadow .15s,background .15s;
+}
+.oge-retro-auth .oge-social-login-options .oge-google-button>span:last-child{margin-left:auto;font-size:17px}
+.oge-retro-auth .oge-social-login-options .oge-google-button:hover{background:#f3e6d2;transform:translate(1px,1px);box-shadow:2px 2px 0 var(--retro-ink)}
+.oge-retro-auth .oge-social-login-options .oge-google-button:active{transform:translate(3px,3px);box-shadow:none}
+.oge-retro-auth .oge-google-g{flex:0 0 25px;width:25px;height:25px;border:1px solid var(--retro-ink);border-radius:50%;font-family:Arial,sans-serif}
+.oge-retro-auth .oge-github-login-mark{flex:0 0 25px;width:25px;height:25px;border-radius:50%;background:var(--retro-ink);color:var(--retro-paper)}
+.oge-retro-auth .oge-login-separator{display:flex;align-items:center;gap:10px;width:100%;max-width:none;margin:27px 0 17px;font-family:var(--mono);font-size:9px;line-height:1.4;letter-spacing:1.1px;color:#728075}
+.oge-retro-auth .oge-login-separator:before,.oge-retro-auth .oge-login-separator:after{content:"";height:1px;background:var(--retro-line);flex:1}
+.oge-retro-auth .oge-login-separator span{white-space:nowrap}
+.oge-retro-auth .oge-password-login-form{margin:0;width:100%;max-width:none;gap:9px}
+.oge-retro-auth .oge-password-login-form label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:800;color:var(--retro-ink)}
+.oge-retro-auth .oge-password-login-form input{background:#fffdf8;border:1.5px solid #a6b4a6;border-radius:5px;padding:12px 14px;color:var(--retro-ink);font-size:14px;min-height:44px}
+.oge-retro-auth .oge-password-login-form input::placeholder{color:#8c978e}
+.oge-retro-auth .oge-password-login-form input:focus-visible{outline:2px solid var(--retro-orange);outline-offset:2px}
+.oge-retro-auth .oge-password-login-form .oge-google-button{background:var(--retro-ink);color:var(--retro-paper);border:1.5px solid var(--retro-ink);border-radius:5px;min-height:49px;margin-top:8px;padding:12px 18px;box-shadow:3px 3px 0 var(--retro-orange);font-size:13px}
+.oge-retro-auth .oge-password-login-form .oge-google-button:hover{background:#375b4e;transform:translate(1px,1px);box-shadow:2px 2px 0 var(--retro-orange)}
+.oge-retro-auth .oge-password-login-form .oge-google-button:disabled{cursor:wait;opacity:.65;transform:none}
+.oge-retro-auth .oge-password-login-form small{color:#68786d;line-height:1.55;font-size:10px}
+.oge-retro-auth .oge-register-footnote{max-width:none;margin:22px 0 0;color:#68786d;font-size:10px;line-height:1.6}
+.oge-retro-auth .oge-password-error{color:#af3f35;margin:9px 0}
+.oge-retro-auth .oge-password-success{margin:9px 0;color:#37694e}
+.oge-retro-auth-bottom{border-top:1px solid var(--retro-line);padding:15px 32px;font-family:var(--mono);font-size:9px;letter-spacing:.9px;font-weight:700}
+.oge-retro-auth-bottom span:nth-child(2){color:var(--retro-orange);font-size:19px}
+.oge-retro-page-footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:20px 4px 10px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.7px}
+.oge-retro-auth button:focus-visible,.oge-retro-login a:focus-visible{outline:3px solid #bc6a48;outline-offset:3px}
+[data-theme="dark"] .oge-retro-login{background:#263f36;color:var(--retro-ink)}
+@media(min-width:1600px){.oge-retro-stage{min-height:780px}}
+@media(max-width:1100px){
+  .oge-retro-stage{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}
+  .oge-retro-story{padding:34px 34px 22px}
+  .oge-retro-story h1{font-size:clamp(64px,7vw,88px)}
+  .oge-retro-sheet-back{left:10%}.oge-retro-sheet-front{left:24%}
+  .oge-retro-art-label{font-size:8px}
+}
+@media(max-width:760px){
+  .oge-retro-login{padding:14px 14px 8px}
+  .oge-retro-header{padding-bottom:15px}
+  .oge-retro-header-caption{font-size:8px;max-width:180px}
+  .oge-retro-stage{grid-template-columns:1fr;min-height:0;box-shadow:5px 5px 0 var(--retro-ink)}
+  .oge-retro-story{border-right:0;border-bottom:2px solid var(--retro-ink);padding:27px 30px 20px}
+  .oge-retro-story h1{font-size:clamp(61px,11vw,89px)}
+  .oge-retro-stamp{width:68px;height:68px;right:26px;top:20px}
+  .oge-retro-intro{max-width:540px;margin:16px 0}
+  .oge-retro-art{display:none}
+  .oge-retro-story-bottom{margin-top:22px}
+  .oge-retro-auth-content{padding:34px 30px}
+  .oge-retro-auth h2{font-size:clamp(48px,9vw,64px)}
+}
+@media(max-width:440px){
+  .oge-retro-login{padding:10px 10px 8px}
+  .oge-retro-header-caption{display:none}
+  .oge-retro-brand{font-size:20px}
+  .oge-retro-story{padding:22px 20px 18px}
+  .oge-retro-stamp{width:57px;height:57px;top:15px;right:14px}
+  .oge-retro-stamp span{font-size:5px}
+  .oge-retro-stamp strong{font-size:12px}
+  .oge-retro-overline{font-size:8px;margin:26px 0 15px}
+  .oge-retro-story h1{font-size:clamp(55px,13vw,68px)}
+  .oge-retro-intro{font-size:13px}
+  .oge-retro-story-bottom{font-size:8px}
+  .oge-retro-story-bottom span:last-child{display:none}
+  .oge-retro-auth-top{padding:15px 20px}
+  .oge-retro-auth-content{padding:29px 20px}
+  .oge-retro-auth h2{font-size:48px}
+  .oge-retro-auth-bottom{padding:13px 20px;font-size:8px}
+  .oge-retro-page-footer{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .oge-retro-login .oge-google-button{transition:none}
+}

@@ -50,8 +50,11 @@ async function handleAction(message, sender) {
     throw new Error('Unsupported extension action.');
   }
   if (message.type === 'GET_THEME') {
-    const stored = await chrome.storage.local.get(['ogeTheme']);
-    return { theme: stored.ogeTheme === 'light' ? 'light' : 'dark' };
+    const stored = await chrome.storage.local.get(['ogeTheme', 'baseUrl']);
+    let isOgePage = false;
+    try { isOgePage = new URL(sender.tab.url).origin === normalizeBase(stored.baseUrl); }
+    catch { /* Not connected yet. */ }
+    return { theme: stored.ogeTheme === 'light' ? 'light' : 'dark', isOgePage };
   }
   if (message.type === 'SET_THEME') {
     // Only a page on the user's configured Oge origin may set the global

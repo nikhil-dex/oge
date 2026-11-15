@@ -37,7 +37,7 @@ test('GitHub sessions may reauthenticate for password setup without impersonatin
   assert.equal(isRecentOAuthAuthentication({ user: { authenticatedAt: now, authProvider: 'credentials' } }, now), false);
 });
 
-test('GitHub login is a separate OAuth provider, never email-linked implicitly or a vault grant', async () => {
+test('GitHub login links only through explicit verified OAuth action and grants no vault permissions', async () => {
   const auth = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   const register = await readFile(new URL('../app/register/page.js', import.meta.url), 'utf8');
   const actions = await readFile(new URL('../app/register/actions.js', import.meta.url), 'utf8');
@@ -46,7 +46,9 @@ test('GitHub login is a separate OAuth provider, never email-linked implicitly o
   assert.match(auth, /githubOwnerId\(account.providerAccountId\)/);
   assert.match(auth, /getVerifiedGitHubEmail\(account.access_token\)/);
   assert.match(auth, /\{ googleSub: ownerId \}/);
-  assert.match(auth, /identityProvider: account.provider/);
+  assert.match(auth, /identityProvider: canonicalProvider/);
+  assert.match(auth, /finishGoogleConnection\(profile.sub, verifiedEmail\)/);
+  assert.match(auth, /resolveOAuthOwner\(db, account.provider, account.providerAccountId\)/);
   assert.match(auth, /token.authProvider = account.provider/);
   assert.doesNotMatch(auth, /findOne\(\{ email: verifiedEmail \}/);
   assert.doesNotMatch(auth, /repo|user:repo|Contents/);

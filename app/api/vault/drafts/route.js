@@ -1,4 +1,5 @@
 import { auth } from '../../../../auth.js';
+import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
 import { getVaultNoteClient } from '../../../../lib/oge-vault-notes.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
@@ -25,10 +26,12 @@ async function context() {
   const client = await getVaultNoteClient(db, {
     ownerId: session.user.id, sessionVersion: session.user.sessionVersion,
   });
-  return { db, client, ownerId: session.user.id, repoId: client.repoId };
+  return { db, client, ownerId: session.user.id, repoId: client.vault.repoId };
 }
 
 function failure(error) {
+  if (error instanceof VaultGitHubError) return json({ error: error.message },
+    error.status === 401 ? 401 : error.status === 409 ? 409 : 503);
   if (error?.code === 11000 || error?.message === 'vault-draft-revision-conflict')
     return json({ error: 'vault-draft-revision-conflict' }, 409);
   if (error instanceof SyntaxError || error instanceof TypeError)
@@ -41,15 +44,6 @@ async function authorizedContext() {
   const ctx = await context();
   if (ctx.disabled) return { response: json({ error: 'Hybrid drafts disabled.' }, 404) };
   if (ctx.unauthorized) return { response: json({ error: 'Sign in required.' }, 401) };
-  if (!Number.isSafeInteger(ctx.repoId)) {
-    // Vault client implementations can expose the repository through
-    // owner-scoped account metadata; do not guess or take it from the browser.
-    const user = await ctx.db.collection('users').findOne({ googleSub: ctx.ownerId },
-      { projection: { vault: 1 } });
-    if (user?.vault?.status !== 'connected' || !Number.isSafeInteger(user.vault.repoId))
-      return { response: json({ error: 'Vault not connected.' }, 409) };
-    ctx.repoId = user.vault.repoId;
-  }
   return { ctx };
 }
 

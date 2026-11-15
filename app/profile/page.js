@@ -20,7 +20,7 @@ export default async function ProfilePage({ searchParams }) {
   const db = await getDatabase();
   const user = await db.collection('users').findOne(
     ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion }),
-    { projection: { username: 1, displayName: 1, name: 1, email: 1, image: 1, avatarId: 1, passwordHash: 1, createdAt: 1 } },
+    { projection: { username: 1, displayName: 1, name: 1, email: 1, image: 1, avatarId: 1, passwordHash: 1, createdAt: 1, socialLinks: 1 } },
   );
   if (!user) redirect('/register');
   const query = await searchParams;
@@ -43,7 +43,7 @@ export default async function ProfilePage({ searchParams }) {
             <span className="oge-settings-pill">Google verified</span>
           </div>
           {status === 'saved' && <p className="oge-profile-success" role="status">Profile updated successfully.</p>}
-          {status === 'invalid' && <p className="oge-password-error" role="alert">Check your display name, username, and avatar selection.</p>}
+          {status === 'invalid' && <p className="oge-password-error" role="alert">Check your display name, username, avatar selection, and social links. GitHub and LinkedIn must be profile URLs using HTTPS.</p>}
           {status === 'taken' && <p className="oge-password-error" role="alert">That username is already taken. Please choose another.</p>}
           {status === 'limited' && <p className="oge-password-error" role="alert">Too many changes. Try again later.</p>}
           <form action={saveProfileSettings} className="oge-profile-form">
@@ -60,6 +60,33 @@ export default async function ProfilePage({ searchParams }) {
               </div>
             </div>
             <div className="oge-profile-email"><strong>Linked Gmail address</strong><span>{user.email}</span><small>Your Google-verified email is read-only. Changing your profile never changes who owns your notes.</small></div>
+            <fieldset className="oge-social-links-fieldset">
+              <legend>Social &amp; portfolio links</legend>
+              <p>Optional links for your profile. These may be shown to other students if social features are added later.</p>
+              <div className="oge-profile-form-grid">
+                <div>
+                  <label htmlFor="profile-github">GitHub</label>
+                  <input id="profile-github" name="github" type="url" inputMode="url" autoComplete="url"
+                    placeholder="https://github.com/username" maxLength={2048}
+                    defaultValue={user.socialLinks?.github || ''} />
+                  <small>Enter the full HTTPS link to your GitHub profile.</small>
+                </div>
+                <div>
+                  <label htmlFor="profile-linkedin">LinkedIn</label>
+                  <input id="profile-linkedin" name="linkedin" type="url" inputMode="url" autoComplete="url"
+                    placeholder="https://www.linkedin.com/in/username" maxLength={2048}
+                    defaultValue={user.socialLinks?.linkedin || ''} />
+                  <small>Enter the full HTTPS link to your LinkedIn profile.</small>
+                </div>
+                <div>
+                  <label htmlFor="profile-portfolio">Portfolio website</label>
+                  <input id="profile-portfolio" name="portfolio" type="url" inputMode="url" autoComplete="url"
+                    placeholder="https://your-portfolio.example.org" maxLength={2048}
+                    defaultValue={user.socialLinks?.portfolio || ''} />
+                  <small>Any public HTTPS portfolio website. Leave blank to hide it.</small>
+                </div>
+              </div>
+            </fieldset>
             <AvatarPicker current={user.avatarId || 'google'} googleImage={user.image || null} initials={name} />
             <button className="oge-google-button" type="submit">Save profile changes →</button>
           </form>

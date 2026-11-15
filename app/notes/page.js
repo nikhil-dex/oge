@@ -184,8 +184,19 @@ export default function NotesPage({
         setHybridError('Unsynced draft has a different GitHub revision. Preserve and review it before editing.');
       }
     } catch (err) {
-      if (generation === hybridGenerationRef.current)
-        setHybridError(err.message || 'Draft recovery unavailable.');
+      if (generation !== hybridGenerationRef.current) return;
+      // A server outage must not hide a browser copy of this existing note.
+      try {
+        const local = JSON.parse(window.sessionStorage.getItem(hybridKey(note.id)) || 'null')?.draft;
+        if (local && local.subjectId === note.subjectSlug && local.baseSha === note.sha &&
+            window.confirm('Draft server unavailable. Restore this browser copy?')) {
+          setHeading(local.heading);
+          setAnswer(local.answer);
+          setTagsText(local.tags.join(', '));
+          setDraftStatus('Browser draft recovered — Save when online');
+        }
+      } catch { /* Keep local storage untouched on malformed data. */ }
+      setHybridError(err.message || 'Draft recovery unavailable. Browser copy may still exist.');
     } finally {
       if (generation === hybridGenerationRef.current) setHybridReady(true);
     }
@@ -345,6 +356,9 @@ export default function NotesPage({
       window.sessionStorage.setItem(key, JSON.stringify({ draft }));
       if (!editingId) window.sessionStorage.setItem(newDraftPointerKey(activeSubject), noteId);
     } catch { /* Server copy still available if the next request succeeds. */ }
+    // A conflicting edit is not a transient outage; keep the user's local
+    // copy, but never overwrite the other device automatically.
+    if (hybridConflictRef.current) return undefined;
     const generation = hybridGenerationRef.current;
     const timer = setTimeout(() => {
       if (generation !== hybridGenerationRef.current) return;
@@ -360,7 +374,9 @@ export default function NotesPage({
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           cache: 'no-store', body: JSON.stringify({ id: noteId, revision, draft }),
         }));
+        if (generation !== hybridGenerationRef.current) return;
         hybridRevisionRef.current = response.revision;
+        setHybridError('');
         if (generation === hybridGenerationRef.current) {
           let stillLatest = false;
           try {
@@ -368,16 +384,33 @@ export default function NotesPage({
           } catch { /* A browser-disabled store cannot prove freshness. */ }
           setDraftStatus(stillLatest ? 'Draft saved' : 'Draft pending');
         }
-      }).catch((err) => {
-        if (generation === hybridGenerationRef.current) {
-          if (err.message === 'vault-draft-revision-conflict') {
-            hybridConflictRef.current = true;
-            setHybridError('Draft conflict: another device changed this note. Your browser copy is preserved. Close and reopen the note to review both copies.');
-          } else {
-            setHybridError(err.message || 'Draft could not be saved. Keep this tab open.');
+      }).catch(async (err) => {
+        if (generation !== hybridGenerationRef.current) return;
+        // A lost response does not mean the MongoDB write failed. Read the
+        // scoped draft back before declaring a conflict or retrying.
+        try {
+          const received = await responseJson(await fetch(
+            '/api/vault/drafts?id=' + encodeURIComponent(noteId), { cache: 'no-store' },
+          ));
+          if (generation !== hybridGenerationRef.current) return;
+          if (received.item && JSON.stringify(received.item.draft) === JSON.stringify(draft)) {
+            hybridRevisionRef.current = received.item.revision;
+            setHybridError('');
+            const latest = window.sessionStorage.getItem(key) === JSON.stringify({ draft });
+            setDraftStatus(latest ? 'Draft saved' : 'Draft pending');
+            return;
           }
-          setDraftStatus('Draft pending');
+          if (received.item && received.item.revision >= hybridRevisionRef.current + 1)
+            err = new Error('vault-draft-revision-conflict');
+        } catch { /* Network failures remain pending; never overwrite remote. */ }
+        if (generation !== hybridGenerationRef.current) return;
+        if (err.message === 'vault-draft-revision-conflict') {
+          hybridConflictRef.current = true;
+          setHybridError('Draft conflict: another device changed this note. Your browser copy is preserved. Close and reopen the note to review both copies.');
+        } else {
+          setHybridError(err.message || 'Draft server unavailable. Retry when online.');
         }
+        setDraftStatus('Draft pending');
       });
     }, 700);
     return () => clearTimeout(timer);
@@ -751,6 +784,11 @@ export default function NotesPage({
               {hybridReady ? draftStatus || 'Draft ready' : 'Checking saved drafts…'}
             </p>}
             {hybridError && <p role="alert" className="form-error">{hybridError}</p>}
+            {hybridDrafts && hybridReady && hybridError && !hybridConflictRef.current &&
+              <button type="button" className="answer-expand-button" onClick={() => {
+                setHybridError('');
+                setHybridRetryToken((token) => token + 1);
+              }}>Retry draft autosave</button>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="submit-button" type="submit" disabled={saving || !activeSubject || (hybridDrafts && !hybridReady)}><span>{saving ? 'Saving…' : hybridDrafts ? 'Save' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
           </form>

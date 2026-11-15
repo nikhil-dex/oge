@@ -71,8 +71,7 @@
     if (tool === 'note') { note.focus(); void loadSubjects(); }
     if (tool === 'links') void loadLinks();
   }
-  // The panel is viewport-fixed, so it can grow in either dimension
-  // independently of the draggable launcher and avoid clipping at page edges.
+  // The fixed panel overlays the launcher footprint; no reserved 54px gap.
   const GAP = 8;
   const MIN_PANEL_WIDTH = 265;
   const MIN_PANEL_HEIGHT = 235;
@@ -84,14 +83,13 @@
     const maxHeight = Math.max(MIN_PANEL_HEIGHT, window.innerHeight - GAP * 2);
     const width = Math.min(panel.offsetWidth, maxWidth);
     const height = Math.min(panel.offsetHeight, maxHeight);
+    // Overlay the launcher instead of reserving a full button-height gap.
+    // The panel and hidden O share the same bottom edge, allowing the panel
+    // to reach the bottom of the viewport when dragged there.
     const x = clamp(launcherBounds.right - width, GAP, window.innerWidth - width - GAP);
-    // Above the button when possible, below it when there is more room.
-    const above = launcherBounds.top - height - GAP;
-    const below = launcherBounds.bottom + GAP;
-    const preferred = above >= GAP ? above :
-      window.innerHeight - below >= height ? below : above;
-    panel.style.left = clamp(x, GAP, window.innerWidth - width - GAP) + 'px';
-    panel.style.top = clamp(preferred, GAP, window.innerHeight - height - GAP) + 'px';
+    const y = clamp(launcherBounds.bottom - height, GAP, window.innerHeight - height - GAP);
+    panel.style.left = x + 'px';
+    panel.style.top = y + 'px';
   }
   let idleTimer;
   const IDLE_DELAY_MS = 12000;

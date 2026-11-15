@@ -33,9 +33,9 @@ test('preflight scans all pages, not only first 25 notes', async () => {
       assert.equal(limit, 25);
       calls += 1;
       return cursor ? {
-        snapshot: snap, notes: [note(subjectId)], nextCursor: null,
+        snapshot: snap, total: 26, notes: [note(subjectId)], nextCursor: null,
       } : {
-        snapshot: snap, notes: Array.from({ length: 25 }, () => note(randomUUID())),
+        snapshot: snap, total: 26, notes: Array.from({ length: 25 }, () => note(randomUUID())),
         nextCursor: 'second',
       };
     },
@@ -50,7 +50,7 @@ test('preflight provides advisory empty result only after full scan', async () =
   const result = await inspectVaultSubject({}, {
     async countDocuments() { checks += 1; return 0; },
   }, scope, { pageReader: async () => ({
-    snapshot: snap, notes: [note(randomUUID())], nextCursor: null,
+    snapshot: snap, total: 1, notes: [note(randomUUID())], nextCursor: null,
   }) });
   assert.equal(checks, 2);
   assert.deepEqual(result, {
@@ -62,12 +62,12 @@ test('preflight provides advisory empty result only after full scan', async () =
 test('preflight fails closed on stale snapshots and cursor loops', async () => {
   await assert.rejects(inspectVaultSubject({}, drafts(), scope, {
     pageReader: async (_c, { cursor }) => ({
-      snapshot: cursor ? 'b'.repeat(40) : snap,
-      notes: [], nextCursor: cursor ? null : 'second',
+      snapshot: cursor ? 'b'.repeat(40) : snap, total: 1,
+      notes: cursor ? [note(randomUUID())] : [note(randomUUID())], nextCursor: cursor ? null : 'second',
     }),
   }), /vault-subject-scan-invalid/);
   await assert.rejects(inspectVaultSubject({}, drafts(), scope, {
-    pageReader: async () => ({ snapshot: snap, notes: [], nextCursor: 'repeat' }),
+    pageReader: async () => ({ snapshot: snap, total: 2, notes: [note(randomUUID())], nextCursor: 'repeat' }),
   }), /vault-subject-scan-invalid/);
 });
 
@@ -81,4 +81,12 @@ test('subject preflight remains non-destructive and legacy connected-vault delet
   assert.match(route, /OGE_VAULT_HYBRID_DRAFT_PREVIEW/);
   assert.match(route, /session\.user\.sessionVersion/);
   assert.match(legacy, /Subject deletion is temporarily disabled for connected Oge Vault accounts/);
+});
+
+test('preflight rejects silently truncated GitHub pagination', async () => {
+  await assert.rejects(inspectVaultSubject({}, drafts(), scope, {
+    pageReader: async () => ({
+      snapshot: snap, total: 2, notes: [note(randomUUID())], nextCursor: null,
+    }),
+  }), /vault-subject-scan-invalid/);
 });

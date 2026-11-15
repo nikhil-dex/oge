@@ -1,10 +1,11 @@
 import { auth } from '../../../../auth.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
-import { getVaultNoteClient } from '../../../../lib/oge-vault-notes.js';
+import { getVaultNoteClient, readVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { commitVaultNoteBatch } from '../../../../lib/oge-vault-batch.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
+import { withVaultSubjectsWrite, VaultSubjectLockedError } from '../../../../lib/oge-vault-subject-fence.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,9 +50,21 @@ export async function POST(request) {
     const client = await getVaultNoteClient(db, {
       ownerId, sessionVersion: session.user.sessionVersion,
     });
-    const saved = await commitVaultNoteBatch(client, items);
+    // Deletes do not carry subject IDs. Resolve their authoritative GitHub
+    // subject and fence every touched subject before the atomic batch commit.
+    const deletes = items.filter((op) => op?.action === 'delete');
+    const deletedSubjects = [];
+    for (const operation of deletes) {
+      const previous = await readVaultNote(client, operation.id);
+      deletedSubjects.push(previous.subjectId);
+    }
+    const allSubjects = [...new Set([...subjectIds, ...deletedSubjects])];
+    const saved = await withVaultSubjectsWrite(db, ownerId, allSubjects,
+      () => commitVaultNoteBatch(client, items));
     return json(saved, 200);
   } catch (error) {
+    if (error instanceof VaultSubjectLockedError)
+      return json({ error: error.message }, 409);
     if (error instanceof SyntaxError || error instanceof TypeError) {
       return json({ error: 'Invalid batch request.' }, 400);
     }

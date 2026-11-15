@@ -82,7 +82,7 @@ export default async function RegisterPage({ searchParams }) {
             <div className="oge-retro-auth-bottom"><span>TAKE NOTES. MAKE MEMORIES.</span><span aria-hidden="true">✳</span><span>YOU BELONG HERE.</span></div>
           </section>
         </div>
-        <footer className="oge-retro-page-footer"><span>© 2026 OGENOTES</span><span>A QUIETER PLACE TO THINK.</span><span>BUILT FOR WHAT'S NEXT ✳</span></footer>
+        <footer className="oge-retro-page-footer"><span>© 2026 OGENOTES</span><span>A QUIETER PLACE TO THINK.</span><span>BUILT FOR WHAT&apos;S NEXT ✳</span></footer>
       </div>
     </main>
   );

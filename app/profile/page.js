@@ -34,11 +34,13 @@ export default async function ProfilePage({ searchParams }) {
   const googleRequired = session.user.googleConnectionRequired === true;
 
   return (
-    <main className="shell oge-shell oge-settings-page oge-profile-page">
+    <main className="shell oge-shell oge-settings-page oge-profile-page oge-retro-workspace">
       <SiteNavbar actions={<Link className="oge-signin" href="/settings">Workspace settings →</Link>} />
+      <div className="oge-retro-workspace-ribbon" aria-hidden="true"><span>✳ OGE / PERSONAL ARCHIVE</span><span>FIELD NOTES · VOL. 01</span><span>✦ MADE FOR CURIOUS MINDS</span></div>
       <section className="oge-settings-hero">
         <p className="oge-eyebrow"><span className="oge-status-dot" /> YOUR IDENTITY</p>
         <h1>Profile<span>.</span></h1>
+        <span className="oge-retro-workspace-stamp" aria-hidden="true">✳<small>YOUR STORY</small></span>
         <p>Choose how you appear in OgeNotes, manage sign-in, and keep your account secure.</p>
       </section>
       <div className="oge-profile-layout">

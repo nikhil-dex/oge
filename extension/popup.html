@@ -34,7 +34,12 @@
       <label for="token">Extension token</label>
       <input id="token" type="password" placeholder="oge_…" autocomplete="off" spellcheck="false">
       <button id="saveSettings" class="secondary" type="button">Save connection</button>
-      <small class="hint">Your token is stored only in this browser extension. Revoke it in OgeNotes if necessary.</small>
+      <div class="connection-reset">
+        <strong>Reset this extension</strong>
+        <small>Clear the saved app URL, extension token, and category from this browser. Your notes and profile links stay safe.</small>
+        <button id="resetExtension" class="danger" type="button">Reset extension</button>
+        <small>Resetting here does not revoke the token on the server. To revoke it, use the Browser Extension page in OgeNotes.</small>
+      </div>
     </section>
     <p id="status" role="status" aria-live="polite"></p>
   </main>

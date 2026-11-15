@@ -4,7 +4,7 @@ import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import { checkRateLimit } from '../../lib/rate-limit.js';
-import { isAllowedAvatar, normalizeProfileDisplayName, normalizeUsername } from '../../lib/profile-settings.js';
+import { isAllowedAvatar, normalizeProfileDisplayName, normalizeUsername, normalizeSocialLink } from '../../lib/profile-settings.js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -16,7 +16,13 @@ export async function saveProfileSettings(formData) {
   const username = normalizeUsername(formData.get('username'));
   const displayName = normalizeProfileDisplayName(formData.get('displayName'));
   const avatarId = formData.get('avatarId');
-  if (!username || !displayName || !isAllowedAvatar(avatarId)) {
+  const socialLinks = {
+    github: normalizeSocialLink('github', formData.get('github')),
+    linkedin: normalizeSocialLink('linkedin', formData.get('linkedin')),
+    portfolio: normalizeSocialLink('portfolio', formData.get('portfolio')),
+  };
+  if (!username || !displayName || !isAllowedAvatar(avatarId) ||
+      Object.values(socialLinks).some((value) => value === undefined)) {
     redirect('/profile?status=invalid');
   }
 
@@ -29,7 +35,7 @@ export async function saveProfileSettings(formData) {
   const filter = ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion });
   try {
     const result = await db.collection('users').updateOne(filter, {
-      $set: { username, displayName, avatarId, updatedAt: new Date() },
+      $set: { username, displayName, avatarId, socialLinks, updatedAt: new Date() },
     });
     if (result.matchedCount !== 1) redirect('/register');
   } catch (error) {

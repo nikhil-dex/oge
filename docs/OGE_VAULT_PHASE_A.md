@@ -105,7 +105,8 @@ Before cutover, a staging/preproduction checklist must:
 - [ ] Provide a **selected-repositories** setup that doesn't require all-repository installation, before general availability.
 - [ ] Add safe resumable provisioning/reconnect and handle existing name conflicts, deleted repos, moved/renamed repos, revoked installation and GitHub rate-limit/outage handling.
 - [ ] Complete dedicated end-to-end tests against a private staging deployment, and review GitHub rate limits and installation/API costs.
-- [x] Phase B2 prototype: one bounded atomic Git commit for up to 12 note changes, SHA conflict checks, branch fast-forward validation and read-after-write verification.\n- [ ] Phase B production: client-side debounce, recoverable offline drafts, ambiguity-aware retries, conflict UX, pagination and batch-aware rate limits.
+- [x] Phase B2 prototype: one bounded atomic Git commit for up to 12 note changes, SHA conflict checks, branch fast-forward validation and read-after-write verification.
+- [ ] Phase B production: client-side debounce, recoverable offline drafts, ambiguity-aware retries, conflict UX, pagination and batch-aware rate limits.
 - [ ] Phase C: operator-confirmed **disposable test data cleanup**, followed by GitHub-only cutover verification across every content path. No user-content migration is expected for this project; stop if non-test content is discovered.
 - [ ] Phase D: opt-in account migration first, then enable the **mandatory GitHub-backed Notes** gate only after the persistence/recovery and cross-account isolation checks pass.
 - [ ] Phase E: Quick Notes, AirNotes, revision integration, Learning Tracks topic notes, sharing permissions and extension behavior.

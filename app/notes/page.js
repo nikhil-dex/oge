@@ -238,7 +238,6 @@ export default function NotesPage({
       favorite: Boolean(current.favorite), baseSha: current.sha };
     try { window.sessionStorage.setItem(key, JSON.stringify({ draft })); }
     catch { /* Server copy still available if the next request succeeds. */ }
-    setDraftStatus('Draft pending');
     const generation = hybridGenerationRef.current;
     const timer = setTimeout(() => {
       hybridPendingRef.current = hybridPendingRef.current.catch(() => {}).then(async () => {

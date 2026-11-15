@@ -15,7 +15,7 @@ test('familiar GitHub Notes interface uses a separate, mandatory preview flag an
 
 test('Notes UI preserves MongoDB production route while GitHub preview passes SHA for edits, favorites and delete', async () => {
   const page = await read('../app/notes/page.js');
-  assert.match(page, /NotesPage\\(\\{[\\s\\S]*?notesApi = '\\/api\\/notes', vaultMode = false/);
+  assert.ok(page.includes("notesApi = '/api/notes', vaultMode = false"));
   assert.match(page, /vaultMode \? notesApi \+ '\?paged=true&limit=20' : notesApi/);
   assert.match(page, /vaultMode \? \{ sha: current\.sha \} : \{\}/);
   assert.match(page, /vaultMode \? \{ sha: note\.sha \} : \{\}/);

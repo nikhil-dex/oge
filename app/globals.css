@@ -335,3 +335,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-profile-success{font-size:12px;font-weight:700;color:var(--green)}
 .oge-profile-page .oge-settings-card{min-width:0}
 @media(max-width:640px){.oge-profile-form-grid{grid-template-columns:1fr}.oge-avatar-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.oge-profile-form>.oge-google-button{width:100%}}
+
+/* Optional public profile handles */
+.oge-social-links-fieldset{border:0;min-width:0;padding:22px 0 0;margin:0;border-top:1px solid var(--line)}
+.oge-social-links-fieldset legend{padding:0 0 8px;color:var(--ink);font-size:14px;font-weight:700}
+.oge-social-links-fieldset>p{margin:0 0 17px;color:var(--muted);font-size:12px;line-height:1.7}
+.oge-social-links-fieldset .oge-profile-form-grid{gap:18px}
+.oge-social-links-fieldset input{font-size:12px}

@@ -19,7 +19,7 @@ function savedLabel(value) {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function NotesPage() {
+export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }) {
   const [subjects, setSubjects] = useState([]);
   const [notes, setNotes] = useState([]);
   const [activeSubject, setActiveSubject] = useState('');
@@ -54,7 +54,7 @@ export default function NotesPage() {
     try {
       const [subjectList, noteList] = await Promise.all([
         responseJson(await fetch('/api/subjects', { cache: 'no-store' })),
-        responseJson(await fetch('/api/notes', { cache: 'no-store' })),
+        responseJson(await fetch(notesApi, { cache: 'no-store' })),
       ]);
       const defaultSubject = subjectList[0]?.slug || '';
       setSubjects(subjectList);
@@ -65,7 +65,7 @@ export default function NotesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notesApi]);
 
   useEffect(() => {
     let active = true;
@@ -131,10 +131,13 @@ export default function NotesPage() {
     try {
       const tags = [...new Set(tagsText.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10);
       const payload = { subjectSlug: activeSubject, heading: heading.trim(), answer: answer.trim(), tags };
-      const note = await responseJson(await fetch('/api/notes', {
+      const current = notes.find((item) => item.id === editingId);
+      if (vaultMode && editingId && !current?.sha) throw new Error('GitHub revision is missing. Refresh notes and try again.');
+      const note = await responseJson(await fetch(notesApi, {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingId ? { ...payload, id: editingId } : payload),
+        body: JSON.stringify(editingId ? { ...payload, id: editingId,
+          ...(vaultMode ? { sha: current.sha } : {}) } : payload),
       }));
       setNoteDialog(false);
       setAnswerFullscreen(false);
@@ -151,7 +154,7 @@ export default function NotesPage() {
 
 
   async function cleanupWithGemini() {
-    if (aiCleanupBusy || !editingId) return;
+    if (aiCleanupBusy || !editingId || vaultMode) return;
     if (!heading.trim() || !answer.trim()) {
       setError('Add a heading and note content before using Gemini.');
       return;
@@ -187,10 +190,11 @@ export default function NotesPage() {
   async function toggleFavorite(note) {
     setError('');
     try {
-      await responseJson(await fetch('/api/notes', {
+      await responseJson(await fetch(notesApi, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: note.id, favorite: !note.favorite }),
+        body: JSON.stringify({ id: note.id, favorite: !note.favorite,
+          ...(vaultMode ? { sha: note.sha } : {}) }),
       }));
       await load(activeSubject);
     } catch (err) {
@@ -202,7 +206,8 @@ export default function NotesPage() {
     if (!window.confirm(`Delete “${note.heading}” permanently? This cannot be undone.`)) return;
     setError('');
     try {
-      await responseJson(await fetch('/api/notes?id=' + encodeURIComponent(note.id), { method: 'DELETE' }));
+      await responseJson(await fetch(notesApi + '?id=' + encodeURIComponent(note.id) +
+        (vaultMode ? '&sha=' + encodeURIComponent(note.sha || '') : ''), { method: 'DELETE' }));
       setReaderNote(null);
       setNoteDialog(false);
       setMessage('Note deleted.');
@@ -311,6 +316,7 @@ export default function NotesPage() {
 
   return (
     <main className="shell">
+      {vaultMode && <div role="status" className="oge-vault-editor-notice">✳ GITHUB VAULT PREVIEW · Notes are written to your private GitHub repository. This preview does not save note content to MongoDB. You must manually save changes.</div>}
       <SiteNavbar actions={<ThemeToggle />} />
 
       <nav className="subject-nav" aria-label="Subjects">
@@ -403,14 +409,14 @@ export default function NotesPage() {
             <input id="noteTags" maxLength={260} placeholder="e.g. arrays, exam, important" value={tagsText} onChange={(event) => setTagsText(event.target.value)} />
             {answerFullscreen ? createPortal(
               <div className="answer-workspace is-fullscreen">
-                <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span>{editingId && <button type="button" className="answer-expand-button oge-gemini-cleanup-button" onClick={cleanupWithGemini} disabled={aiCleanupBusy || saving} title="Ask Gemini to improve clarity and Markdown; review before saving">{aiCleanupBusy ? '✦ Cleaning…' : '✦ Gemini clean up'}</button>}<button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(false)} aria-label="Exit full-screen writing area" title="Exit full screen (Esc)">↙ Exit full screen</button></div>
+                <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span>{editingId && !vaultMode && <button type="button" className="answer-expand-button oge-gemini-cleanup-button" onClick={cleanupWithGemini} disabled={aiCleanupBusy || saving} title="Ask Gemini to improve clarity and Markdown; review before saving">{aiCleanupBusy ? '✦ Cleaning…' : '✦ Gemini clean up'}</button>}<button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(false)} aria-label="Exit full-screen writing area" title="Exit full screen (Esc)">↙ Exit full screen</button></div>
                 <div className="editor-toolbar" aria-label="Answer formatting"><button type="button" onClick={() => insertFormatting('bold')} title="Bold">B</button><button type="button" onClick={() => insertFormatting('code')} title="Inline code">&lt;/&gt;</button><button type="button" onClick={() => insertFormatting('list')} title="Bullet list">• List</button><button type="button" onClick={() => insertFormatting('codeblock')} title="Code block">{'{ }'}</button><span>Formatting shortcuts</span><span className="draft-status" role="status" aria-live="polite">{draftStatus}</span></div>
                 <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
                 {!preview ? <textarea ref={answerRef} form="noteForm" id="answer" rows={6} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}
               </div>,
               document.body
             ) : <div className="answer-workspace">
-              <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span>{editingId && <button type="button" className="answer-expand-button oge-gemini-cleanup-button" onClick={cleanupWithGemini} disabled={aiCleanupBusy || saving} title="Ask Gemini to improve clarity and Markdown; review before saving">{aiCleanupBusy ? '✦ Cleaning…' : '✦ Gemini clean up'}</button>}<button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(true)} aria-label="Expand writing area to full screen" title="Expand writing area">⛶ Expand</button></div>
+              <div className="label-row"><label htmlFor="answer">ANSWER</label><span>Markdown · use headings, lists, quotes, links, and code blocks</span>{editingId && !vaultMode && <button type="button" className="answer-expand-button oge-gemini-cleanup-button" onClick={cleanupWithGemini} disabled={aiCleanupBusy || saving} title="Ask Gemini to improve clarity and Markdown; review before saving">{aiCleanupBusy ? '✦ Cleaning…' : '✦ Gemini clean up'}</button>}<button type="button" className="answer-expand-button" onClick={() => setAnswerFullscreen(true)} aria-label="Expand writing area to full screen" title="Expand writing area">⛶ Expand</button></div>
               <div className="editor-toolbar" aria-label="Answer formatting"><button type="button" onClick={() => insertFormatting('bold')} title="Bold">B</button><button type="button" onClick={() => insertFormatting('code')} title="Inline code">&lt;/&gt;</button><button type="button" onClick={() => insertFormatting('list')} title="Bullet list">• List</button><button type="button" onClick={() => insertFormatting('codeblock')} title="Code block">{'{ }'}</button><span>Formatting shortcuts</span><span className="draft-status" role="status" aria-live="polite">{draftStatus}</span></div>
               <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
               {!preview ? <textarea ref={answerRef} id="answer" rows={8} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}

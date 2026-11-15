@@ -96,6 +96,18 @@ The experimental `/vault/preview` page is now visible to an authenticated owner 
 
 **Outstanding B3/B4 gates:** Cross-device conflict merge UX, multi-note timed queue flushes, service outage handling, long-term offline guarantees, 429 rate-limit headers, GitHub App selected-repository scope, replay/idempotency across full page navigation, live OAuth App/staging tests, and removal/replacement of every legacy note-content endpoint. The preview remains optional and disabled by default; mandatory vault enforcement is not yet activated.
 
+## Phase B4 — Familiar Notes UI, GitHub-only compatibility preview
+
+`/vault/notes` now reuses the existing Notes interface through configurable `notesApi="/api/vault/notes-main"`. Both the UI and its separate Notes API adapter require `OGE_VAULT_MAIN_PREVIEW=true`, and the page additionally verifies the signed-in user's connected vault metadata. **The original `/notes` remains on its previous endpoint**; this is an isolated, staging-only route.
+
+- Read, create, edit, delete, and favorite changes in the familiar Notes interface are served by GitHub files. The adapter verifies subject ownership in MongoDB metadata, but stores **no headings, bodies, or revision content in MongoDB**.
+- Existing note versions are carried in the response as GitHub blob SHA. Mutating an existing note **requires** its expected SHA; stale changes fail with a conflict rather than overwriting another device's edits.
+- A GitHub note is mapped to the familiar `subjectSlug`/note object shape so the existing list, editor, favorite, search, reader, markdown and print UX can be reused. Gemini cleanup through the old Mongo-backed note route is hidden/disabled in this preview.
+- The GitHub adapter uses the Phase B2 tree/commit transaction to verify GitHub writes. It does not have a write-to-MongoDB fallback. Existing subject names and opaque IDs still live in MongoDB, as permitted metadata.
+- **This B4 view uses an explicit Save action**. The B3 auto-save system remains a separate preview on `/vault/preview`; combining both experiences and draft-conflict warnings is a subsequent step.
+
+**Safety / release blockers:** The classic subject deletion API can still delete MongoDB subject metadata without deleting corresponding GitHub files, so subject deletion must be redesigned before switching production Notes. GitHub listing is capped; the classic Notes editor's current attachment/backup/revision and external extension integrations are not wired to Vault yet. The other MongoDB note-content endpoints still exist, and the production Notes workspace has **not** cut over. Real GitHub App staging and per-user isolation verification are still required.
+
 ## Revised rollout — no legacy user-data migration
 
 The project owner confirms that existing MongoDB note records are **disposable app-test fixtures**, not student data requiring preservation. Therefore the prior **copy-and-verify MongoDB-to-GitHub user-content migration milestone is removed from the active launch sequence**. We must not infer this from the database automatically or silently delete unverified records.

@@ -40,7 +40,14 @@ export async function GET(request) {
     });
     if (!challenge) return vaultRedirect('invalid-state');
     const token = await exchangeVaultOAuthCode(code);
-    const connection = await provisionVault(token);
+    const source = await db.collection('users').findOne({
+      googleSub: challenge.ownerId,
+    }, { projection: { linkedGithubOwnerId: 1 } });
+    const expectedGitHubId = challenge.ownerId.startsWith('github:')
+      ? challenge.ownerId.slice('github:'.length)
+      : source?.linkedGithubOwnerId?.startsWith('github:')
+        ? source.linkedGithubOwnerId.slice('github:'.length) : null;
+    const connection = await provisionVault(token, { expectedGitHubId });
     await connectProvisionedVault(db, {
       ownerId: challenge.ownerId, sessionVersion: challenge.sessionVersion,
       connection,
@@ -49,7 +56,7 @@ export async function GET(request) {
   } catch (error) {
     const type = error instanceof VaultGitHubError ? error.message : 'vault-setup-failed';
     const allowed = [
-      'unsupported-github-owner', 'github-permission-denied',
+      'unsupported-github-owner', 'github-account-mismatch', 'github-permission-denied',
       'github-repository-conflict', 'vault-app-installation-required',
       'vault-all-repositories-installation-required', 'vault-privacy-verification-failed',
     ];

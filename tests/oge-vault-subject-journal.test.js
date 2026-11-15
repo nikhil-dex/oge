@@ -109,7 +109,8 @@ test('uncertain release produces a durable manual-recovery state, never success'
   assert.equal(subject.vaultDeletionState, 'locked');
   assert.equal(records.get(operationId).state, 'needs-recovery');
   assert.deepEqual(await inspectVaultSubjectRecovery(db, identity, operationId), {
-    found: true, operationId, state: 'needs-recovery', ownsLock: true, action: 'manual-review',
+    found: true, operationId, state: 'needs-recovery', ownsLock: true,
+    action: 'manual-review', inconsistent: false,
   });
 });
 
@@ -122,4 +123,23 @@ test('journal remains metadata-only and connected Vault deletion remains blocked
   assert.match(route, /Subject deletion is temporarily disabled for connected Oge Vault accounts/);
   assert.match(mongo, /vault_subject_inspections.*unique: true/);
   assert.doesNotMatch(mongo, /vault_subject_inspections.*expireAfterSeconds/);
+});
+
+test('journal diagnostics reject an apparently completed operation with a surviving lock', async () => {
+  const { db, records, subject } = store();
+  const operationId = randomUUID();
+  records.set(operationId, { ownerId, repoId, subjectId, operationId, state: 'released' });
+  subject.vaultDeletionState = 'locked';
+  subject.vaultDeletionOperationId = operationId;
+  const status = await inspectVaultSubjectRecovery(db, identity, operationId);
+  assert.equal(status.action, 'manual-review');
+  assert.equal(status.inconsistent, true);
+  assert.equal(subject.vaultDeletionState, 'locked');
+});
+
+test('staging subject preflight is journaled and only exposes read-only diagnostics', async () => {
+  const route = await readFile(new URL('../app/api/vault/subjects/preflight/route.js', import.meta.url), 'utf8');
+  assert.match(route, /journalVaultSubjectInspection\(db, client, identity\)/);
+  assert.match(route, /inspectVaultSubjectRecovery\(db, identity, operationId\)/);
+  assert.doesNotMatch(route, /export async function (?:POST|DELETE|PUT|PATCH)/);
 });

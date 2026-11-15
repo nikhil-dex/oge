@@ -42,7 +42,7 @@ async function inspect(path, cookie) {
   // Explicit shared-cache directives on private HTML are a release blocker.
   // A safe-looking origin header alone is NOT proof of correct CDN behavior.
   const directives = cache.split(',').map(part => part.trim().toLowerCase());
-  check(!directives.some(value => value === 'public' || /^s-maxage\\s*=/.test(value)),
+  check(!directives.some(value => value === 'public' || /^s-maxage\s*=/.test(value)),
     path + ' permits shared caching of authenticated HTML.');
   console.log('PASS: ' + path + ' authenticated HTML, report-only CSP and ' + inlineScripts.length + ' inline script nonces match.');
   console.log('INFO: ' + path + ' cache-control=' +

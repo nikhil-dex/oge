@@ -8,6 +8,7 @@ import { isPasswordSessionActive } from './lib/password-auth.js';
 import { getDatabase } from './lib/mongodb.js';
 import { isCurrentSession, sessionVersionOf } from './lib/session-revocation.js';
 import { githubOwnerId, getVerifiedGitHubEmail } from './lib/github-login.js';
+import { finishGoogleConnection, resolveOAuthOwner, googleConnectionRequired } from './lib/google-account-link.js';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google, GitHub({ authorization: { params: { scope: 'read:user user:email' } } }), Credentials({
@@ -25,8 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ account, profile }) {
       if (account?.provider === 'credentials') {
-        // The credentials provider only returns an existing verified Google
-        // account after password validation. No separate user is created.
+        // Password login only returns an existing, verified OgeNotes account.
+        // It cannot create or implicitly link an OAuth identity.
         return true;
       }
       if (!['google', 'github'].includes(account?.provider) || typeof account.providerAccountId !== 'string') return false;
@@ -35,28 +36,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           profile.email_verified !== true || typeof profile.email !== 'string')) return false;
       if (!isGoogle && (!githubOwnerId(account.providerAccountId) ||
           String(profile?.id) !== account.providerAccountId)) return false;
-      const ownerId = isGoogle ? profile.sub : githubOwnerId(account.providerAccountId);
-      // A matching email never links Google and GitHub accounts implicitly.
       // GitHub email must be explicitly marked verified by GitHub's emails API.
       const verifiedEmail = isGoogle ? profile.email.toLowerCase() :
         await getVerifiedGitHubEmail(account.access_token);
       if (!verifiedEmail) return false;
+      // An explicit profile action creates a short-lived, one-use link intent.
+      // Never associate accounts merely because their email addresses match.
+      if (isGoogle) {
+        const link = await finishGoogleConnection(profile.sub, verifiedEmail);
+        if (link.attempted && !link.ok) {
+          const reason = ['migration-required', 'mismatch', 'expired'].includes(link.reason) ? link.reason : 'failed';
+          return '/profile?google=' + reason;
+        }
+      }
       try {
         const db = await getDatabase();
         const now = new Date();
+        const ownerId = await resolveOAuthOwner(db, account.provider, account.providerAccountId);
+        if (!ownerId) return false;
+        // Do not let a GitHub login overwrite the canonical Google profile.
+        const canonicalProvider = ownerId.startsWith('github:') ? 'github' : 'google';
+        const profileFields = canonicalProvider === account.provider ? {
+          email: verifiedEmail,
+          name: typeof profile.name === 'string' ? profile.name.slice(0, 120) :
+            !isGoogle && typeof profile.login === 'string' ? profile.login.slice(0, 120) : '',
+          image: typeof (isGoogle ? profile.picture : profile.avatar_url) === 'string' ?
+            (isGoogle ? profile.picture : profile.avatar_url).slice(0, 2048) : null,
+        } : {};
         await db.collection('users').updateOne(
           { googleSub: ownerId },
           {
-            $set: {
-              email: verifiedEmail,
-              name: typeof profile.name === 'string' ? profile.name.slice(0, 120) :
-                !isGoogle && typeof profile.login === 'string' ? profile.login.slice(0, 120) : '',
-              image: typeof (isGoogle ? profile.picture : profile.avatar_url) === 'string' ?
-                (isGoogle ? profile.picture : profile.avatar_url).slice(0, 2048) : null,
-              lastLoginAt: now,
-              updatedAt: now,
-            },
-            $setOnInsert: { googleSub: ownerId, identityProvider: account.provider,
+            $set: { ...profileFields, lastLoginAt: now, updatedAt: now },
+            $setOnInsert: { googleSub: ownerId, identityProvider: canonicalProvider,
               createdAt: now, newsInterests: [], sessionVersion: randomUUID() },
           },
           { upsert: true },
@@ -70,7 +81,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, account, user }) {
       if (['google', 'github'].includes(account?.provider) && typeof account.providerAccountId === 'string') {
-        token.googleSub = account.provider === 'google' ? account.providerAccountId : githubOwnerId(account.providerAccountId);
+        const db = await getDatabase();
+        token.googleSub = await resolveOAuthOwner(db, account.provider, account.providerAccountId);
         token.authProvider = account.provider;
         token.authenticatedAt = Date.now();
         delete token.passwordSignedInAt;
@@ -104,6 +116,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.sessionVersion = sessionVersionOf(user);
         }
         if (!isCurrentSession(user, token.sessionVersion)) return null;
+        token.googleConnectionRequired = await googleConnectionRequired(db, token.googleSub);
         return token;
       } catch (error) {
         console.error('Session version validation failed:', error instanceof Error ? error.name : 'UnknownError');
@@ -120,6 +133,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Old sessions without this claim must reauthenticate for deletion.
         session.user.authenticatedAt = typeof token.authenticatedAt === 'number' ? token.authenticatedAt : null;
         session.user.authProvider = typeof token.authProvider === 'string' ? token.authProvider : null;
+        session.user.googleConnectionRequired = token.googleConnectionRequired === true;
       }
       return session;
     },

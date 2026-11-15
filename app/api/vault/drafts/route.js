@@ -3,6 +3,7 @@ import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
 import { getVaultNoteClient, readVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { ownerMutationFilter } from '../../../../lib/active-owner-mutation.js';
+import { withVaultSubjectWrite, VaultSubjectLockedError } from '../../../../lib/oge-vault-subject-fence.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 import {
@@ -40,6 +41,7 @@ async function context() {
 }
 
 function failure(error) {
+  if (error instanceof VaultSubjectLockedError) return json({ error: error.message }, 409);
   if (error instanceof VaultGitHubError) return json({ error: error.message },
     error.status === 401 ? 401 : error.status === 409 ? 409 : 503);
   if (error?.code === 11000 || error?.message === 'vault-draft-revision-conflict')
@@ -96,9 +98,11 @@ export async function PUT(request) {
       ownerId: ctx.ownerId, slug: draft.subjectId,
     }, { projection: { _id: 1 } });
     if (!subject) return json({ error: 'Subject not found.' }, 404);
+    // The subject row fences autosaves against a deletion lock.
     // A draft never claims to have been written to GitHub.
-    const result = await putHybridDraft(ctx.db.collection('vault_drafts'),
-      scope, input.revision, draft);
+    const result = await withVaultSubjectWrite(ctx.db, ctx.ownerId, draft.subjectId,
+      () => putHybridDraft(ctx.db.collection('vault_drafts'),
+        scope, input.revision, draft));
     return json({ ...result, savedTo: 'temporary-draft' });
   } catch (error) { return failure(error); }
 }

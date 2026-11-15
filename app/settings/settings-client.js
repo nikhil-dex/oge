@@ -183,6 +183,8 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
         cache: 'no-store',
         body: JSON.stringify({ confirmation }),
       }));
+      // Explicitly reset the browser document after deleting the account/session.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign('/register');
     } catch (error) {
       setAccountDeleteError(error?.message || 'Account deletion failed.');

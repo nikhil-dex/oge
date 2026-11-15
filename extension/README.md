@@ -24,3 +24,7 @@ The Chrome Manifest V3 extension now combines the original OgeNotes floating Qui
 - It intentionally does not scrape or transmit web-page content. Only text you enter and the URL of a page you explicitly save are sent.
 - Browser behavior, keyboard shortcuts, connection revocation, and clipboard fallback require manual Chrome validation before deployment.
 - To revoke access, use the Browser Extension page in OgeNotes; deleting the local token alone is not server-side revocation.
+
+## Choose a subject when capturing
+
+In the floating Quick Note editor, **Save to** defaults to **Quick Notes**. Select a subject from your existing Notes subjects to save there instead. The first line becomes the Notes heading, while the remaining text becomes the body. Subject notes require both a first-line heading and text below it. If no subject is selected, the original standalone Quick Notes behavior remains unchanged.

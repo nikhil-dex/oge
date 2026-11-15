@@ -41,7 +41,7 @@ export default function PasswordSignIn() {
       <button className="oge-google-button" type="submit" disabled={busy}>
         {busy ? 'Signing in…' : 'Sign in with password'} <span aria-hidden="true">→</span>
       </button>
-      <small>Available only after you set a password in Settings. Forgotten it? Sign in with Google to replace it.</small>
+      <small>Available after you set a password on your Profile page. Forgot it? Sign in with Google, then visit Profile to replace it.</small>
       <small>On shared computers, use a private window and sign out when finished. Password sessions expire after 8 hours.</small>
     </form>
   );

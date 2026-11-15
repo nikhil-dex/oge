@@ -22,6 +22,9 @@ function savedLabel(value) {
 export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }) {
   const [subjects, setSubjects] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [nextNotesCursor, setNextNotesCursor] = useState(null);
+  const [totalVaultNotes, setTotalVaultNotes] = useState(null);
+  const [loadingMoreNotes, setLoadingMoreNotes] = useState(false);
   const [activeSubject, setActiveSubject] = useState('');
   const [query, setQuery] = useState('');
   const [globalSearch, setGlobalSearch] = useState(false);
@@ -52,20 +55,49 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
     setLoading(true);
     setError('');
     try {
-      const [subjectList, noteList] = await Promise.all([
+      const [subjectList, response] = await Promise.all([
         responseJson(await fetch('/api/subjects', { cache: 'no-store' })),
-        responseJson(await fetch(notesApi, { cache: 'no-store' })),
+        responseJson(await fetch(vaultMode ? notesApi + '?paged=true&limit=20' : notesApi, { cache: 'no-store' })),
       ]);
+      const noteList = vaultMode ? response.notes : response;
+      if (!Array.isArray(noteList)) throw new Error('Invalid GitHub notes response.');
       const defaultSubject = subjectList[0]?.slug || '';
       setSubjects(subjectList);
       setNotes(noteList);
+      setNextNotesCursor(vaultMode ? response.nextCursor || null : null);
+      setTotalVaultNotes(vaultMode ? response.total : null);
       setActiveSubject((current) => preferredSubject || current || defaultSubject);
     } catch (err) {
       setError(err.message || 'Could not load your notes.');
     } finally {
       setLoading(false);
     }
-  }, [notesApi]);
+  }, [notesApi, vaultMode]);
+
+  async function loadMoreVaultNotes() {
+    if (!vaultMode || !nextNotesCursor || loadingMoreNotes || loading) return;
+    setLoadingMoreNotes(true);
+    setError('');
+    try {
+      const page = await responseJson(await fetch(
+        notesApi + '?paged=true&limit=20&cursor=' + encodeURIComponent(nextNotesCursor),
+        { cache: 'no-store' },
+      ));
+      if (!Array.isArray(page.notes)) throw new Error('Invalid GitHub notes page.');
+      setNotes((existing) => {
+        const seen = new Set(existing.map((note) => note.id));
+        return [...existing, ...page.notes.filter((note) => !seen.has(note.id))];
+      });
+      setNextNotesCursor(page.nextCursor || null);
+      setTotalVaultNotes(page.total);
+    } catch (err) {
+      setError(err.message === 'vault-page-stale'
+        ? 'GitHub notes changed while loading. Refresh the list after saving your draft.'
+        : err.message || 'Could not load more GitHub notes.');
+    } finally {
+      setLoadingMoreNotes(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -354,7 +386,7 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
       </section>
 
       <section className="stats" aria-label="Note statistics">
-        <div className="stat"><span className="stat-number">{String(notes.length).padStart(2, '0')}</span><span className="stat-label">TOTAL NOTES</span></div>
+        <div className="stat"><span className="stat-number">{String(vaultMode ? (totalVaultNotes ?? notes.length) : notes.length).padStart(2, '0')}</span><span className="stat-label">{vaultMode ? 'GITHUB NOTES' : 'TOTAL NOTES'}</span></div>
         <div className="stat-divider" />
         <div className="stat"><span className="stat-number">{String(subjects.length).padStart(2, '0')}</span><span className="stat-label">SUBJECTS</span></div>
         <div className="stat-spacer" />
@@ -392,6 +424,13 @@ export default function NotesPage({ notesApi = '/api/notes', vaultMode = false }
               </div>
             </article>
           ))}</div> : <div className="empty-state"><span className="empty-icon">⌕</span><h3>{query ? 'No notes found' : 'Start your collection'}</h3><p>{query ? 'Try another search, or clear the filters.' : 'Add a note to this subject, then come back to study it.'}</p><button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add your first note</button></div>}
+        {vaultMode && <div className="oge-vault-notes-pagination">
+          <p role="status">Showing {notes.length} of {totalVaultNotes ?? notes.length} GitHub notes. Search, filters and sorting apply to loaded notes.</p>
+          {nextNotesCursor && <button type="button" className="add-button" onClick={() => void loadMoreVaultNotes()}
+            disabled={loadingMoreNotes || saving || noteDialog}>
+            {loadingMoreNotes ? 'Loading…' : 'Load more GitHub notes'}
+          </button>}
+        </div>}
       </section>
 
       <footer><span>Built for learning, one note at a time.</span><span>PRIVATE · SUBJECT BASED</span></footer>

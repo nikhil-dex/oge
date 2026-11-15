@@ -38,3 +38,15 @@ test('extension toolbelt preserves save tab and uses a read-only links panel', a
   assert.ok(manifest.permissions.includes('clipboardWrite'));
   assert.ok(manifest.permissions.includes('activeTab'));
 });
+
+test('extension Reset clears only local connection after explicit confirmation', async () => {
+  const popup = await readFile(new URL('../extension/popup.html', import.meta.url), 'utf8');
+  const script = await readFile(new URL('../extension/popup.js', import.meta.url), 'utf8');
+  assert.match(popup, /id="resetExtension"/);
+  assert.match(popup, /Resetting here does not revoke the token on the server/);
+  assert.match(script, /window\.confirm\('Reset this OgeNotes extension/);
+  assert.match(script, /chrome\.storage\.local\.remove\(\['baseUrl', 'token', 'category'\]\)/);
+  assert.match(script, /tokenInput\.value = ''/);
+  assert.match(script, /categoryInput\.value = 'Browser'/);
+  assert.doesNotMatch(script, /chrome\.storage\.local\.clear\(/);
+});

@@ -1,7 +1,7 @@
 // All OgeNotes requests are made from the extension service worker.
 // The floating content script never receives the bearer token or app origin.
 const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
-const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK']);
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS']);
 const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
 
 function normalizeBase(value) {
@@ -54,10 +54,14 @@ async function handleAction(message, sender) {
     if (typeof content !== 'string' || !content.trim() || content.length > 20000) {
       throw new Error('Write a note of up to 20,000 characters.');
     }
+    const subjectSlug = message.subjectSlug;
+    if (typeof subjectSlug !== 'string' || subjectSlug.length > 100) {
+      throw new Error('Choose a valid destination.');
+    }
     const data = await apiRequest('/api/extension/quick-note', {
-      method: 'POST', body: JSON.stringify({ content }),
+      method: 'POST', body: JSON.stringify({ content, subjectSlug }),
     });
-    return { title: data.title };
+    return { title: data.title, destination: data.destination, subject: data.subject || null };
   }
   if (message.type === 'SAVE_CURRENT_TAB') {
     const url = sender.tab.url;
@@ -69,6 +73,10 @@ async function handleAction(message, sender) {
       }),
     });
     return { title: data.title };
+  }
+  if (message.type === 'GET_SUBJECTS') {
+    const data = await apiRequest('/api/extension/subjects');
+    return { subjects: Array.isArray(data.subjects) ? data.subjects : [] };
   }
   if (message.type === 'GET_PROFILE_LINKS') {
     const data = await apiRequest('/api/extension/profile-links');

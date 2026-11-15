@@ -157,6 +157,25 @@ $('saveSettings').addEventListener('click', async () => {
     status('Connection saved in this browser.');
   } catch (error) { status(error.message || 'Could not save settings.', true); }
 });
+$('resetExtension').addEventListener('click', async () => {
+  if (!window.confirm('Reset this OgeNotes extension on this browser? This clears its saved connection and category. Your notes remain safe. This does NOT revoke the token on the server.')) return;
+  const button = $('resetExtension');
+  button.disabled = true;
+  try {
+    // Remove the extension's connection and preferences, not the user's server data.
+    await chrome.storage.local.remove(['baseUrl', 'token', 'category']);
+    baseUrl.value = 'http://localhost:3000';
+    tokenInput.value = '';
+    categoryInput.value = 'Browser';
+    $('linksList').replaceChildren();
+    status('Extension reset on this browser. Generate a new token or reconnect under Connect. Revoke the old token from OgeNotes if it must be invalidated.');
+  } catch (error) {
+    status(error.message || 'Could not reset extension settings.', true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $('saveTab').addEventListener('click', async () => {
   try {
     const { origin, token } = getConnection();

@@ -106,7 +106,7 @@ test('GitHub-only write is never acknowledged if remote data was not persisted',
   client.unconfirmed = true;
   await assert.rejects(() => saveVaultNote(client, {
     subjectId, heading: 'Not persisted', answer: 'No false success',
-  }), (error) => error instanceof VaultGitHubError && error.status === 404);
+  }), (error) => error instanceof VaultGitHubError && error.message === 'vault-write-unconfirmed');
   assert.equal(client.store.size, 0);
 });
 

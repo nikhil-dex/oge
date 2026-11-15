@@ -138,3 +138,17 @@ test('nonce rotates across full navigations and all inline scripts match each re
   }
   expect(new Set(values).size).toBe(values.length);
 });
+
+
+test('client-supplied nonce cannot select the server CSP nonce', async ({ request }) => {
+  const attackerNonce = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const result = await request.get('/register', {
+    headers: { 'x-nonce': attackerNonce },
+  });
+  expect(result.status()).toBe(200);
+  const policy = result.headers()['content-security-policy-report-only'] || '';
+  const effectiveNonce = policy.match(/'nonce-([A-Za-z0-9+/_=-]+)'/)?.[1];
+  expect(effectiveNonce).toBeTruthy();
+  expect(effectiveNonce).not.toBe(attackerNonce);
+  expect(result.headers()['content-security-policy']).toBeUndefined();
+});

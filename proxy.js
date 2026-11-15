@@ -40,6 +40,15 @@ export default auth((request) => {
   if (request.auth && pathname === '/register') {
     return secure(NextResponse.redirect(new URL('/', request.nextUrl.origin)));
   }
+  // A GitHub account sharing an existing Google user's verified email must
+  // verify the Google identity in Profile before entering other workspaces.
+  if (request.auth?.user?.googleConnectionRequired && pathname !== '/profile') {
+    if (pathname.startsWith('/api/')) {
+      return secure(NextResponse.json({ error: 'Connect your existing Google account in Profile before continuing.' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } }));
+    }
+    return secure(NextResponse.redirect(new URL('/profile?google=required', request.nextUrl.origin)));
+  }
   if (request.method === 'GET' && !pathname.startsWith('/api/')) return nextWithNonce(request);
   return secure(NextResponse.next());
 });

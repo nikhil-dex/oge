@@ -9,7 +9,7 @@
   style.textContent = [
     '*{box-sizing:border-box}button,textarea,select{font:inherit}',
     'button,textarea,select{outline-offset:2px}@media(prefers-reduced-motion:reduce){:host{transition:none!important}}',
-    '.launcher{width:44px;height:44px;border:1px solid #ffffff55;border-radius:14px;background:#316b50;color:#fff;box-shadow:0 8px 26px #10251b40;font:800 19px system-ui;cursor:grab;touch-action:none;user-select:none;letter-spacing:-.05em;transition:box-shadow .18s,background .18s}.launcher:hover{background:#23563d;box-shadow:0 9px 28px #10251b55}.launcher:active{cursor:grabbing}',
+    '.launcher{width:44px;height:44px;border:1px solid #ffffff55;border-radius:14px;background:#316b50;color:#fff;box-shadow:0 8px 26px #10251b40;font:800 19px system-ui;cursor:grab;touch-action:none;user-select:none;letter-spacing:-.05em;transition:box-shadow .18s,background .18s}.launcher:hover{background:#23563d;box-shadow:0 9px 28px #10251b55}.launcher:active{cursor:grabbing}.launcher.is-panel-open{visibility:hidden;pointer-events:none}',
     '.panel{position:fixed;left:16px;top:16px;right:auto;bottom:auto;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
     '.hidden{display:none}.resize-corner{position:sticky;bottom:0;float:right;width:24px;height:24px;margin-top:-24px;display:grid;place-items:center;border:0;border-top-left-radius:8px;color:#657a6d;background:#f1f6f2;cursor:nwse-resize;touch-action:none;user-select:none;font-size:15px}.resize-corner-left{float:left;border-radius:0 8px 0 0;cursor:nesw-resize}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
     '.mark{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#316b50;color:white;font-size:12px;font-weight:800}.heading{flex:1;font-size:12px;font-weight:750;letter-spacing:.01em}',
@@ -33,10 +33,10 @@
   panel.innerHTML = [
     '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
     '<div class="body" data-panel="note"><p class="hint">First line = title · Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
-    '<div class="body" data-panel="url" hidden><p class="hint">Save this website to your personal Saved Links.</p><button class="primary" type="button" data-save-url>Save current page ↗</button></div>',
+    '<div class="body" data-panel="url" hidden><p class="hint">Save the current website link directly to your Saved Links collection.</p><button class="primary" type="button" data-save-url>Save page link →</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your social and portfolio URLs from OgeNotes Profile.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
-    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="url" type="button">↗ Save URL</button><button data-tool="links" type="button">☷ My links</button></nav>',
+    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="url" type="button">↗ Saved Links</button><button data-tool="links" type="button">☷ My links</button></nav>',
     '<button class="resize-corner resize-corner-left" type="button" aria-label="Resize widget from left corner" title="Drag left or down to resize">↙</button>',
     '<button class="resize-corner" type="button" aria-label="Resize widget width and height" title="Drag to resize width and height">↘</button>',
   ].join('');
@@ -114,7 +114,12 @@
   shadow.addEventListener('focusin', wake);
   function openPanel(open) {
     panel.classList.toggle('hidden', !open);
+    // Keep the launcher as a positioning anchor while the open panel hides it.
+    // Closing restores the draggable O button.
+    launcher.classList.toggle('is-panel-open', open);
     launcher.setAttribute('aria-expanded', String(open));
+    launcher.setAttribute('aria-hidden', String(open));
+    launcher.tabIndex = open ? -1 : 0;
     wake();
     if (open) {
       positionPanel();
@@ -283,7 +288,7 @@
     setStatus('Saving website…');
     try {
       const result = await send('SAVE_CURRENT_TAB');
-      setStatus('Saved “' + result.title + '” to Saved Links.');
+      setStatus('Page link saved to Saved Links: “' + result.title + '”.');
     } catch (error) { setStatus(error.message, true); }
     finally { urlSave.disabled = false; }
   });

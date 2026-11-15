@@ -49,6 +49,8 @@ test('revision-fenced updates reject stale writes and cleanup cannot remove new 
     },
   };
   await putHybridDraft(collection, scope, 1, draft(), { key });
+  assert.equal(documents.get(id).isNew, true);
+  assert.equal(documents.get(id).encrypted.ciphertext.includes('private test content'), false);
   await putHybridDraft(collection, scope, 2, { ...draft(), answer: 'newer' }, { key });
   await assert.rejects(putHybridDraft(collection, scope, 2, draft(), { key }),
     /vault-draft-revision-conflict/);
@@ -91,6 +93,10 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.match(notesAdapter, /OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true'/);
   assert.match(notesAdapter, /suppliedId \? \{ id: suppliedId \} : \{\}/);
   assert.match(page, /Server recovery unavailable\. Restore the browser draft/);
+  assert.ok(page.includes("if (!navigator.onLine)"));
+  assert.ok(page.includes("stillLatest ? 'Draft saved' : 'Draft pending'"));
+  assert.ok(page.includes("disabled={hybridDrafts && !hybridReady}"));
+
 
   assert.match(page, /Flush the exact editor snapshot before final GitHub Save/);
   assert.match(page, /const revision = hybridRevisionRef\.current \+ 1/);

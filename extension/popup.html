@@ -3,23 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Save to OgeNotes</title>
+  <title>OgeNotes Tools</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <main>
-    <header><span class="mark">O</span><div><strong>OgeNotes</strong><small>Save this tab</small></div></header>
-    <label for="baseUrl">App URL</label>
-    <input id="baseUrl" type="url" value="http://localhost:3000" spellcheck="false">
-    <label for="token">Extension token</label>
-    <input id="token" type="password" placeholder="oge_…" autocomplete="off" spellcheck="false">
-    <button id="saveSettings" class="secondary" type="button">Save connection</button>
-    <div class="divider"></div>
-    <label for="category">Category (optional)</label>
-    <input id="category" type="text" value="Browser" maxlength="40" placeholder="Study, tools…">
-    <button id="saveTab" type="button">Save current tab ↗</button>
-    <p id="status" role="status"></p>
-    <small class="foot">Your token is stored locally in this browser extension. Revoke it from OgeNotes if needed.</small>
+    <header><span class="mark">O</span><div><strong>OgeNotes</strong><small>Study tools, one click away</small></div></header>
+    <nav class="toolbelt" aria-label="Extension tools">
+      <button class="tool active" id="toolSave" type="button" aria-controls="savePanel" aria-expanded="true"><span aria-hidden="true">✎</span> Save tab</button>
+      <button class="tool" id="toolLinks" type="button" aria-controls="linksPanel" aria-expanded="false"><span aria-hidden="true">↗</span> My links</button>
+      <button class="tool" id="toolConnect" type="button" aria-controls="connectPanel" aria-expanded="false"><span aria-hidden="true">⚙</span> Connect</button>
+    </nav>
+    <section id="savePanel" class="tool-panel" aria-label="Save current tab">
+      <label for="category">Category (optional)</label>
+      <input id="category" type="text" value="Browser" maxlength="40" placeholder="Study, tools…">
+      <button id="saveTab" type="button">Save current tab ↗</button>
+      <small class="hint">Your current page is saved to OgeNotes Saved Links.</small>
+    </section>
+    <section id="linksPanel" class="tool-panel" aria-label="My profile links" hidden>
+      <div class="panel-heading">
+        <div><strong>My profile links</strong><small>From your OgeNotes profile</small></div>
+        <button id="refreshLinks" class="icon-button" type="button" aria-label="Refresh profile links" title="Refresh profile links">↻</button>
+      </div>
+      <div id="linksList" class="links-list" aria-live="polite"><p class="empty">Select My links to view saved handles.</p></div>
+      <small class="hint">Copy a URL or open it in a new browser tab. Update links in your OgeNotes Profile.</small>
+    </section>
+    <section id="connectPanel" class="tool-panel" aria-label="Connection settings" hidden>
+      <label for="baseUrl">App URL</label>
+      <input id="baseUrl" type="url" value="http://localhost:3000" spellcheck="false">
+      <label for="token">Extension token</label>
+      <input id="token" type="password" placeholder="oge_…" autocomplete="off" spellcheck="false">
+      <button id="saveSettings" class="secondary" type="button">Save connection</button>
+      <small class="hint">Your token is stored only in this browser extension. Revoke it in OgeNotes if necessary.</small>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
   </main>
   <script src="popup.js"></script>
 </body>

@@ -314,7 +314,7 @@ export default function NotesPage({
   // the request, so fast typing never creates parallel out-of-order revisions.
   useEffect(() => {
     if (!hybridDrafts || !hybridReady || !noteDialog || (!editingId && !newDraftId) ||
-        !hasUnsavedEditorChanges() || saving || hybridError) return undefined;
+        !hasUnsavedEditorChanges() || saving) return undefined;
     const current = notes.find((note) => note.id === editingId);
     if (editingId && !current?.sha) return undefined;
     const noteId = editingId || newDraftId;
@@ -328,7 +328,12 @@ export default function NotesPage({
     } catch { /* Server copy still available if the next request succeeds. */ }
     const generation = hybridGenerationRef.current;
     const timer = setTimeout(() => {
-      if (generation === hybridGenerationRef.current) setDraftStatus('Draft saving…');
+      if (generation !== hybridGenerationRef.current) return;
+      if (!navigator.onLine) {
+        setDraftStatus('Draft pending — offline');
+        return;
+      }
+      setDraftStatus('Draft saving…');
       hybridPendingRef.current = hybridPendingRef.current.catch(() => {}).then(async () => {
         if (generation !== hybridGenerationRef.current) return;
         const revision = hybridRevisionRef.current + 1;

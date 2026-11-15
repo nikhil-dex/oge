@@ -53,3 +53,7 @@ When you open the floating toolbelt, the draggable **O** launcher is hidden so i
 - **Save page link moved into My Links:** select **My links** to see GitHub, LinkedIn and portfolio URLs, followed by **Save current page to Saved Links**. The separate Saved Links tab is removed, leaving a reserved **Coming soon** slot for future features.
 
 The toolbar popup still includes its original standalone **Save tab** action; only the **floating widget** layout changes in this update.
+
+## One-click corner positioning
+
+The floating panel header has a **⌖ Position** control. Each click moves the **open widget** clockwise through **top-right → bottom-right → bottom-left → top-left → top-right**. It keeps a small gap from the screen edge, preserves panel resizing, and updates the button's accessible label to show the next destination. If the viewport changes size, the selected corner is reapplied. Dragging the panel manually leaves corner-snap mode. Closing the widget brings the floating `O` launcher back at the panel's current corner.

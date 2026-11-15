@@ -32,3 +32,12 @@ In the floating Quick Note editor, **Save to** defaults to **Quick Notes**. Sele
 ## Reset the extension
 
 In the toolbar popup, select **Connect → Reset extension** and confirm. This clears only the saved app URL, token and category from Chrome's extension storage, and empties the popup's current profile-link list. It does not remove any server-side notes, subjects or profile links, and it does not revoke the token on the server. For security, revoke an unwanted token from the **Browser Extension** page in OgeNotes before generating a replacement.
+
+## Moving, resizing and inactivity
+
+- **Move without opening:** drag the collapsed floating **O** button directly to a convenient spot on the screen. A short click still opens or closes the toolbelt. When open, the header also moves the widget.
+- **Resize:** drag either bottom corner of the open panel to change its **width and height**, or use Chrome's native resizing on the bottom-right edge. Dimensions are constrained to the available browser viewport.
+- **Compact view:** controls have reduced padding and a smaller initial panel to avoid covering the webpage unnecessarily.
+- **Idle fade:** after approximately 12 seconds without mouse, wheel, touch or keyboard activity the closed launcher fades to ~38% opacity; the open panel fades only to ~78% opacity so the editor remains legible. Activity restores full opacity. The page being hidden also dims the widget. Reduced-motion preferences disable fade animation.
+
+The widget's position and size apply to the current page session. They are not synced to your account or stored permanently.

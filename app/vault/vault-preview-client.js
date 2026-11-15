@@ -45,6 +45,9 @@ function clientTransport() {
 export default function VaultPreviewClient({ ownerId, repoId }) {
   const [subjects, setSubjects] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [noteTotal, setNoteTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [active, setActive] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,10 +105,13 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
     try {
       const [subjectOutcome, notesOutcome] = await Promise.allSettled([
         responseJson(await fetch('/api/subjects', { cache: 'no-store' })),
-        responseJson(await fetch('/api/vault/notes', { cache: 'no-store' })),
+        responseJson(await fetch('/api/vault/notes?paged=true&limit=20', { cache: 'no-store' })),
       ]);
       const subjectList = subjectOutcome.status === 'fulfilled' ? subjectOutcome.value : [];
-      const noteList = notesOutcome.status === 'fulfilled' ? notesOutcome.value : [];
+      const notePage = notesOutcome.status === 'fulfilled' ? notesOutcome.value : null;
+      const noteList = Array.isArray(notePage?.notes) ? notePage.notes : [];
+      setNextCursor(notePage?.nextCursor || null);
+      setNoteTotal(notePage?.total || 0);
       setSubjects(subjectList);
       setNotes(noteList);
       if (subjectOutcome.status === 'rejected' || notesOutcome.status === 'rejected') {
@@ -134,6 +140,33 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
   }, [openNote, ownerId, repoId, activeKey]);
 
   useEffect(() => { Promise.resolve().then(() => void load()); }, [load]);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore || loading || busy) return;
+    setLoadingMore(true);
+    setPageError('');
+    try {
+      const page = await responseJson(await fetch(
+        '/api/vault/notes?paged=true&limit=20&cursor=' + encodeURIComponent(nextCursor),
+        { cache: 'no-store' },
+      ));
+      if (!Array.isArray(page.notes)) throw new Error('Invalid GitHub notes page.');
+      setNotes((existing) => {
+        const ids = new Set(existing.map((note) => note.id));
+        return [...existing, ...page.notes.filter((note) => !ids.has(note.id))];
+      });
+      setNextCursor(page.nextCursor || null);
+      setNoteTotal(page.total);
+    } catch (error) {
+      setPageError(error.status === 409
+        ? 'GitHub notes changed while loading pages. Refresh the list after securing unsaved drafts.'
+        : error.message || 'Could not load another GitHub notes page.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+
 
   const busy = Boolean(snapshot && snapshot.status !== 'synced');
   function newNote() {
@@ -213,7 +246,10 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
             </button>
           ))}
         </div>
-        {!notes.length && <p className="oge-settings-note">No notes found in this private vault yet.</p>}
+        {!notes.length && !loading && <p className="oge-settings-note">No notes found in this private vault yet.</p>}
+        <p className="oge-settings-note">Showing {notes.length} of {noteTotal} GitHub notes.</p>
+        {nextCursor && <button type="button" className="oge-vault-more" disabled={busy || loadingMore}
+          onClick={() => void loadMore()}>{loadingMore ? 'Loading…' : 'Load more GitHub notes'}</button>}
         <form onSubmit={createSubject} className="oge-vault-subject-form">
           <label htmlFor="vault-preview-subject-new">New subject (metadata in MongoDB)</label>
           <input id="vault-preview-subject-new" maxLength={60} value={subjectName}

@@ -39,6 +39,21 @@ export async function POST(request) {
   const content = normalizeQuickNoteContent(data.content);
   if (!content.trim()) return json({ error: 'Write something before saving.' }, 400);
   if (content.length > MAX_QUICK_NOTE_LENGTH) return json({ error: 'Quick notes must be 20,000 characters or fewer.' }, 400);
+  const subjectSlug = data.subjectSlug === undefined || data.subjectSlug === null ? '' : data.subjectSlug;
+  if (typeof subjectSlug !== 'string' || subjectSlug.length > 100) {
+    return json({ error: 'Choose a valid subject.' }, 400);
+  }
+  // A subject routes this capture to the full Notes library; without it the
+  // existing standalone Quick Notes behavior is unchanged.
+  let heading, answer;
+  if (subjectSlug) {
+    const breakAt = content.indexOf('\n');
+    heading = (breakAt < 0 ? content : content.slice(0, breakAt)).trim();
+    answer = breakAt < 0 ? '' : content.slice(breakAt + 1).trim();
+    if (!heading || heading.length > 160 || !answer || answer.length > 20000) {
+      return json({ error: 'For a subject note, write a title on the first line and note content below it.' }, 400);
+    }
+  }
 
   try {
     const db = await getDatabase();
@@ -62,12 +77,25 @@ export async function POST(request) {
       }, { session, projection: { _id: 1 } });
       if (!live) return json({ error: 'This extension connection has expired or been revoked.' }, 401);
       const now = new Date();
+      if (subjectSlug) {
+        const subject = await db.collection('subjects').findOne(
+          { ownerId: user.googleSub, slug: subjectSlug },
+          { session, projection: { name: 1 } },
+        );
+        if (!subject) return json({ error: 'Subject not found. Refresh the subject list.' }, 404);
+        const note = {
+          ownerId: user.googleSub, subjectSlug, heading, answer, tags: [],
+          favorite: false, createdAt: now, updatedAt: now, revisions: [],
+        };
+        const result = await db.collection('notes').insertOne(note, { session });
+        return json({ id: String(result.insertedId), title: heading, destination: 'notes', subject: subject.name }, 201);
+      }
       const note = {
         _id: randomUUID(), ownerId: user.googleSub, content,
         title: quickNoteTitle(content), createdAt: now, updatedAt: now,
       };
       await db.collection('quickNotes').insertOne(note, { session });
-      return json({ id: note._id, title: note.title, createdAt: now }, 201);
+      return json({ id: note._id, title: note.title, destination: 'quick-notes', createdAt: now }, 201);
     }, { extensionTokenHash: tokenHash });
   } catch (error) {
     console.error('POST /api/extension/quick-note failed:', error?.name);

@@ -41,3 +41,7 @@ In the toolbar popup, select **Connect → Reset extension** and confirm. This c
 - **Idle fade:** after approximately 12 seconds without mouse, wheel, touch or keyboard activity the closed launcher fades to ~38% opacity; the open panel fades only to ~78% opacity so the editor remains legible. Activity restores full opacity. The page being hidden also dims the widget. Reduced-motion preferences disable fade animation.
 
 The widget's position and size apply to the current page session. They are not synced to your account or stored permanently.
+
+## Launcher visibility and Saved Links
+
+When you open the floating toolbelt, the draggable **O** launcher is hidden so it does not sit on top of or distract from the panel. The panel's **×** close button restores the launcher at its original position. The **Saved Links** tool in the bottom bar includes a prominent **Save page link →** button that saves the current website to the existing Saved Links collection; success or failure appears inside the panel.

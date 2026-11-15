@@ -82,6 +82,20 @@ The batch API uses a signed Oge account, verified private repository mapping and
 
 **Still not production sync:** there is no device-side debounce queue, resilient offline draft persistence, retry-with-read reconciliation after ambiguous network errors, multi-device conflict resolution UX, large-repo pagination, or completed Quick Notes/AirNotes integration. This prototype performs a single bounded atomic Git commit, not a complete autosave system. Git history retains deleted content.
 
+## Phase B3 — Browser autosave and recovery preview
+
+The experimental `/vault/preview` page is now visible to an authenticated owner with a provisioned vault only when `OGE_VAULT_NOTE_API_PREVIEW=true`. It is intentionally **separate from `/notes`** and does not change existing note storage, extension APIs or import paths.
+
+- The editor lists notes from the private GitHub repository and writes through the existing feature-flagged `/api/vault/batch` endpoint, not through MongoDB. Subject names and opaque subject IDs remain ordinary MongoDB metadata.
+- Changes are debounced for approximately one second; incomplete notes are retained locally rather than sent as invalid GitHub content. Each confirmed save updates the last-known blob SHA.
+- Before a GitHub write is confirmed, a recoverable **same-tab sessionStorage draft** holds the content with an account/repository/note-scoped key and a 24-hour maximum age. The active-note UUID is also retained so a not-yet-created note can be recovered after tab reload. The page requires explicit review/retry after recovering a draft.
+- On network failures or unknown write status, the coordinator reads the GitHub note first. If GitHub already contains exactly the attempted content, the save is considered confirmed; otherwise it retries with exponential backoff (up to five automatic retries) or shows a conflict. It never silently overwrites a newer remote blob SHA.
+- Conflicts preserve the unsynced draft. The UI offers an explicit option to discard a local draft in favor of an existing GitHub version, with a confirmation before unsynced drafts are discarded. A remotely deleted note is treated as a conflict, not silently recreated.
+- The UI shows pending, saving, synced, offline, recovered, retrying, conflict and unconfirmed states. It never claims an offline draft is saved to GitHub.
+- Session storage is **not an encrypted or durable backup** and can be evicted/cleared by browser or device settings. This preview is not a guarantee against power loss, clearing site data, or tab closure. It is unsuitable for high-value production notes until the offline storage/security approach is reviewed.
+
+**Outstanding B3/B4 gates:** Cross-device conflict merge UX, multi-note timed queue flushes, service outage handling, long-term offline guarantees, 429 rate-limit headers, GitHub App selected-repository scope, replay/idempotency across full page navigation, live OAuth App/staging tests, and removal/replacement of every legacy note-content endpoint. The preview remains optional and disabled by default; mandatory vault enforcement is not yet activated.
+
 ## Revised rollout — no legacy user-data migration
 
 The project owner confirms that existing MongoDB note records are **disposable app-test fixtures**, not student data requiring preservation. Therefore the prior **copy-and-verify MongoDB-to-GitHub user-content migration milestone is removed from the active launch sequence**. We must not infer this from the database automatically or silently delete unverified records.

@@ -136,3 +136,34 @@ test('experimental GitHub CRUD API does not insert or update note content in Mon
   assert.match(storage, /repository_ids: \[vault.repoId\]/);
   assert.match(storage, /verified\.sha !== newSha/);
 });
+
+test('GitHub Notes listing supports more than 100 files without silently truncating', async () => {
+  const client = mockClient();
+  for (let i = 0; i < 101; i++) {
+    const id = randomUUID();
+    client.store.set(noteFilePath(id), {
+      sha: sha('a'),
+      content: JSON.stringify(validatedNote({
+        subjectId, heading: 'Note ' + i, answer: 'GitHub-only note',
+      }, { id })),
+    });
+  }
+  const found = await listVaultNotes(client);
+  assert.equal(found.length, 101);
+  assert.equal(new Set(found.map((note) => note.id)).size, 101);
+});
+
+test('GitHub listing fails closed instead of returning an incomplete 500+ note collection', async () => {
+  const client = mockClient();
+  for (let i = 0; i < 501; i++) {
+    const id = randomUUID();
+    client.store.set(noteFilePath(id), { sha: sha('a'), content: '{}' });
+  }
+  await assert.rejects(
+    () => listVaultNotes(client),
+    (error) => error instanceof VaultGitHubError &&
+      error.message === 'vault-note-directory-invalid',
+  );
+  assert.equal(client.paths.filter((call) =>
+    call.path.startsWith('/contents/notes/')).length, 0);
+});

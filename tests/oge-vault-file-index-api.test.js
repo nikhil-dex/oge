@@ -9,6 +9,10 @@ test('B6 file-index API remains opt-in, owner scoped and metadata-only', async (
   assert.match(api, /ownerMutationFilter\(ownerId/);
   assert.match(api, /getVaultNoteClient\(ctx\.db/);
   assert.match(api, /synchronizeVaultFileIndex\(ctx\.db, client/);
+  assert.match(api, /inspectVaultFileIndexRecovery\(ctx\.db, scope\)/);
+  assert.match(api, /reconcileVaultFileIndexVerification\(ctx\.db, client, identity/);
+  assert.match(api, /params\.get\('diagnostic'\) === 'true'/);
+  assert.match(api, /get\('reconcile'\) === 'true'/);
   assert.match(api, /lastKnownOnly: true/);
   assert.match(api, /projection: \{ _id: 0, noteId: 1, subjectId: 1, path: 1/);
   assert.match(api, /limit\(100\)/);

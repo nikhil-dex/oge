@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useState } from 'react';
 import SiteNavbar from '../components/site-navbar';
 import ThemeToggle from '../components/theme-toggle';
@@ -54,7 +56,7 @@ export default function ExtensionPage() {
 
   return (
     <main className="shell oge-shell oge-feature-page oge-workflow-page">
-      <SiteNavbar actions={<><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></>} />
+      <SiteNavbar actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
       <section className="oge-notes-hero oge-workflow-hero"><div className="oge-eyebrow"><span className="oge-status-dot" /> CAPTURE WHILE YOU BROWSE</div><h1>Save it for <span>later.</span></h1><p className="oge-hero-copy">Send the current browser tab straight to your personal Saved Links collection. Your token stays private and can be revoked at any time.</p></section>
 
       <section className="oge-workflow-summary" aria-label="Extension overview">
@@ -74,11 +76,11 @@ export default function ExtensionPage() {
 
         <article className="oge-extension-instructions oge-workflow-card">
           <span className="oge-section-kicker">QUICK SETUP</span><h2>Ready in a few steps.</h2>
-          <ol className="oge-extension-steps"><li><span>01</span><div><strong>Load the extension</strong><p>Download or clone this repository and open its <code>extension/</code> folder. In Chrome, visit <code>chrome://extensions</code>, enable Developer mode, then choose “Load unpacked”.</p></div></li><li><span>02</span><div><strong>Set the API address</strong><p>In the extension popup, enter your deployed OgeNotes origin, or <code>http://localhost:3000</code> for local development.</p></div></li><li><span>03</span><div><strong>Connect your account</strong><p>Paste the token created here into the extension popup and save the settings.</p></div></li><li><span>04</span><div><strong>Save a page</strong><p>Open any page you want to keep and use the extension. Find it later in your <a href="/saved-links">Saved Links</a>.</p></div></li></ol>
+          <ol className="oge-extension-steps"><li><span>01</span><div><strong>Load the extension</strong><p>Download or clone this repository and open its <code>extension/</code> folder. In Chrome, visit <code>chrome://extensions</code>, enable Developer mode, then choose “Load unpacked”.</p></div></li><li><span>02</span><div><strong>Set the API address</strong><p>In the extension popup, enter your deployed OgeNotes origin, or <code>http://localhost:3000</code> for local development.</p></div></li><li><span>03</span><div><strong>Connect your account</strong><p>Paste the token created here into the extension popup and save the settings.</p></div></li><li><span>04</span><div><strong>Save a page</strong><p>Open any page you want to keep and use the extension. Find it later in your <Link href="/saved-links">Saved Links</Link>.</p></div></li></ol>
           <p className="oge-settings-note">Security tip: never commit a token to GitHub or send it in screenshots. If it may be exposed, revoke it here and generate a replacement.</p>
         </article>
       </section>
-      <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>Keep the useful things you find.</span><a href="/saved-links">Saved Links ↗</a></footer>
+      <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>Keep the useful things you find.</span><Link href="/saved-links">Saved Links ↗</Link></footer>
     </main>
   );
 }

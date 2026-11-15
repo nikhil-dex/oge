@@ -1,6 +1,6 @@
 import { securityHeaderEntries } from './lib/security-headers.js';
 
-export default {
+const config = {
   async headers() {
     return [
       {
@@ -10,3 +10,5 @@ export default {
     ];
   },
 };
+
+export default config;

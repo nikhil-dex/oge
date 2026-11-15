@@ -68,6 +68,14 @@ function fixture({ initialState = null, staleFile = false } = {}) {
         },
       };
       if (name === 'vault_files') return {
+        find(filter) {
+          assert.equal(filter.ownerId, identity.ownerId);
+          assert.equal(filter.repoId, identity.repoId);
+          return { limit(n) {
+            assert.equal(n, 30001);
+            return { async toArray() { return [...records.values()]; } };
+          } };
+        },
         async bulkWrite(updates, { session } = {}) {
           assert.ok(session);
           operations.push('upsert');
@@ -80,7 +88,8 @@ function fixture({ initialState = null, staleFile = false } = {}) {
           assert.ok(session);
           operations.push('tombstone');
           for (const [key, value] of records) {
-            if (!filter.noteId.$nin.includes(key) && value.status !== 'missing')
+            if (value.lastSeenSnapshot !== filter.lastSeenSnapshot.$ne &&
+                value.status !== 'missing')
               records.set(key, { ...value, ...update.$set });
           }
         },

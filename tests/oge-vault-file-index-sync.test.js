@@ -53,6 +53,12 @@ function fixture({ initialState = null, staleFile = false } = {}) {
         },
       };
       if (name === 'users') return {
+        async findOne(filter) {
+          assert.equal(filter.googleSub, identity.ownerId);
+          assert.equal(filter.sessionVersion, accountVersion);
+          assert.equal(filter['vault.repoId'], identity.repoId);
+          return { _id: 'owner-row' };
+        },
         async updateOne(filter, _update, { session } = {}) {
           assert.ok(session);
           assert.equal(filter.googleSub, identity.ownerId);

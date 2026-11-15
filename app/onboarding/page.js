@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
@@ -16,7 +17,7 @@ export default async function OnboardingPage() {
   if (user?.onboardingComplete) redirect('/');
   return (
     <main className="shell oge-placeholder oge-onboarding-page">
-      <a className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a>
+      <Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link>
       <div className="oge-eyebrow"><span className="oge-status-dot" /> ONE LAST THING</div>
       <h1>Make news<br /><span>yours.</span></h1>
       <p className="oge-placeholder-copy">Pick the topics you care about. We'll use these preferences to personalize your news feed. You can change them any time in Settings.</p>

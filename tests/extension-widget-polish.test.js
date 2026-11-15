@@ -97,3 +97,20 @@ test('theme comes only from connected Oge page and updates live across tabs', as
   assert.match(worker, /new URL\(sender\.tab\.url\)\.origin !== origin/);
   assert.match(worker, /chrome\.storage\.local\.set\(\{ ogeTheme: message\.theme \}\)/);
 });
+
+
+test('header one-tap position button cycles clockwise starting top right', async () => {
+  const script = await readFile(new URL('../extension/content.js', import.meta.url), 'utf8');
+  assert.match(script, /class="corner-button" type="button"/);
+  assert.match(script, /aria-label="Move widget to top-right corner"/);
+  assert.match(script, /const CORNERS = \['top-right', 'bottom-right', 'bottom-left', 'top-left'\]/);
+  assert.match(script, /nextCornerIndex = \(nextCornerIndex \+ 1\) % CORNERS\.length/);
+  assert.match(script, /cornerButton\.addEventListener\('click'/);
+  assert.match(script, /function placeSnappedCorner\(\)/);
+  assert.match(script, /snappedCorner\.endsWith\('right'\)/);
+  assert.match(script, /snappedCorner\.startsWith\('bottom'\)/);
+  assert.match(script, /if \(snappedCorner\) \{ placeSnappedCorner\(\); return; \}/);
+  assert.match(script, /if \(snappedCorner\) placeSnappedCorner\(\)/);
+  assert.match(script, /function placeLauncher\(x, y\) \{\s*snappedCorner = null/);
+  assert.match(script, /cornerButton\.setAttribute\('aria-label', 'Move widget to ' \+ next \+ ' corner'\)/);
+});

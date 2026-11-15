@@ -23,7 +23,7 @@
     '.link{display:grid;gap:8px;padding:9px 0;border-bottom:1px solid #e4eee6}.link:last-child{border:0}.link strong{font-size:12px}',
     '.address{display:block;color:#6c7b71;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.link-actions{display:flex;gap:8px}.link-actions button{flex:1;padding:8px;border:1px solid #a9c7b1;border-radius:7px;background:#eff7f0;color:#255837;font-size:11px;cursor:pointer}',
-    '.empty{font-size:12px;color:#637568}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
+    '.empty{font-size:12px;color:#637568}.subject-label{display:block;margin:10px 0 6px;font-size:11px;font-weight:700;color:#546d5b}.subject-select{display:block;width:100%;padding:10px;border:1px solid #cfdbd2;border-radius:8px;background:#fff;color:#15251b;font:12px system-ui}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
   ].join('');
   const panel = document.createElement('section');
   panel.className = 'panel hidden';
@@ -31,7 +31,7 @@
   // HTML is static extension-owned markup; user content uses textContent.
   panel.innerHTML = [
     '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes Toolbelt</strong><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
-    '<div class="body" data-panel="note"><p class="hint">Capture an idea. The first line becomes its title.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
+    '<div class="body" data-panel="note"><p class="hint">The first line becomes the title. Choose a subject to save in Notes, or leave Quick Notes selected.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
     '<div class="body" data-panel="url" hidden><p class="hint">Save this website to your personal Saved Links.</p><button class="primary" type="button" data-save-url>Save current page ↗</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your social and portfolio URLs from OgeNotes Profile.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
@@ -46,6 +46,7 @@
   launcher.setAttribute('aria-expanded', 'false');
   shadow.append(style, panel, launcher);
   const note = panel.querySelector('textarea');
+  const subjectSelect = panel.querySelector('#oge-note-subject');
   const status = panel.querySelector('.status');
   let active = 'note';
   const setStatus = (message, error = false) => {
@@ -64,13 +65,13 @@
       button.classList.toggle('selected', button.dataset.tool === tool);
     }
     setStatus('');
-    if (tool === 'note') note.focus();
+    if (tool === 'note') { note.focus(); void loadSubjects(); }
     if (tool === 'links') void loadLinks();
   }
   function openPanel(open) {
     panel.classList.toggle('hidden', !open);
     launcher.setAttribute('aria-expanded', String(open));
-    if (open && active === 'note') note.focus();
+    if (open && active === 'note') { note.focus(); void loadSubjects(); }
   }
   launcher.addEventListener('click', () => openPanel(panel.classList.contains('hidden')));
   panel.querySelector('.close').addEventListener('click', () => openPanel(false));
@@ -113,14 +114,44 @@
   handle.addEventListener('pointercancel', () => { dragging = false; });
 
   const noteSave = panel.querySelector('[data-save-note]');
+  async function loadSubjects() {
+    const previous = subjectSelect.value;
+    try {
+      const result = await send('GET_SUBJECTS');
+      subjectSelect.replaceChildren();
+      const quick = document.createElement('option');
+      quick.value = '';
+      quick.textContent = 'Quick Notes (default)';
+      subjectSelect.append(quick);
+      for (const subject of result.subjects || []) {
+        if (typeof subject.slug !== 'string' || typeof subject.name !== 'string') continue;
+        const option = document.createElement('option');
+        option.value = subject.slug;
+        option.textContent = subject.name;
+        subjectSelect.append(option);
+      }
+      if ([...subjectSelect.options].some((option) => option.value === previous)) {
+        subjectSelect.value = previous;
+      }
+      updateNoteButton();
+    } catch (error) {
+      // Keep the default Quick Notes destination and any previously loaded subjects.
+      setStatus(error.message || 'Could not load subjects.', true);
+    }
+  }
+  function updateNoteButton() {
+    noteSave.textContent = subjectSelect.value ? 'Save to selected subject →' : 'Save to Quick Notes';
+  }
+  subjectSelect.addEventListener('change', updateNoteButton);
+
   noteSave.addEventListener('click', async () => {
     if (!note.value.trim()) return setStatus('Write something before saving.', true);
     noteSave.disabled = true;
-    setStatus('Saving Quick Note…');
+    setStatus('Saving note…');
     try {
-      const result = await send('CREATE_QUICK_NOTE', { content: note.value });
+      const result = await send('CREATE_QUICK_NOTE', { content: note.value, subjectSlug: subjectSelect.value });
       note.value = '';
-      setStatus('Saved “' + result.title + '” to Quick Notes.');
+      setStatus(result.destination === 'notes' ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.' : 'Saved “' + result.title + '” to Quick Notes.');
     } catch (error) { setStatus(error.message, true); }
     finally { noteSave.disabled = false; }
   });

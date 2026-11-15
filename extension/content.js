@@ -24,6 +24,18 @@
     '.link{display:grid;gap:8px;padding:9px 0;border-bottom:1px solid #e4eee6}.link:last-child{border:0}.link strong{font-size:12px}',
     '.address{display:block;color:#6c7b71;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.link-actions{display:flex;gap:8px}.link-actions button{flex:1;padding:8px;border:1px solid #a9c7b1;border-radius:7px;background:#eff7f0;color:#255837;font-size:11px;cursor:pointer}',
+    ':host([data-oge-theme="dark"]){color-scheme:dark}'+
+    ':host([data-oge-theme="dark"]) .panel{background:#171d19;color:#e4ebe6;border-color:#303b35;box-shadow:0 18px 48px #0008}'+
+    ':host([data-oge-theme="dark"]) .top,:host([data-oge-theme="dark"]) .belt{background:#202b24;border-color:#303b35}'+
+    ':host([data-oge-theme="dark"]) .launcher,:host([data-oge-theme="dark"]) .mark,:host([data-oge-theme="dark"]) .primary{background:#78ad8d;color:#15251b}'+
+    ':host([data-oge-theme="dark"]) .primary:hover,:host([data-oge-theme="dark"]) .launcher:hover{background:#649a79}'+
+    ':host([data-oge-theme="dark"]) .hint,:host([data-oge-theme="dark"]) .empty,:host([data-oge-theme="dark"]) .subject-label,:host([data-oge-theme="dark"]) .address,:host([data-oge-theme="dark"]) .close{color:#a2afa7}'+
+    ':host([data-oge-theme="dark"]) textarea,:host([data-oge-theme="dark"]) .subject-select{background:#222e26;color:#e4ebe6;border-color:#3b4d40}'+
+    ':host([data-oge-theme="dark"]) .belt button{color:#b8c8bd}'+
+    ':host([data-oge-theme="dark"]) .belt button.selected,:host([data-oge-theme="dark"]) .link-actions button{background:#293c30;color:#a9d3b8;border-color:#44654d}'+
+    ':host([data-oge-theme="dark"]) .link{border-color:#303b35}'+
+    ':host([data-oge-theme="dark"]) .resize-corner{background:#27372d;color:#bad2c0}'+
+    ':host([data-oge-theme="dark"]) .status{color:#a9d3b8}',
     '.empty{font-size:11px;color:#637568}.subject-label{display:block;margin:8px 0 4px;font-size:10px;font-weight:700;color:#546d5b}.subject-select{display:block;width:100%;padding:8px;border:1px solid #d5e0d8;border-radius:8px;background:#fff;color:#15251b;font:11px system-ui}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
   ].join('');
   const panel = document.createElement('section');
@@ -48,6 +60,31 @@
   launcher.setAttribute('aria-label', 'Open OgeNotes floating toolbelt');
   launcher.setAttribute('aria-expanded', 'false');
   shadow.append(style, panel, launcher);
+  // Oge stores its theme on <html data-theme="...">. Only the connected
+  // Oge origin can publish theme changes; other websites consume them.
+  async function initOgeTheme() {
+    try {
+      const state = await send('GET_THEME');
+      host.dataset.ogeTheme = state.theme === 'light' ? 'light' : 'dark';
+      if (state.isOgePage) {
+        const sync = () => {
+          const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+          host.dataset.ogeTheme = theme;
+          void send('SET_THEME', { theme }).catch(() => {});
+        };
+        sync();
+        const observer = new MutationObserver(sync);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      }
+    } catch { host.dataset.ogeTheme = 'dark'; }
+  }
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.ogeTheme) {
+      host.dataset.ogeTheme = changes.ogeTheme.newValue === 'light' ? 'light' : 'dark';
+    }
+  });
+  void initOgeTheme();
+
   const note = panel.querySelector('textarea');
   const subjectSelect = panel.querySelector('#oge-note-subject');
   const status = panel.querySelector('.status');

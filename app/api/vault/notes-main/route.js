@@ -93,8 +93,18 @@ export async function POST(request) {
   return mutation(request, async (ctx, data) => {
     if (!await subjectExists(ctx, data?.subjectSlug))
       return json({ error: 'Subject not found.' }, 404);
+    // Hybrid new-note drafts keep a stable opaque UUID from the first edit
+    // through the eventual GitHub commit. Legacy preview creates still let
+    // the server generate the ID.
+    const hybridCreate = process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
+    const suppliedId = data?.id;
+    if (suppliedId !== undefined && (!hybridCreate ||
+        typeof suppliedId !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(suppliedId))) {
+      return json({ error: 'Invalid hybrid note ID.' }, 400);
+    }
     const change = await commitVaultNoteBatch(ctx.client, [{
-      action: 'create', note: {
+      action: 'create', ...(suppliedId ? { id: suppliedId } : {}), note: {
         subjectId: data.subjectSlug, heading: data.heading, answer: data.answer,
         tags: data.tags, favorite: false,
       },

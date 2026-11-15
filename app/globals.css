@@ -757,3 +757,31 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-vault-footnote{max-width:860px;font-size:12px;color:#405f4c;line-height:1.8;padding:20px 0 45px}
 @media(max-width:760px){.oge-vault-steps{grid-template-columns:1fr}.oge-vault-card .oge-primary-link{max-width:100%}}
 @media(max-width:440px){.oge-vault-card .oge-google-button{width:100%;white-space:normal}.oge-vault-repository{font-size:12px}}
+
+/* Oge Vault B3 — isolated GitHub-only staging editor */
+.oge-vault-preview-layout{display:grid;grid-template-columns:minmax(240px,.68fr) minmax(0,1.32fr);gap:20px;align-items:start}
+.oge-vault-preview-layout .oge-settings-card{max-width:none}
+.oge-vault-preview-sidebar,.oge-vault-preview-editor{display:flex;flex-direction:column;gap:15px}
+.oge-vault-preview-sidebar .oge-google-button{align-self:start}
+.oge-vault-preview-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow:auto}
+.oge-vault-preview-list button{display:flex;flex-direction:column;gap:5px;text-align:left;background:#f6f1e4;border:1px solid #aab9a8;color:#2b503d;border-radius:5px;padding:12px;cursor:pointer;min-width:0}
+.oge-vault-preview-list button strong{font-size:13px;overflow-wrap:anywhere}
+.oge-vault-preview-list button span{font-size:10px;opacity:.75}
+.oge-vault-preview-list button[aria-current=true]{border-color:#315c49;box-shadow:2px 2px 0 #315c49}
+.oge-vault-preview-list button:disabled{opacity:.65;cursor:not-allowed}
+.oge-vault-preview-editor label,.oge-vault-subject-form label{font-size:11px;font-family:var(--mono);font-weight:800;letter-spacing:.5px}
+.oge-vault-preview-editor input,.oge-vault-preview-editor select,.oge-vault-preview-editor textarea,
+.oge-vault-subject-form input{width:100%;min-width:0;border:1.5px solid #9cad98;background:#fffdf8;color:#244a38;border-radius:4px;padding:12px;font-size:14px}
+.oge-vault-preview-editor textarea{resize:vertical;line-height:1.7;min-height:190px}
+.oge-vault-preview-status{display:flex;flex-direction:column;gap:4px;border:1px dashed #8ea991;background:#f0f1df;border-radius:4px;padding:12px;font-size:12px}
+.oge-vault-preview-status span{color:#566c58}
+.oge-vault-preview-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.oge-vault-preview-actions>button:not(.oge-google-button),.oge-vault-preview-conflict button,
+.oge-vault-subject-form button{border:1.5px solid #315c49;color:#2a4c3c;background:#f7ebd6;border-radius:4px;padding:10px 13px;font-size:12px;font-weight:800;cursor:pointer}
+.oge-vault-preview-actions button:disabled{opacity:.55;cursor:not-allowed}
+.oge-vault-preview-conflict{padding:14px;background:#fff2df;border:1px solid #bc795b;color:#7b412c;display:flex;flex-direction:column;gap:9px;border-radius:5px}
+.oge-vault-preview-conflict p{margin:0;font-size:12px}
+.oge-vault-subject-form{display:flex;flex-direction:column;gap:8px;border-top:1px dashed #a5b8a4;padding-top:18px}
+.oge-vault-subject-form button{align-self:flex-start}
+.oge-vault-preview-editor .oge-primary-link{align-self:flex-start}
+@media(max-width:800px){.oge-vault-preview-layout{grid-template-columns:1fr}.oge-vault-preview-list{max-height:180px}}

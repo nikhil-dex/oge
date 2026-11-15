@@ -193,42 +193,42 @@ These criteria are release blockers, not optional polish:
 - Public launch before the security and operational release gates pass.
 - Unreviewed changes to the original `ogenotes` repository or its deployment.
 
-## Future milestone — Oge Vault (Phase A in progress)
+## Future milestone — Oge Vault (hybrid draft architecture; draft PR #35)
 
-The previously deferred Oge Vault project is now approved for a **safe foundation milestone**, without any production data migration. The final architecture is **mandatory GitHub Vault and GitHub-only persistence of all note content**; this is a firm product requirement, not an optional or hybrid-storage mode. Mandatory enforcement remains gated on tested reliability and authorization. Existing note records are disposable app-test fixtures according to the project owner; no user-content migration is planned.
+**Architecture decision — 15 November 2026:** The owner approved a change from absolute GitHub-only note-content storage to **GitHub-authoritative committed notes with temporary MongoDB drafts and browser sessionStorage recovery**. This revises the previous no-content-in-MongoDB contract; the earlier GitHub-only preview code remains valid as a prototype, not proof of the new system. The main `/notes` route and existing legacy notes remain unchanged until an explicitly verified cutover.
 
-**Required storage contract after Oge Vault cutover:**
-- **GitHub is the source of truth** for Notes, subject-owned notes, Quick Notes, AirNotes, revision bodies/history, Learning Tracks topic notes and all note-content fields. Every creation, edit, deletion, restore, import, extension save, and revision operation goes through the authorized user-owned private vault; no MongoDB mirror or content-based cache.
-- **MongoDB is metadata-only for note features:** account identity, Google/GitHub links, vault installation and repository IDs, note/subject IDs and GitHub paths, permissions, collaboration, review schedules, progress and sync job status. No note headings, text, bodies, snippets, revision snapshots or other user-authored note content in MongoDB. Even filenames/paths should use opaque IDs to avoid duplicating private titles.
-- **GitHub Vault is required** for all users to read or mutate GitHub-backed note workspaces once cutover is activated, regardless of whether they signed in with Google, GitHub or a password. Login with GitHub is not sufficient: users must separately install and authorize Oge Vault. Other account and non-note features may remain available.
-- **No silent fallback to MongoDB** when GitHub is unavailable, permissions are revoked, the installation is missing or the repository cannot be reached. The UI must clearly show pending/failed sync and protect unsaved work; unsaved drafts may be held temporarily on the user's device with visible pending/error states, but no note content may enter MongoDB, including through a retry queue or backup.
-- **Test-data retirement, not user-content migration:** inventory all existing MongoDB note and revision records before cutover, validate that they are disposable test data, and require explicit environment-specific cleanup approval. Stop and preserve any unexpected real user content. Purge test notes and content-bearing backups under a reviewed retention procedure; never claim GitHub-only storage while residual note bodies or backup snapshots remain.
-- **Acceptance test:** instrument or test every notes-related API, backup import/export and restore, browser extension endpoint, revision/history operation, and future learning-track notes to prove that no persistent MongoDB collection receives note content after cutover. Test offline/revoked installation/429/conflict behavior and ensure failed saves aren't acknowledged as persisted.
+### Storage and UI contract
 
+- **GitHub (mandatory private, user-owned vault)** is authoritative for *committed* Notes, Quick Notes, AirNotes, revision history, future Learning Tracks notes, extension/imports/restores. Only a confirmed GitHub write may show **Saved**; GitHub remains the source of truth during reconciliation.
+- **MongoDB `vault_drafts`** may temporarily hold authenticated, owner/repository/note-scoped note headings, bodies and tags for responsive autosave and cross-session draft recovery. It is not a permanent notes mirror and must never be read as if it were a confirmed GitHub version. Drafts use monotonic revision fencing and explicit base GitHub blob SHAs; stale writes cannot replace newer drafts. Do not automatically TTL-delete uncommitted drafts. Apply per-owner access, size limits, encryption-at-rest controls, documented backup retention, redacted logging, and deletion-on-confirmation only if the matching draft revision is still current. Audit plaintext exposure and backup policies before staging release.
+- **Browser `sessionStorage`** provides a best-effort same-tab recovery layer, not permanent storage. Cross-tab and offline cases need explicit handling. Clearly display *Draft saved*, *Saving…*, *Saved*, *Sync pending*, *Conflict* and *Recovery needed* states, with no false positive success.
+- **MongoDB `vault_files`** is an optional metadata index of opaque note ID, subject ID, GitHub file path, repository ID, SHA and sync status. It contains no note titles or bodies; it is a derivative catalog and MUST reconcile with the GitHub tree (including external edits/deletions). Use owner/repository/note unique indexes; never use stale metadata SHA as permission to overwrite GitHub.
+- **Save button** (label exactly **Save**, never **Save to GitHub**) requests an immediate final GitHub commit. A server-confirmed result is required for *Saved*. Periodic background synchronization is a separate, opt-in/tested safety layer; an unreliable browser-close event is never the sole commit trigger.
+- **Failure safety:** GitHub 409/429, revocation, network timeouts and ambiguous commits preserve pending drafts. A server retry worker (if implemented) needs bounded retries, idempotent reconciliation, and observable pending jobs. No unsafe auto-merge. Protect deletion, subject changes, concurrent edits, account deletion, revisions and rollback across GitHub and MongoDB.
+- **Vault mandatory gate:** Google/GitHub login provider is independent of vault authorization. Narrow GitHub App installation permissions/selected-repository scope before release. No automatic email-based account merge.
+- **Legacy cleanup:** previous MongoDB note fixtures are disposable *only after per-environment inventory and explicit approval*. Never delete unexpected real records or unsynced drafts. Review backup retention separately.
 
-- [x] Draft standalone GitHub App OAuth flow with one-time state, server-side app JWT, and separate setup from GitHub sign-in.
-- [x] Implement new user-owned private `ogenotes-vault` repository provisioning, owner/privacy verification, and a vault initialization marker.
-- [x] Store repository and GitHub App installation metadata in MongoDB without persisting OAuth access tokens.
-- [x] Add the retro onboarding/status page at `/vault` and a Profile entry point.
-- [ ] Perform live staging GitHub App authorization and GitHub account/repository checks.
-- [ ] Solve selected-repository installation without exposing other user repositories to the App. **All-repositories installation in the first implementation is a release blocker requiring explicit review.**
-- [ ] Add safe retries/reconciliation after partial provisioning and revocation, renames, deletions, and quota/rate-limit failures.
-- [x] **Phase B5.3a familiar editor pagination:** the feature-gated `/vault/notes` UI now uses snapshot-pinned GitHub note pages, a Load More control, explicit loaded-vs-total/search scope, and unsaved-edit discard/navigation warnings. B3 recoverable autosave and safe cross-store subject deletion are still separate unfinished work.
-- [x] **Phase B5.2 backend:** add staging-only, branch-snapshot-pinned Git tree pagination of up to 25 notes per page, immutable blob reads, stale cursor detection, bounded fanout and tests with 1,201 notes. The separate `/vault/preview` editor now loads 20 notes at a time and warns on stale snapshots; the familiar `/vault/notes` adapter still needs pagination and rate-limit-aware recovery.
-- [x] **Phase B5.1 safety:** block legacy subject deletion for connected GitHub Vault accounts to prevent orphaned repository notes; expand isolated GitHub Notes listing to 500 entries with explicit failure above the cap and regression tests. Full safe subject deletion and pagination remain outstanding.
-- [x] **Phase B4 staging adapter:** reuse the existing Notes interface at feature-flagged `/vault/notes` with GitHub-only CRUD adapter, SHA-guarded edits/favorites/deletes, and owner-scoped subject metadata. This does **not** switch `/notes` to GitHub and does not implement production autosave or subject-deletion propagation.
-- [x] **Phase B3 preview:** tab-scoped recoverable note drafts with debounced saving, status indicators, GitHub read-after-error reconciliation, bounded retries and explicit conflict handling in a separate feature-flagged `/vault/preview` UI. The production Notes editor remains unchanged, and sessionStorage is not a durable backup.
-- [x] **Phase B2 prototype:** add bounded 1–12-operation GitHub tree/commit batches, per-file SHA compare-and-swap, non-force branch updates, remote read-after-write checks, and staging-only batch API. This is **not yet** offline autosave or production queueing.
-- [x] **Phase B1 prototype:** implement a disabled-by-default `/api/vault/notes` with GitHub-only create/read/list/update/delete, opaque UUID filenames, owner-scoped vault token, blob-SHA conflict checks, bounded listing, and read-after-write confirmation. No note content writes to MongoDB on this new path; **no main editor cutover yet**.
-- [ ] Add stable opaque-ID note files, durable/debounced sync queue, conflict handling, and read-after-write verification for the **full production note ecosystem** (current Phase B1 prototype is not the final sync system).
-- [ ] Replace **all** existing MongoDB note-content storage across Notes, Quick Notes, AirNotes, revisions/history, backups/imports, extension saves and future topic notes with GitHub Vault persistence; MongoDB keeps only non-content operational metadata.
-- [ ] Enforce **mandatory vault authorization** before accessing note workspaces only when their GitHub-backed read/write and recovery paths are fully verified. No fallback to MongoDB note-content storage.
-- [ ] Prove via automated and staging tests that post-cutover note operations never persist note text/headings/revisions to MongoDB, including failure and rollback paths.
-- [ ] Inventory and explicitly retire disposable MongoDB Notes/Quick Notes/AirNotes/revision test fixtures and associated content-bearing backups after confirming the target environment. No user-content migration is expected; stop if valuable records are found.
-- [ ] Only after all GitHub Notes read/write paths and cleanup checks pass, enable the mandatory GitHub Notes gate and integrate Quick Notes, AirNotes, Learning Tracks, and the extension.
+### Milestones and release gates
 
-Implementation notes and setup: [Oge Vault Phase A](docs/OGE_VAULT_PHASE_A.md). **No existing notes are transferred in Phase A.**
+- [x] **A — GitHub App and private vault provisioning prototype:** authenticated installation, private repository, account mapping, retro onboarding. Live staging verification and selected-repository least-privilege permission design remain blockers.
+- [x] **B1 — GitHub Notes CRUD prototype:** SHA-guarded CRUD against private vault.
+- [x] **B2 — Atomic batch synchronization prototype:** Git tree/commit batches and GitHub confirmation.
+- [x] **B3 — Original sessionStorage + GitHub autosave preview:** retained as a separate working prototype; does NOT implement hybrid MongoDB drafts.
+- [x] **B4 — Familiar Notes staging adapter:** isolated `/vault/notes` and GitHub-only CRUD; production `/notes` unchanged.
+- [x] **B5.1 — Subject deletion safeguard:** block unsafe legacy deletion for connected Vault accounts.
+- [x] **B5.2 — Snapshot GitHub pagination:** paged tree/blob reads and `/vault/preview` Load More.
+- [x] **B5.3a — Familiar Notes pagination/edit warnings:** paged `/vault/notes`, unsaved-change guards; not autosave.
+- [ ] **B5.3b — Hybrid draft autosave:** feature-flagged, revision-fenced MongoDB drafts and sessionStorage recovery, preserving local input under offline/retry failure, and no changes to production `/notes`. Owner/session/repository permissions and validation tests required.
+- [ ] **B5.3c — GitHub-aware subject deletion:** inventory all associated GitHub notes, commit deletions safely with SHA checks, coordinate MongoDB metadata, and recover partial failures. Never delete a subject with unsynced drafts silently.
+- [ ] **B6 — GitHub file catalog:** metadata-only `vault_files`, compound indexes, idempotent reconciliation from GitHub tree and stale-index tests.
+- [ ] **B7 — Reliable final Save:** explicit Save button, atomic GitHub commit/reconciliation, pending-state UX, server retries/failed-sync recovery, post-confirmation conditional draft cleanup; optional periodic commits after testing.
+- [ ] **C — Legacy test-data inventory and cleanup:** per-environment validation and explicit operator approval; retain pending vault drafts.
+- [ ] **D — Hybrid storage cutover:** mandatory GitHub vault for confirmed note content; route every note/revision/backup operation through hybrid coordinator; privacy documentation, failure-path tests and release gate before enabling.
+- [ ] **E — Quick Notes, AirNotes, Learning Tracks and browser extension:** extend hybrid write/recovery and metadata catalog; verify each content path, history, imports and export.
+- [ ] **Security and operations:** field encryption strategy, MongoDB draft and backup retention, content audit, data subject deletion, GitHub App permission narrowing, live staging OAuth/installation, 429/backoff stress, browser mobile smoke, Mongo replica-set races and secret scan.
 
+**Do not merge PR #35 or enable mandatory cutover without explicit approval.** Existing MongoDB fixture cleanup remains blocked until reviewed. Implementation notes: [Oge Vault Phase A](docs/OGE_VAULT_PHASE_A.md).
+ 
 ## 7. Working rules
 
 1. Read before changing: inspect the existing implementation and tests first.

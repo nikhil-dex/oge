@@ -25,7 +25,7 @@ export async function DELETE(request) {
   const session = await auth();
   if (!session?.user?.id) return json({ error: 'Sign in to delete your account.' }, 401);
   if (!canDeleteAccount(session)) {
-    return json({ error: 'Sign out and sign in with Google again before requesting account deletion.' }, 403);
+    return json({ error: 'Sign out and sign in with your account provider again before requesting account deletion.' }, 403);
   }
   let payload;
   try {

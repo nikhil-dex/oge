@@ -111,11 +111,24 @@ export default function NotesPage({
       if (response.limited) setHybridError(
         'More unfinished drafts may exist. Contact support before assuming older drafts are gone.');
     } catch (err) {
-      if (generation === hybridGenerationRef.current) {
-        setHybridError(err.message || 'New-note recovery unavailable; keep a local copy.');
-        // Avoid accepting edits before checking for a previous server copy.
-        return;
-      }
+      if (generation !== hybridGenerationRef.current) return;
+      // Recover the browser-only draft even when GitHub/MongoDB cannot be
+      // reached. Never overwrite its data with a newly generated empty note.
+      try {
+        const localId = window.sessionStorage.getItem(newDraftPointerKey(subjectId));
+        const local = localId &&
+          JSON.parse(window.sessionStorage.getItem(hybridKey(localId)) || 'null')?.draft;
+        if (local?.subjectId === subjectId && local.baseSha === null &&
+            window.confirm('Server recovery unavailable. Restore the browser draft?')) {
+          setNewDraftId(localId);
+          hybridRevisionRef.current = 0;
+          setHeading(local.heading);
+          setAnswer(local.answer);
+          setTagsText(local.tags.join(', '));
+          setDraftStatus('Local draft recovered — Save when online');
+        }
+      } catch { /* Keep the editor available for a manual final Save. */ }
+      setHybridError('Server draft recovery unavailable. Browser drafts may be incomplete; Save to GitHub when possible.');
     } finally {
       if (generation === hybridGenerationRef.current) setHybridReady(true);
     }

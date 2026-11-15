@@ -1,5 +1,6 @@
 import { auth } from '../../../../../auth.js';
 import { getDatabase } from '../../../../../lib/mongodb.js';
+import { ownerMutationFilter } from '../../../../../lib/active-owner-mutation.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../../lib/rate-limit.js';
 import { getVaultNoteClient } from '../../../../../lib/oge-vault-notes.js';
 import { journalVaultSubjectInspection, inspectVaultSubjectRecovery } from '../../../../../lib/oge-vault-subject-journal.js';
@@ -33,17 +34,28 @@ export async function GET(request) {
     const subject = await db.collection('subjects').findOne({ ownerId, slug },
       { projection: { _id: 1 } });
     if (!subject) return json({ error: 'Subject not found.' }, 404);
-    const client = await getVaultNoteClient(db, {
-      ownerId, sessionVersion: session.user.sessionVersion,
-    });
-    const identity = { ownerId, repoId: client.vault.repoId, subjectId: slug };
     const operationId = new URL(request.url).searchParams.get('operationId');
     if (operationId !== null) {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(operationId))
         return json({ error: 'Invalid inspection operation ID.' }, 400);
-      // A diagnostic is read-only. It cannot release a crashed lock.
-      return json(await inspectVaultSubjectRecovery(db, identity, operationId));
+      // Recovery diagnostics must work even when GitHub is down. The repo
+      // mapping comes only from the signed account incarnation, never a URL.
+      const account = await db.collection('users').findOne(
+        ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion }),
+        { projection: { vault: 1 } },
+      );
+      if (!account) return json({ error: 'Account session expired.' }, 401);
+      if (account.vault?.status !== 'connected' ||
+          !Number.isSafeInteger(account.vault.repoId) || account.vault.repoId < 1)
+        return json({ error: 'Vault not connected.' }, 409);
+      return json(await inspectVaultSubjectRecovery(db, {
+        ownerId, repoId: account.vault.repoId, subjectId: slug,
+      }, operationId));
     }
+    const client = await getVaultNoteClient(db, {
+      ownerId, sessionVersion: session.user.sessionVersion,
+    });
+    const identity = { ownerId, repoId: client.vault.repoId, subjectId: slug };
     const result = await journalVaultSubjectInspection(db, client, identity);
     return json(result);
   } catch (error) {

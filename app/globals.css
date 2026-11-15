@@ -342,3 +342,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-social-links-fieldset>p{margin:0 0 17px;color:var(--muted);font-size:12px;line-height:1.7}
 .oge-social-links-fieldset .oge-profile-form-grid{gap:18px}
 .oge-social-links-fieldset input{font-size:12px}
+
+/* Provider sign-in: side-by-side on desktop, stacked on narrow screens. */
+.oge-social-login-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;max-width:610px;margin-top:26px}
+.oge-social-login-options form{min-width:0}
+.oge-social-login-options .oge-google-button{width:100%;min-width:0;margin-top:0;padding:14px 12px;gap:9px;white-space:nowrap}
+.oge-github-login-mark{display:grid;place-items:center;width:23px;height:23px;flex:0 0 23px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:9px;font-weight:800;letter-spacing:-.03em}
+@media(max-width:580px){.oge-social-login-options{grid-template-columns:1fr;max-width:380px}}

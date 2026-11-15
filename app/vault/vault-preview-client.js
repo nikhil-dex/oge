@@ -17,6 +17,8 @@ async function responseJson(response) {
 }
 
 const STATUS = {
+  new: 'New note — not yet on GitHub',
+  incomplete: 'Incomplete draft — not synced',
   synced: 'Synced to GitHub',
   pending: 'Unsaved changes in this tab',
   saving: 'Saving to GitHub…',
@@ -152,6 +154,20 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
     setPageError('');
     controller.current?.retryNow();
   }
+  function discardUnsyncedDraft() {
+    if (!draft || !window.confirm('Discard unsynced changes in this tab? This cannot be undone.')) return;
+    controller.current?.stop();
+    try {
+      window.sessionStorage.removeItem(vaultDraftKey(ownerId, repoId, draft.id));
+      window.sessionStorage.removeItem(activeKey);
+    } catch {
+      setPageError('Browser storage could not be cleared. Do not share this device.');
+      return;
+    }
+    setActive(null);
+    setSnapshot(null);
+    void load();
+  }
   async function createSubject(event) {
     event.preventDefault();
     if (creatingSubject || !subjectName.trim()) return;
@@ -226,12 +242,15 @@ export default function VaultPreviewClient({ ownerId, repoId }) {
               <button type="button" className="oge-google-button" onClick={trySave}
                 disabled={!online || snapshot?.status === 'saving' || snapshot?.status === 'conflict'}>Sync now / Retry</button>
               <button type="button" onClick={() => void load()} disabled={busy}>Reload GitHub notes</button>
+              {busy && <button type="button" onClick={discardUnsyncedDraft}>Discard local draft</button>}
             </div>
             {snapshot?.status === 'conflict' && (
               <div role="alert" className="oge-vault-preview-conflict">
                 <strong>Another GitHub version conflicts with this draft.</strong>
                 <p>Your local draft is preserved in this tab. Copy it before choosing the remote version.</p>
-                <button type="button" onClick={() => controller.current?.discardConflict()}>Discard local draft and use GitHub version</button>
+                {snapshot.conflict?.remote
+                  ? <button type="button" onClick={() => controller.current?.discardConflict()}>Discard local draft and use GitHub version</button>
+                  : <p>The note was removed on GitHub. Copy your local text, then discard this draft and create a new note.</p>}
               </div>
             )}
           </> : <p className="oge-settings-description">Select a GitHub note or create one above. Existing MongoDB Notes are not shown here.</p>}

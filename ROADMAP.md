@@ -213,7 +213,8 @@ The previously deferred Oge Vault project is now approved for a **safe foundatio
 - [ ] Perform live staging GitHub App authorization and GitHub account/repository checks.
 - [ ] Solve selected-repository installation without exposing other user repositories to the App. **All-repositories installation in the first implementation is a release blocker requiring explicit review.**
 - [ ] Add safe retries/reconciliation after partial provisioning and revocation, renames, deletions, and quota/rate-limit failures.
-- [ ] Add stable opaque-ID note files, durable/debounced sync queue, conflict handling, and read-after-write verification.
+- [x] **Phase B1 prototype:** implement a disabled-by-default `/api/vault/notes` with GitHub-only create/read/list/update/delete, opaque UUID filenames, owner-scoped vault token, blob-SHA conflict checks, bounded listing, and read-after-write confirmation. No note content writes to MongoDB on this new path; **no main editor cutover yet**.
+- [ ] Add stable opaque-ID note files, durable/debounced sync queue, conflict handling, and read-after-write verification for the **full production note ecosystem** (current Phase B1 prototype is not the final sync system).
 - [ ] Replace **all** existing MongoDB note-content storage across Notes, Quick Notes, AirNotes, revisions/history, backups/imports, extension saves and future topic notes with GitHub Vault persistence; MongoDB keeps only non-content operational metadata.
 - [ ] Enforce **mandatory vault authorization** before accessing note workspaces only when their GitHub-backed read/write and recovery paths are fully verified. No fallback to MongoDB note-content storage.
 - [ ] Prove via automated and staging tests that post-cutover note operations never persist note text/headings/revisions to MongoDB, including failure and rollback paths.

@@ -76,7 +76,9 @@ test('subject preflight remains non-destructive and legacy connected-vault delet
   const legacy = await readFile(new URL('../app/api/subjects/route.js', import.meta.url), 'utf8');
   assert.match(route, /export async function GET/);
   assert.doesNotMatch(route, /export async function DELETE/);
-  assert.match(route, /advisoryOnly: true/);
+  const journal = await readFile(new URL('../lib/oge-vault-subject-journal.js', import.meta.url), 'utf8');
+  assert.match(route, /journalVaultSubjectInspection/);
+  assert.match(journal, /advisoryOnly: true/);
   assert.match(route, /OGE_VAULT_MAIN_PREVIEW/);
   assert.match(route, /OGE_VAULT_HYBRID_DRAFT_PREVIEW/);
   assert.match(route, /session\.user\.sessionVersion/);

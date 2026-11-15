@@ -3,6 +3,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { authenticateLinkedPassword } from './lib/linked-password-login.js';
+import { isPasswordSessionActive } from './lib/password-auth.js';
 import { getDatabase } from './lib/mongodb.js';
 import { isCurrentSession, sessionVersionOf } from './lib/session-revocation.js';
 
@@ -71,9 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.passwordSignedInAt = Date.now();
       }
       if (token.passwordSignedInAt !== undefined &&
-          (!Number.isSafeInteger(token.passwordSignedInAt) ||
-           token.passwordSignedInAt > Date.now() ||
-           Date.now() - token.passwordSignedInAt > 8 * 60 * 60 * 1000)) return null;
+          !isPasswordSessionActive(token.passwordSignedInAt)) return null;
       if (typeof token.googleSub !== 'string') return null;
       try {
         // JWT logout on one device does not revoke other copies by itself.

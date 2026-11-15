@@ -2,7 +2,7 @@ import { auth } from '../../../../../auth.js';
 import { getDatabase } from '../../../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../../lib/rate-limit.js';
 import { getVaultNoteClient } from '../../../../../lib/oge-vault-notes.js';
-import { inspectVaultSubject } from '../../../../../lib/oge-vault-subject-preflight.js';
+import { journalVaultSubjectInspection, inspectVaultSubjectRecovery } from '../../../../../lib/oge-vault-subject-journal.js';
 import { VaultGitHubError } from '../../../../../lib/oge-vault-github.js';
 
 export const runtime = 'nodejs';
@@ -36,10 +36,16 @@ export async function GET(request) {
     const client = await getVaultNoteClient(db, {
       ownerId, sessionVersion: session.user.sessionVersion,
     });
-    const result = await inspectVaultSubject(client, db.collection('vault_drafts'), {
-      ownerId, repoId: client.vault.repoId, subjectId: slug,
-    });
-    return json({ ...result, advisoryOnly: true });
+    const identity = { ownerId, repoId: client.vault.repoId, subjectId: slug };
+    const operationId = new URL(request.url).searchParams.get('operationId');
+    if (operationId !== null) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(operationId))
+        return json({ error: 'Invalid inspection operation ID.' }, 400);
+      // A diagnostic is read-only. It cannot release a crashed lock.
+      return json(await inspectVaultSubjectRecovery(db, identity, operationId));
+    }
+    const result = await journalVaultSubjectInspection(db, client, identity);
+    return json(result);
   } catch (error) {
     if (error instanceof VaultGitHubError) {
       return json({ error: error.message }, error.status === 401 ? 401 :

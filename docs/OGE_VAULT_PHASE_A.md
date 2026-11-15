@@ -86,6 +86,8 @@ The batch API uses a signed Oge account, verified private repository mapping and
 
 The project owner confirms that existing MongoDB note records are **disposable app-test fixtures**, not student data requiring preservation. Therefore the prior **copy-and-verify MongoDB-to-GitHub user-content migration milestone is removed from the active launch sequence**. We must not infer this from the database automatically or silently delete unverified records.
 
+A **read-only inventory command** is available: `npm run vault:inventory`. It prints counts of legacy `notes`, `quickNotes`, and `personalQuickNotes` only (never note text). A nonzero count exits with code 2 and blocks cutover until an operator reviews the records. Zero counts are necessary, not sufficient: backup snapshots, revision collections, and every application write path still need audit. The command **does not delete anything**.
+
 Before cutover, a staging/preproduction checklist must:
 1. Confirm the intended environment and inventory existing `notes`, `quickNotes`, `personalQuickNotes`, embedded note revisions/history and content-bearing backup/export material.
 2. Verify with the operator that these are disposable test fixtures; export or retain any unexpectedly valuable data outside the new permanent design.

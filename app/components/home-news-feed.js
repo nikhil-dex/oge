@@ -43,9 +43,10 @@ export default function HomeNewsFeed() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    let active = true;
+    Promise.resolve().then(() => { if (active) void refresh(); });
     const timer = setInterval(() => refresh(), REFRESH_MS);
-    return () => clearInterval(timer);
+    return () => { active = false; clearInterval(timer); };
   }, [refresh]);
 
   const categories = useMemo(() => [...new Set(stories.map((story) => story.category).filter(Boolean))], [stories]);

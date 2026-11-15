@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { signOutOfOgeNotes } from '../settings/actions.js';
 import { reauthenticateWithGoogle, reauthenticateWithGitHub, setLinkedPassword } from '../settings/password-actions.js';
 import { saveProfileSettings } from './actions.js';
+import { connectGoogleAccount } from './google-link-actions.js';
 import AvatarPicker from './avatar-picker.js';
 import SiteNavbar from '../components/site-navbar';
 
@@ -20,7 +21,7 @@ export default async function ProfilePage({ searchParams }) {
   const db = await getDatabase();
   const user = await db.collection('users').findOne(
     ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion }),
-    { projection: { username: 1, displayName: 1, name: 1, email: 1, image: 1, avatarId: 1, passwordHash: 1, createdAt: 1, socialLinks: 1, identityProvider: 1 } },
+    { projection: { username: 1, displayName: 1, name: 1, email: 1, image: 1, avatarId: 1, passwordHash: 1, createdAt: 1, socialLinks: 1, identityProvider: 1, linkedGoogleSub: 1, linkedGithubOwnerId: 1 } },
   );
   if (!user) redirect('/register');
   const query = await searchParams;
@@ -29,6 +30,8 @@ export default async function ProfilePage({ searchParams }) {
   const name = user.displayName || user.name || 'OgeNotes student';
   const isGitHubAccount = user.identityProvider === 'github' || ownerId.startsWith('github:');
   const providerLabel = isGitHubAccount ? 'GitHub' : 'Google';
+  const googleConnected = Boolean(user.linkedGoogleSub || user.linkedGithubOwnerId);
+  const googleRequired = session.user.googleConnectionRequired === true;
 
   return (
     <main className="shell oge-shell oge-settings-page oge-profile-page">
@@ -39,6 +42,32 @@ export default async function ProfilePage({ searchParams }) {
         <p>Choose how you appear in OgeNotes, manage sign-in, and keep your account secure.</p>
       </section>
       <div className="oge-profile-layout">
+        {(isGitHubAccount || googleConnected) && (
+          <section className="oge-settings-card" aria-labelledby="profile-google-link-heading">
+            <div className="oge-settings-card-heading">
+              <div><span className="oge-section-kicker">ACCOUNT CONNECTION</span><h2 id="profile-google-link-heading">Google account</h2></div>
+              <span className="oge-settings-pill">{googleConnected ? 'Connected' : googleRequired ? 'Required' : 'Optional'}</span>
+            </div>
+            {googleRequired && <p role="alert" className="oge-password-error">An existing Google OgeNotes account uses your verified GitHub email. Verify ownership by connecting that Google account before continuing to the workspace.</p>}
+            {!googleRequired && !googleConnected && <p className="oge-settings-description">Connect Google if you also use it to sign in. This is optional when no existing Google account matches your verified GitHub email.</p>}
+            {googleConnected && <p role="status" className="oge-profile-success">Your Google and GitHub sign-ins are connected.</p>}
+            {['mismatch', 'expired', 'failed', 'migration-required', 'limited', 'not-available'].includes(query?.google) && (
+              <p role="alert" className="oge-password-error">{query.google === 'migration-required'
+                ? 'Both accounts have separate content or settings. Nothing was merged or deleted. Account linking needs a reviewed migration before it can finish.'
+                : query.google === 'mismatch'
+                  ? 'Google verification did not match this account or the Google account is already connected elsewhere.'
+                  : query.google === 'expired' ? 'The Google connection expired. Please try again.'
+                    : query.google === 'limited' ? 'Too many attempts. Try again later.'
+                      : 'Google connection could not be completed. Please try again.'}</p>
+            )}
+            {!googleConnected && isGitHubAccount && (
+              <form action={connectGoogleAccount}>
+                <button type="submit" className="oge-google-button">Connect Google account →</button>
+              </form>
+            )}
+            <p className="oge-settings-note">Connecting requires a fresh Google sign-in and a matching verified email. Oge never combines separate notes or profile data without a safe migration.</p>
+          </section>
+        )}
         <section className="oge-settings-card" aria-labelledby="profile-heading">
           <div className="oge-settings-card-heading">
             <div><span className="oge-section-kicker">01 · IDENTITY</span><h2 id="profile-heading">Your profile</h2></div>

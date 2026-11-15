@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const REFRESH_MS = 5 * 60 * 1000;
@@ -77,7 +79,7 @@ export default function HomeNewsFeed() {
           </article>)}</div>
         ) : <div className="home-news-empty">No stories are available right now. Try refreshing in a moment.</div>}
         <div className="home-news-footer"><span>{lastUpdated ? 'Updated ' + lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Headlines may change as publishers update their feeds.'}</span><span>Stories open on their original publisher · Headlines via Google News RSS</span></div>
-        <p className="home-news-preferences"><a href="/settings">Edit news interests →</a>{topics.length ? <span>{topics.length} topics in your feed</span> : null}</p>
+        <p className="home-news-preferences"><Link href="/settings">Edit news interests →</Link>{topics.length ? <span>{topics.length} topics in your feed</span> : null}</p>
       </div>}
     </section>
   );

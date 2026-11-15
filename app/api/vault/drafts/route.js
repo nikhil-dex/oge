@@ -5,7 +5,7 @@ import { getVaultNoteClient, readVaultNote } from '../../../../lib/oge-vault-not
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 import {
-  draftKey, validatedHybridDraft, putHybridDraft, getHybridDraft, clearConfirmedDraft,
+  draftKey, validatedHybridDraft, putHybridDraft, getHybridDraft, clearConfirmedDraft, unsealDraft,
 } from '../../../../lib/oge-vault-hybrid-drafts.js';
 
 export const runtime = 'nodejs';
@@ -51,7 +51,23 @@ export async function GET(request) {
   try {
     const { ctx, response } = await authorizedContext();
     if (response) return response;
-    const noteId = new URL(request.url).searchParams.get('id');
+    const params = new URL(request.url).searchParams;
+    if (params.get('new') === 'true') {
+      const subjectId = params.get('subject');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(subjectId || ''))
+        return json({ error: 'Invalid draft subject.' }, 400);
+      // Recover by subject even if sessionStorage has been cleared. Never
+      // enumerate another owner's or another repository's draft bodies.
+      const candidates = await ctx.db.collection('vault_drafts')
+        .find({ ownerId: ctx.ownerId, repoId: ctx.repoId, isNew: true })
+        .sort({ updatedAt: -1 }).limit(20).toArray();
+      const items = candidates.map((record) => ({
+        id: record.noteId, revision: record.revision,
+        draft: unsealDraft(record.encrypted),
+      })).filter((item) => item.draft.subjectId === subjectId);
+      return json({ items, limited: candidates.length === 20 });
+    }
+    const noteId = params.get('id');
     const scope = draftKey(ctx.ownerId, ctx.repoId, noteId);
     return json({ item: await getHybridDraft(ctx.db.collection('vault_drafts'), scope) });
   } catch (error) { return failure(error); }

@@ -74,6 +74,26 @@ The new server-only `lib/oge-vault-notes.js` and `/api/vault/notes` provide a **
 
 **Test requirement:** Unit tests cover the GitHub file contract, normal create/read/update/delete flows, SHA conflicts, invalid payloads, malformed repository content, and unconfirmed writes. Live end-to-end GitHub App tests and multi-account isolation tests are still mandatory.
 
+## Phase B2 — Atomic multi-note synchronization prototype
+
+`lib/oge-vault-batch.js` and the separately flagged `POST /api/vault/batch` endpoint accept **1–12 creates/updates/deletes** in a single Git commit. They read the current Git tree and each existing note's blob SHA, validate opaque IDs and note content, build one tree, create a commit and attempt a non-forced fast-forward of the branch reference. Updates/deletions reject stale SHAs; concurrent branch commits fail rather than overwriting unseen work. The server reads back every changed note and the final branch head before claiming GitHub persistence.
+
+The batch API uses a signed Oge account, verified private repository mapping and server-side installation token. Subject references are validated from owner-scoped MongoDB metadata; **no note bodies, titles, revisions, or retry payloads are stored in MongoDB**. It uses the same staging-only `OGE_VAULT_NOTE_API_PREVIEW=true` feature flag as the initial CRUD preview.
+
+**Still not production sync:** there is no device-side debounce queue, resilient offline draft persistence, retry-with-read reconciliation after ambiguous network errors, multi-device conflict resolution UX, large-repo pagination, or completed Quick Notes/AirNotes integration. This prototype performs a single bounded atomic Git commit, not a complete autosave system. Git history retains deleted content.
+
+## Revised rollout — no legacy user-data migration
+
+The project owner confirms that existing MongoDB note records are **disposable app-test fixtures**, not student data requiring preservation. Therefore the prior **copy-and-verify MongoDB-to-GitHub user-content migration milestone is removed from the active launch sequence**. We must not infer this from the database automatically or silently delete unverified records.
+
+Before cutover, a staging/preproduction checklist must:
+1. Confirm the intended environment and inventory existing `notes`, `quickNotes`, `personalQuickNotes`, embedded note revisions/history and content-bearing backup/export material.
+2. Verify with the operator that these are disposable test fixtures; export or retain any unexpectedly valuable data outside the new permanent design.
+3. Explicitly clean up disposable records and note-content backups with a reviewed retention and deletion procedure; check that content-bearing MongoDB collections no longer contain student notes.
+4. Convert every production content path to GitHub-only reads/writes (including classic Notes, Quick Notes, AirNotes, extension, revision/history, backup/import) and gate access on an authorized working Vault.
+5. Run automated and real staging tests to prove there is **no post-cutover note-content write to MongoDB**, even on failures, retries or disconnected GitHub.
+6. Only then activate the mandatory Vault connection gate. Do not gate the app while the old MongoDB-backed API is still the only functional notes editor.
+
 ## Current caveats and planned milestones
 
 **Important:** The provision-and-initialize process spans several GitHub API calls and is not atomic. A failure after repo creation can leave a user-owned private repo while Oge is still unconnected. The app fails closed and never deletes or overwrites it. Phase B must add resumable reconciliation for partially created repositories.
@@ -85,8 +105,8 @@ The new server-only `lib/oge-vault-notes.js` and `/api/vault/notes` provide a **
 - [ ] Provide a **selected-repositories** setup that doesn't require all-repository installation, before general availability.
 - [ ] Add safe resumable provisioning/reconnect and handle existing name conflicts, deleted repos, moved/renamed repos, revoked installation and GitHub rate-limit/outage handling.
 - [ ] Complete dedicated end-to-end tests against a private staging deployment, and review GitHub rate limits and installation/API costs.
-- [ ] Phase B: immutable note IDs and validated GitHub file paths, server-side commit queue, read-after-write verification, pending/retry/conflict statuses and rate-limit-aware batch writes.
-- [ ] Phase C: per-user, fully verified MongoDB note migration and rollback, while retaining the source records until authorized deletion.
+- [x] Phase B2 prototype: one bounded atomic Git commit for up to 12 note changes, SHA conflict checks, branch fast-forward validation and read-after-write verification.\n- [ ] Phase B production: client-side debounce, recoverable offline drafts, ambiguity-aware retries, conflict UX, pagination and batch-aware rate limits.
+- [ ] Phase C: operator-confirmed **disposable test data cleanup**, followed by GitHub-only cutover verification across every content path. No user-content migration is expected for this project; stop if non-test content is discovered.
 - [ ] Phase D: opt-in account migration first, then enable the **mandatory GitHub-backed Notes** gate only after the persistence/recovery and cross-account isolation checks pass.
 - [ ] Phase E: Quick Notes, AirNotes, revision integration, Learning Tracks topic notes, sharing permissions and extension behavior.
 

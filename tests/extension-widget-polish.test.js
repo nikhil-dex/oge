@@ -50,3 +50,22 @@ test('compact polish preserves note subject and other floating actions', async (
   assert.doesNotMatch(script, /chrome\.storage\.local/);
   assert.doesNotMatch(script, /Authorization: 'Bearer '/);
 });
+
+test('expanded toolbelt hides O launcher and restores it on close', async () => {
+  const script = await readFile(new URL('../extension/content.js', import.meta.url), 'utf8');
+  assert.match(script, /\.launcher\.is-panel-open\{visibility:hidden;pointer-events:none\}/);
+  assert.match(script, /launcher\.classList\.toggle\('is-panel-open', open\)/);
+  assert.match(script, /launcher\.setAttribute\('aria-hidden', String\(open\)\)/);
+  assert.match(script, /launcher\.tabIndex = open \? -1 : 0/);
+  assert.match(script, /panel\.querySelector\('\.close'\)\.addEventListener\('click', \(\) => openPanel\(false\)\)/);
+  assert.match(script, /launcher\.addEventListener\('pointerdown'/);
+});
+
+test('Saved Links tool has a visible Save page link button using existing API', async () => {
+  const script = await readFile(new URL('../extension/content.js', import.meta.url), 'utf8');
+  assert.match(script, /data-tool="url" type="button">↗ Saved Links<\/button>/);
+  assert.match(script, /data-save-url>Save page link →<\/button>/);
+  assert.match(script, /urlSave\.addEventListener\('click', async \(\) =>/);
+  assert.match(script, /send\('SAVE_CURRENT_TAB'\)/);
+  assert.match(script, /Page link saved to Saved Links/);
+});

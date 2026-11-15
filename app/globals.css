@@ -741,3 +741,19 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .oge-retro-workspace .oge-primary-link,
   .oge-retro-workspace .oge-signin{transition:none}
 }
+
+/* Oge Vault first-run onboarding; intentionally matches retro Profile & Settings. */
+.oge-vault-page .oge-settings-card{max-width:860px}
+.oge-vault-card{display:flex;flex-direction:column;gap:22px}
+.oge-vault-card .oge-settings-card-heading{margin-bottom:0}
+.oge-vault-card .oge-primary-link{align-self:flex-start;margin:0}
+.oge-vault-card form{margin:0}
+.oge-vault-card .oge-google-button{margin:0}
+.oge-vault-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.oge-vault-steps>span{display:flex;gap:9px;align-items:center;min-width:0;border:1px dashed #b4baa8;border-radius:5px;background:#f6f0df;color:#354e3f;padding:13px;font:700 11px/1.6 var(--mono)}
+.oge-vault-steps strong{display:grid;place-items:center;flex:0 0 27px;height:27px;background:#335c49;color:#fffaf1;border-radius:50%;font-size:10px}
+.oge-vault-repository{display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:#e9efdf;border:1px solid #73917a;border-radius:5px;padding:18px;color:#233f32;font:700 14px var(--mono);overflow-wrap:anywhere}
+.oge-vault-repository>span:last-child{font:800 9px var(--mono);letter-spacing:1px;color:#47734c;border:1px solid #8eab86;padding:6px 8px;border-radius:4px}
+.oge-vault-footnote{max-width:860px;font-size:12px;color:#405f4c;line-height:1.8;padding:20px 0 45px}
+@media(max-width:760px){.oge-vault-steps{grid-template-columns:1fr}.oge-vault-card .oge-primary-link{max-width:100%}}
+@media(max-width:440px){.oge-vault-card .oge-google-button{width:100%;white-space:normal}.oge-vault-repository{font-size:12px}}

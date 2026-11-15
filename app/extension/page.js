@@ -31,7 +31,11 @@ export default function ExtensionPage() {
     catch (err) { setError(err.message || 'Could not load extension status.'); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => {\n    let active = true;\n    Promise.resolve().then(() => { if (active) void load(); });\n    return () => { active = false; };\n  }, [load]);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void load(); });
+    return () => { active = false; };
+  }, [load]);
 
   async function generate() {
     setWorking(true); setError(''); setMessage(''); setToken('');

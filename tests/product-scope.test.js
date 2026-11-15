@@ -23,7 +23,8 @@ test('initial release excludes file-storage providers', async () => {
 test('Google authentication and per-user data foundation exist', async () => {
   const auth = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   const db = await readFile(new URL('../lib/mongodb.js', import.meta.url), 'utf8');
-  assert.match(auth, /providers: \[Google\]/);
+  assert.match(auth, /providers: \[Google, Credentials\(/);
+  assert.match(auth, /token\.googleSub = user\.id/);
   assert.match(auth, /googleSub/);
   assert.match(db, /ownerId/);
 });

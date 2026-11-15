@@ -5,6 +5,8 @@ test('anonymous registration renders without OAuth or database access', async ({
   expect(response?.status()).toBe(200);
   await expect(page.getByRole('heading', { name: /keep what matters/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /gmail address/i })).toBeVisible();
+  await expect(page.getByLabel('OgeNotes password')).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page).toHaveTitle(/OgeNotes/);
 });

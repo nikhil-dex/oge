@@ -55,8 +55,8 @@ export default async function ProfilePage({ searchParams }) {
               </div>
               <div>
                 <label htmlFor="profile-username">Username</label>
-                <input id="profile-username" name="username" defaultValue={user.username || ''} placeholder="student_123" autoCapitalize="none" autoComplete="off" minLength={3} maxLength={24} pattern="[a-zA-Z][a-zA-Z0-9_]{2,23}" required />
-                <small>Unique, 3–24 characters, starting with a letter.</small>
+                <input id="profile-username" name="username" defaultValue={user.username || ''} placeholder="nikhil-dex" autoCapitalize="none" autoComplete="off" minLength={3} maxLength={24} pattern="[a-zA-Z][a-zA-Z0-9_-]{1,22}[a-zA-Z0-9]" required />
+                <small>Unique across OgeNotes, 3–24 characters. Start with a letter; use letters, numbers, hyphens or underscores; end with a letter or number.</small>
               </div>
             </div>
             <div className="oge-profile-email"><strong>Linked Gmail address</strong><span>{user.email}</span><small>Your Google-verified email is read-only. Changing your profile never changes who owns your notes.</small></div>

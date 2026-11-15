@@ -149,11 +149,11 @@ test('empty subject is verified but MongoDB subject remains untouched and locked
 });
 
 test('the executor is not exposed by a public route or deletion API', async () => {
-  const module = await readFile(new URL('../lib/oge-vault-subject-delete-executor.js', import.meta.url), 'utf8');
+  const executorSource = await readFile(new URL('../lib/oge-vault-subject-delete-executor.js', import.meta.url), 'utf8');
   const route = await readFile(new URL('../app/api/subjects/route.js', import.meta.url), 'utf8');
   const preflight = await readFile(new URL('../app/api/vault/subjects/preflight/route.js', import.meta.url), 'utf8');
-  assert.match(module, /OGE_VAULT_DESTRUCTIVE_DELETE_INTERNAL/);
-  assert.match(module, /state: 'commit-intent'/);
+  assert.match(executorSource, /OGE_VAULT_DESTRUCTIVE_DELETE_INTERNAL/);
+  assert.match(executorSource, /state: 'commit-intent'/);
   assert.doesNotMatch(preflight, /executeLockedVaultSubjectGitHubDeletion/);
   assert.match(route, /Subject deletion is temporarily disabled for connected Oge Vault accounts/);
 });

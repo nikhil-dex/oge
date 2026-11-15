@@ -58,9 +58,54 @@ export default function NotesPage({
   const hybridPendingRef = useRef(Promise.resolve());
   const hybridGenerationRef = useRef(0);
   const [hybridReady, setHybridReady] = useState(false);
+  const [newDraftId, setNewDraftId] = useState('');
   const [hybridError, setHybridError] = useState('');
   const hybridKey = (id) => 'oge-hybrid-draft:v1:' + encodeURIComponent(vaultOwnerId) +
     ':' + vaultRepoId + ':' + id;
+
+  async function recoverNewHybridDraft(subjectId, generation, freshId) {
+    try {
+      const response = await responseJson(await fetch(
+        '/api/vault/drafts?new=true&subject=' + encodeURIComponent(subjectId),
+        { cache: 'no-store' },
+      ));
+      if (generation !== hybridGenerationRef.current) return;
+      const items = response.items || [];
+      if (!Array.isArray(items)) throw new Error('Invalid draft recovery response.');
+      if (items.length > 0) {
+        // Multiple uncommitted notes may coexist. Never discard or silently
+        // overwrite one: ask which draft the user wants to resume.
+        const selection = items.length === 1 ? '1' : window.prompt(
+          'Found ' + items.length + ' unfinished notes. Enter a number (1–' +
+          items.length + ') to recover, or Cancel for a new note.',
+          '1',
+        );
+        const index = Number(selection) - 1;
+        if (selection !== null && Number.isInteger(index) && index >= 0 && index < items.length) {
+          const item = items[index];
+          if (item.draft.baseSha === null && item.draft.subjectId === subjectId &&
+              window.confirm('Restore this unfinished note?')) {
+            setNewDraftId(item.id);
+            hybridRevisionRef.current = item.revision;
+            setHeading(item.draft.heading);
+            setAnswer(item.draft.answer);
+            setTagsText(item.draft.tags.join(', '));
+            setDraftStatus('Recovered draft — press Save to commit');
+          }
+        }
+      }
+      if (response.limited) setHybridError(
+        'More unfinished drafts may exist. Contact support before assuming older drafts are gone.');
+    } catch (err) {
+      if (generation === hybridGenerationRef.current) {
+        setHybridError(err.message || 'New-note recovery unavailable; keep a local copy.');
+        // Avoid accepting edits before checking for a previous server copy.
+        return;
+      }
+    } finally {
+      if (generation === hybridGenerationRef.current) setHybridReady(true);
+    }
+  }
 
   async function recoverHybridDraft(note, generation) {
     setHybridReady(false);
@@ -180,8 +225,12 @@ export default function NotesPage({
   const active = subjects.find((subject) => subject.slug === activeSubject);
 
   function openNewNote() {
-    hybridGenerationRef.current += 1;
-    setHybridReady(false);
+    const generation = ++hybridGenerationRef.current;
+    setNewDraftId('');
+    setHybridReady(!hybridDrafts);
+    hybridRevisionRef.current = 0;
+    const freshId = hybridDrafts ? crypto.randomUUID() : '';
+    setNewDraftId(freshId);
     setHybridError('');
     editorInitialRef.current = { heading: '', answer: '', tags: '' };
     setEditingId('');
@@ -194,6 +243,7 @@ export default function NotesPage({
     setAnswerFullscreen(false);
     setDraftStatus('');
     setNoteDialog(true);
+    if (hybridDrafts) void recoverNewHybridDraft(activeSubject, generation, freshId);
   }
 
   function editNote(note) {
@@ -236,14 +286,15 @@ export default function NotesPage({
   // Temporary draft writes are serialized. Browser storage is updated before
   // the request, so fast typing never creates parallel out-of-order revisions.
   useEffect(() => {
-    if (!hybridDrafts || !hybridReady || !noteDialog || !editingId ||
+    if (!hybridDrafts || !hybridReady || !noteDialog || (!editingId && !newDraftId) ||
         !hasUnsavedEditorChanges() || saving || hybridError) return undefined;
     const current = notes.find((note) => note.id === editingId);
-    if (!current?.sha) return undefined;
-    const key = hybridKey(editingId);
-    const draft = { subjectId: current.subjectSlug, heading, answer,
+    if (editingId && !current?.sha) return undefined;
+    const noteId = editingId || newDraftId;
+    const key = hybridKey(noteId);
+    const draft = { subjectId: current?.subjectSlug || activeSubject, heading, answer,
       tags: [...new Set(tagsText.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10),
-      favorite: Boolean(current.favorite), baseSha: current.sha };
+      favorite: Boolean(current?.favorite), baseSha: current?.sha || null };
     try { window.sessionStorage.setItem(key, JSON.stringify({ draft })); }
     catch { /* Server copy still available if the next request succeeds. */ }
     const generation = hybridGenerationRef.current;
@@ -254,7 +305,7 @@ export default function NotesPage({
         const revision = hybridRevisionRef.current + 1;
         const response = await responseJson(await fetch('/api/vault/drafts', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store', body: JSON.stringify({ id: editingId, revision, draft }),
+          cache: 'no-store', body: JSON.stringify({ id: noteId, revision, draft }),
         }));
         hybridRevisionRef.current = response.revision;
         if (generation === hybridGenerationRef.current) setDraftStatus('Draft saved');
@@ -266,32 +317,33 @@ export default function NotesPage({
       });
     }, 700);
     return () => clearTimeout(timer);
-  }, [hybridDrafts, hybridReady, noteDialog, editingId, heading, answer, tagsText,
+  }, [hybridDrafts, hybridReady, noteDialog, editingId, newDraftId, activeSubject, heading, answer, tagsText,
     notes, saving, hybridError, hasUnsavedEditorChanges]);
 
   async function saveNote(event) {
     event.preventDefault();
-    if (saving || !activeSubject || (hybridDrafts && editingId && !hybridReady)) return;
+    if (saving || !activeSubject || (hybridDrafts && !hybridReady)) return;
     setSaving(true);
-    if (hybridDrafts && editingId) await hybridPendingRef.current.catch(() => {});
+    if (hybridDrafts) await hybridPendingRef.current.catch(() => {});
     setError('');
     setMessage('');
     try {
       const tags = [...new Set(tagsText.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10);
       const payload = { subjectSlug: activeSubject, heading: heading.trim(), answer: answer.trim(), tags };
       const current = notes.find((item) => item.id === editingId);
-      if (hybridDrafts && editingId && current?.sha && hasUnsavedEditorChanges()) {
+      const draftNoteId = editingId || newDraftId;
+      if (hybridDrafts && draftNoteId && hasUnsavedEditorChanges()) {
         // Flush the exact editor snapshot before final GitHub Save. A 700 ms
         // debounce may otherwise leave the last characters only in the tab.
         // GitHub confirmation still decides whether the user sees Saved.
-        const latest = { subjectId: current.subjectSlug, heading, answer,
-          tags, favorite: Boolean(current.favorite), baseSha: current.sha };
+        const latest = { subjectId: current?.subjectSlug || activeSubject, heading, answer,
+          tags, favorite: Boolean(current?.favorite), baseSha: current?.sha || null };
         const revision = hybridRevisionRef.current + 1;
         try {
           const temporary = await responseJson(await fetch('/api/vault/drafts', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             cache: 'no-store',
-            body: JSON.stringify({ id: editingId, revision, draft: latest }),
+            body: JSON.stringify({ id: draftNoteId, revision, draft: latest }),
           }));
           hybridRevisionRef.current = temporary.revision;
           setDraftStatus('Draft saved');
@@ -306,22 +358,24 @@ export default function NotesPage({
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingId ? { ...payload, id: editingId,
-          ...(vaultMode ? { sha: current.sha } : {}) } : payload),
+          ...(vaultMode ? { sha: current.sha } : {}) } :
+          (hybridDrafts ? { ...payload, id: newDraftId } : payload)),
       }));
-      if (hybridDrafts && editingId) {
+      if (hybridDrafts && draftNoteId) {
         // Only delete the matching revision, after GitHub confirms the save.
         // Cleanup errors preserve the draft for later reconciliation.
         try {
           const cleaned = await responseJson(await fetch('/api/vault/drafts', {
             method: 'DELETE', headers: { 'Content-Type': 'application/json' },
             cache: 'no-store', body: JSON.stringify({
-              id: editingId, revision: hybridRevisionRef.current, sha: note.sha,
+              id: draftNoteId, revision: hybridRevisionRef.current, sha: note.sha,
             }),
           }));
-          if (cleaned.cleared) window.sessionStorage.removeItem(hybridKey(editingId));
+          if (cleaned.cleared) window.sessionStorage.removeItem(hybridKey(draftNoteId));
         } catch { /* Retain draft; next editor visit will reconcile. */ }
       }
       hybridGenerationRef.current += 1;
+      setNewDraftId('');
       editorInitialRef.current = null;
       setNoteDialog(false);
       setAnswerFullscreen(false);
@@ -624,12 +678,12 @@ export default function NotesPage({
               <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
               {!preview ? <textarea ref={answerRef} id="answer" rows={8} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}
             </div>}
-            {hybridDrafts && editingId && <p role="status" className="draft-status">
+            {hybridDrafts && <p role="status" className="draft-status">
               {hybridReady ? draftStatus || 'Draft ready' : 'Checking saved drafts…'}
             </p>}
             {hybridError && <p role="alert" className="form-error">{hybridError}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="submit-button" type="submit" disabled={saving || !activeSubject || (hybridDrafts && editingId && !hybridReady)}><span>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
+            <button className="submit-button" type="submit" disabled={saving || !activeSubject || (hybridDrafts && !hybridReady)}><span>{saving ? 'Saving…' : hybridDrafts ? 'Save' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
           </form>
         </section>
       </div>}

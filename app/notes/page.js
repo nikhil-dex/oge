@@ -75,7 +75,15 @@ export default function NotesPage({
       let local = null;
       try { local = JSON.parse(window.sessionStorage.getItem(hybridKey(note.id)) || 'null')?.draft; }
       catch { /* The browser copy is best-effort. */ }
-      const recovered = response.item?.draft || local;
+      const remote = response.item?.draft || null;
+      // Never silently discard a newer local edit when the server has an
+      // older autosave. The browser copy takes priority only after the user
+      // explicitly approves it.
+      const differentCopies = local && remote &&
+        JSON.stringify(local) !== JSON.stringify(remote);
+      const recovered = differentCopies &&
+        window.confirm('Browser and server drafts differ. Review the browser copy first?')
+        ? local : (remote || local);
       if (recovered && recovered.subjectId === note.subjectSlug &&
           recovered.baseSha === note.sha &&
           window.confirm('An unsynced draft exists. Restore these changes?')) {
@@ -272,6 +280,27 @@ export default function NotesPage({
       const tags = [...new Set(tagsText.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10);
       const payload = { subjectSlug: activeSubject, heading: heading.trim(), answer: answer.trim(), tags };
       const current = notes.find((item) => item.id === editingId);
+      if (hybridDrafts && editingId && current?.sha && hasUnsavedEditorChanges()) {
+        // Flush the exact editor snapshot before final GitHub Save. A 700 ms
+        // debounce may otherwise leave the last characters only in the tab.
+        // GitHub confirmation still decides whether the user sees Saved.
+        const latest = { subjectId: current.subjectSlug, heading, answer,
+          tags, favorite: Boolean(current.favorite), baseSha: current.sha };
+        const revision = hybridRevisionRef.current + 1;
+        try {
+          const temporary = await responseJson(await fetch('/api/vault/drafts', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            body: JSON.stringify({ id: editingId, revision, draft: latest }),
+          }));
+          hybridRevisionRef.current = temporary.revision;
+          setDraftStatus('Draft saved');
+        } catch {
+          // Do not block final GitHub Save if the temporary-draft service is
+          // down; preserve the local copy until the remote commit is verified.
+          setDraftStatus('Draft pending');
+        }
+      }
       if (vaultMode && editingId && !current?.sha) throw new Error('GitHub revision is missing. Refresh notes and try again.');
       const note = await responseJson(await fetch(notesApi, {
         method: editingId ? 'PUT' : 'POST',

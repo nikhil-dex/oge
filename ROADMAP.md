@@ -203,6 +203,19 @@ These criteria are release blockers, not optional polish:
 
 **Sequencing:** backlog for after the user's next prioritized feature and existing release/security work. See [README — Oge Learning Tracks](./README.md#planned-feature-oge-learning-tracks-future-roadmap) for the complete product proposal. This is not approved as part of the initial release.
 
+## Future candidate — Oge Vault (mandatory GitHub-backed Notes; deferred)
+
+- [ ] **Planned, not implemented:** LeetHub-style private, user-owned `ogenotes-vault` repository for Notes after Google sign-in and mandatory GitHub App authorization. A user may set an Oge password independently; it is not required for GitHub linking.
+- [ ] Make GitHub authorization a requirement before accessing GitHub-backed Notes; retain an explicit setup/reconnect experience and keep unrelated Oge account features available.
+- [ ] Store subject notes, Quick Notes, AirNotes and future Learning Tracks note content in the private GitHub vault; retain account identity, password hashes, installation/repository mapping, relationships, collaboration/share permissions, revision scheduling, sync status and minimum required indexes in MongoDB.
+- [ ] Implement least-privilege GitHub App permissions, repository creation and verified privacy/ownership, server-side credentials, revocation, and recovery. **Never put account secrets or authentication records in the repository just because it is private.**
+- [ ] Design durable/debounced content synchronization and visible pending/synced/error states; safely retry outages, reconcile version conflicts, apply API/size limits, and recover unfinished edits without per-keystroke commits.
+- [ ] Migrate existing MongoDB notes with per-user verification and rollback before switching any account to GitHub-backed storage; don't delete source data until an explicit, validated retention policy exists.
+- [ ] Keep friends/collaboration in MongoDB and avoid granting friends broad access to a user's entire private vault for individual note sharing.
+- [ ] Pass staging authorization, cross-account isolation, multi-device synchronization, quota, recovery, and deletion-history/privacy tests before enabling mandatory GitHub-backed Notes in production.
+
+**Sequencing:** This is **after the next prerequisite feature the user wants to add**, not an immediate implementation task. Oge Learning Tracks' content storage should eventually use Oge Vault, once the vault is fully implemented and verified. Details: [README — Oge Vault](./README.md#planned-feature-oge-vault--mandatory-github-backed-notes-future-roadmap).
+
 ## 7. Working rules
 
 1. Read before changing: inspect the existing implementation and tests first.

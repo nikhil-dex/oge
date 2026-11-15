@@ -489,3 +489,255 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media(prefers-reduced-motion:reduce){
   .oge-retro-login .oge-google-button{transition:none}
 }
+
+/* ─────────────────────────────────────────────────────────────
+   RETRO WORKSPACE · Profile + Settings
+   Matches the sign-in stationery art direction without affecting
+   other authenticated pages or changing the user's saved theme.
+   ───────────────────────────────────────────────────────────── */
+.oge-retro-workspace{
+  --ink:#203e36;--muted:#53695b;--line:#b9c2ae;--paper:#fffbf1;
+  --green:#2e6550;--green-dark:#244f40;
+  --retro-workspace-orange:#b86141;
+  --retro-workspace-highlight:#f2d6a6;
+  color:var(--ink);
+  background:linear-gradient(165deg,#e6e9d9 0%,#f4f0e5 42%,#e4e7d8 100%);
+  border:2px solid #284b3c;
+  box-shadow:7px 7px 0 #284b3c;
+  padding:clamp(17px,3.7vw,44px);
+  padding-top:clamp(14px,2vw,26px);
+  margin-top:24px;
+  margin-bottom:40px;
+  min-width:0;
+  isolation:isolate;
+}
+.oge-retro-workspace .oge-topbar{
+  background:transparent;
+  padding-bottom:21px;
+  border-bottom:1.5px solid #abb9aa;
+}
+.oge-retro-workspace .oge-brand-mark{
+  background:#213f35;color:#fff8ea;border-radius:7px 7px 3px 7px;
+  border:1px solid #213f35;
+}
+.oge-retro-workspace .oge-signin,
+.oge-retro-workspace .oge-primary-link{
+  background:#fff9ec;border:1.5px solid #315345;border-radius:5px;
+  box-shadow:2px 2px 0 #315345;color:#234839;
+  font-weight:800;
+}
+.oge-retro-workspace .oge-signin:hover,
+.oge-retro-workspace .oge-primary-link:hover{
+  background:#f2e4ca;transform:translate(1px,1px);
+  box-shadow:1px 1px 0 #315345;color:#234839;
+}
+.oge-retro-workspace-ribbon{
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:10px;
+  border-bottom:1px dashed #83998a;
+  margin:22px 0 0;padding-bottom:15px;
+  color:#456554;font:700 10px/1.5 var(--mono);
+  letter-spacing:.7px;
+}
+.oge-retro-workspace-ribbon span:nth-child(2){color:#a35e40}
+.oge-retro-workspace .oge-settings-hero{
+  position:relative;overflow:hidden;
+  padding:50px 135px 42px 0;
+  border-bottom:2px solid #2b4d3e;margin-bottom:30px;
+}
+.oge-retro-workspace .oge-settings-hero:before{
+  content:"";position:absolute;right:0;bottom:0;
+  width:165px;height:165px;
+  opacity:.28;
+  background-image:radial-gradient(#55705b 1px,transparent 1px);
+  background-size:13px 13px;pointer-events:none;
+}
+.oge-retro-workspace .oge-settings-hero .oge-eyebrow{
+  color:#9f5b3d;font:800 11px/1.5 var(--mono);letter-spacing:1.2px;
+}
+.oge-retro-workspace .oge-status-dot{background:#b86645}
+.oge-retro-workspace .oge-settings-hero h1{
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:clamp(62px,8vw,105px);font-weight:700;
+  letter-spacing:-.08em;line-height:.95;color:#213e35;
+}
+.oge-retro-workspace .oge-settings-hero h1 span{color:#b86443}
+.oge-retro-workspace .oge-settings-hero>p:last-of-type{
+  color:#52685a;font-size:14px;line-height:1.75;max-width:610px;margin-top:24px;
+}
+.oge-retro-workspace-stamp{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:7px;position:absolute;right:34px;top:57px;
+  width:96px;height:96px;transform:rotate(11deg);
+  border:2px dashed #9a654a;border-radius:50%;
+  background:#f5e6ce;color:#a05b3d;
+  font-size:31px;line-height:1;
+}
+.oge-retro-workspace-stamp small{
+  font:800 8px/1.2 var(--mono);letter-spacing:1px;text-align:center;
+}
+.oge-retro-workspace .oge-settings-layout{grid-template-columns:185px minmax(0,1fr);gap:29px}
+.oge-retro-workspace .oge-settings-sidebar{
+  border:1.5px solid #315344;background:#f7f0e0;
+  box-shadow:3px 3px 0 #315344;
+  border-radius:4px;padding:12px;gap:3px;
+}
+.oge-retro-workspace .oge-settings-sidebar:before{
+  content:"✳  CONTENTS";display:block;padding:9px 10px 13px;
+  border-bottom:1px dashed #afbaab;margin-bottom:7px;
+  color:#9f5e40;font:800 10px var(--mono);letter-spacing:1px;
+}
+.oge-retro-workspace .oge-settings-sidebar a{
+  border-radius:4px;color:#3c5d4d;font-size:12px;
+  font-weight:700;padding:12px;
+}
+.oge-retro-workspace .oge-settings-sidebar a:hover,
+.oge-retro-workspace .oge-settings-sidebar a:focus-visible{
+  color:#254a3b;background:#e6e7d5;outline:2px solid #b66b47;outline-offset:0;
+}
+.oge-retro-workspace .oge-settings-content{gap:19px}
+.oge-retro-workspace .oge-profile-layout{max-width:100%;gap:20px}
+.oge-retro-workspace .oge-settings-card{
+  position:relative;
+  background:#fffcf5;color:#203e36;
+  border:1.5px solid #3b5a49;border-radius:5px;
+  box-shadow:4px 4px 0 #2c5041;
+  padding:clamp(20px,3vw,32px);
+  min-width:0;
+}
+.oge-retro-workspace .oge-settings-card:before{
+  content:"";position:absolute;top:13px;right:13px;
+  width:9px;height:9px;background:#dba36d;border-radius:50%;
+  box-shadow:0 0 0 1px #9d6848;
+}
+.oge-retro-workspace .oge-settings-card-heading{
+  padding-bottom:17px;border-bottom:1px dashed #afbbad;
+  margin-bottom:22px;min-width:0;flex-wrap:wrap;
+}
+.oge-retro-workspace .oge-section-kicker{
+  color:#a15d3f;font:800 10px/1.5 var(--mono);letter-spacing:1px;
+}
+.oge-retro-workspace .oge-settings-card h2{
+  font:700 clamp(26px,3.3vw,36px)/1.08 Georgia,"Times New Roman",serif;
+  letter-spacing:-1.2px;color:#223f35;
+}
+.oge-retro-workspace .oge-settings-pill,
+.oge-retro-workspace .oge-settings-count{
+  background:#f6e9cf;border:1px dashed #a77955;
+  border-radius:4px;color:#86563b;
+  font:800 10px/1.2 var(--mono);letter-spacing:.4px;
+  padding:9px 10px;
+}
+.oge-retro-workspace .oge-settings-description,
+.oge-retro-workspace .oge-settings-note,
+.oge-retro-workspace .oge-profile-help p,
+.oge-retro-workspace .oge-social-links-fieldset>p,
+.oge-retro-workspace .oge-avatar-fieldset p{
+  color:#576d5d;line-height:1.75;
+}
+.oge-retro-workspace .oge-profile-form-grid label,
+.oge-retro-workspace .oge-avatar-fieldset legend{
+  color:#284b3d;font-weight:800;
+}
+.oge-retro-workspace .oge-profile-form-grid input,
+.oge-retro-workspace .oge-password-login-form input,
+.oge-retro-workspace .oge-settings-add-form input,
+.oge-retro-workspace .oge-settings-control-row select,
+.oge-retro-workspace .oge-settings-card input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.oge-retro-workspace .oge-settings-card textarea{
+  color:#243d33;background:#fffdfa;
+  border:1.5px solid #adbaaa;border-radius:5px;
+  min-height:42px;
+}
+.oge-retro-workspace .oge-settings-card input:focus-visible,
+.oge-retro-workspace .oge-settings-card textarea:focus-visible,
+.oge-retro-workspace .oge-settings-card select:focus-visible,
+.oge-retro-workspace .oge-settings-card button:focus-visible,
+.oge-retro-workspace .oge-settings-card a:focus-visible{
+  outline:3px solid #c07551;outline-offset:3px;
+}
+.oge-retro-workspace .oge-google-button,
+.oge-retro-workspace .oge-settings-add-form .oge-google-button{
+  border:1.5px solid #2b4e3d;border-radius:5px;
+  background:#315c49;color:#fffaf0;
+  box-shadow:3px 3px 0 #b46c4c;
+  padding:11px 16px;
+  min-height:42px;
+  font-weight:800;
+}
+.oge-retro-workspace .oge-google-button:hover{
+  background:#254a3a;color:#fffaf0;
+  transform:translate(1px,1px);box-shadow:2px 2px 0 #b46c4c;
+}
+.oge-retro-workspace .oge-google-button:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.oge-retro-workspace .oge-settings-danger-button{
+  border:1.5px solid #aa5e4d;background:#fff5ec;color:#9b403b;
+  border-radius:5px;box-shadow:2px 2px 0 #aa5e4d;
+}
+.oge-retro-workspace .oge-settings-danger-button:hover{background:#f6ddd3}
+.oge-retro-workspace .oge-avatar-option,
+.oge-retro-workspace .oge-interest-option,
+.oge-retro-workspace .oge-settings-subject-icon{
+  border:1.5px solid #a9b9a9;border-radius:5px;background:#faf4e7;
+}
+.oge-retro-workspace .oge-avatar-option.is-selected,
+.oge-retro-workspace .oge-interest-option:has(input:checked){
+  background:#e3e9d7;border-color:#315c49;
+  box-shadow:2px 2px 0 #315c49;
+}
+.oge-retro-workspace .oge-avatar-option input,
+.oge-retro-workspace .oge-interest-option input{accent-color:#2e6550}
+.oge-retro-workspace .oge-profile-email{
+  background:#f6f0e3;border:1px dashed #a6b6a4;border-radius:5px;
+}
+.oge-retro-workspace .oge-profile-email span{color:#435d4d}
+.oge-retro-workspace .oge-social-links-fieldset{border-color:#b6bdad}
+.oge-retro-workspace .oge-profile-help{border-color:#b6bdad}
+.oge-retro-workspace .oge-settings-subjects{border-color:#b6bdad}
+.oge-retro-workspace .oge-settings-subject{border-color:#c3cabd}
+.oge-retro-workspace .oge-settings-segmented,
+.oge-retro-workspace .oge-settings-swatch,
+.oge-retro-workspace .oge-settings-delete,
+.oge-retro-workspace .oge-settings-open{
+  border-radius:5px;
+}
+.oge-retro-workspace .oge-settings-footer{
+  border-top:2px solid #315344;color:#446451;
+  font-weight:800;letter-spacing:.6px;
+}
+.oge-retro-workspace .oge-settings-footer .oge-brand{
+  color:#234437;
+}
+@media(max-width:850px){
+  .oge-retro-workspace .oge-settings-layout{grid-template-columns:1fr;gap:24px}
+  .oge-retro-workspace .oge-settings-sidebar{
+    position:static;flex-direction:row;overflow-x:auto;gap:5px;
+    box-shadow:2px 2px 0 #315344;padding:9px;
+    scrollbar-width:thin;
+  }
+  .oge-retro-workspace .oge-settings-sidebar:before{display:none}
+  .oge-retro-workspace .oge-settings-sidebar a{flex:0 0 auto;padding:10px 12px}
+}
+@media(max-width:640px){
+  .oge-retro-workspace{
+    padding:16px 14px 24px;margin:14px auto 24px;
+    box-shadow:4px 4px 0 #284b3c;
+  }
+  .oge-retro-workspace-ribbon{font-size:8px;margin-top:16px}
+  .oge-retro-workspace-ribbon span:last-child{display:none}
+  .oge-retro-workspace .oge-settings-hero{
+    padding:35px 0 28px;margin-bottom:22px;
+  }
+  .oge-retro-workspace .oge-settings-hero h1{font-size:clamp(53px,13vw,76px)}
+  .oge-retro-workspace .oge-settings-hero>p:last-of-type{font-size:13px;margin-top:16px}
+  .oge-retro-workspace-stamp{position:absolute;right:0;top:31px;opacity:.16}
+  .oge-retro-workspace .oge-settings-card{padding:20px 16px;box-shadow:3px 3px 0 #2c5041}
+  .oge-retro-workspace .oge-settings-card-heading{gap:9px}
+  .oge-retro-workspace .oge-settings-card h2{font-size:27px}
+  .oge-retro-workspace .oge-settings-pill{white-space:normal}
+}
+@media(prefers-reduced-motion:reduce){
+  .oge-retro-workspace .oge-google-button,
+  .oge-retro-workspace .oge-primary-link,
+  .oge-retro-workspace .oge-signin{transition:none}
+}

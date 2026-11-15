@@ -6,17 +6,21 @@ import { redirect } from 'next/navigation';
 import { getDatabase } from '../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import { checkRateLimit } from '../../lib/rate-limit.js';
-import { hashAccountPassword, validAccountPassword, isRecentGoogleAuthentication } from '../../lib/password-auth.js';
+import { hashAccountPassword, validAccountPassword, isRecentOAuthAuthentication } from '../../lib/password-auth.js';
 
 export async function reauthenticateWithGoogle() {
   await signIn('google', { redirectTo: '/profile' });
+}
+
+export async function reauthenticateWithGitHub() {
+  await signIn('github', { redirectTo: '/profile' });
 }
 
 export async function setLinkedPassword(formData) {
   const session = await auth();
   const ownerId = session?.user?.id;
   if (!ownerId) redirect('/register');
-  if (!isRecentGoogleAuthentication(session)) redirect('/profile?password=reauth');
+  if (!isRecentOAuthAuthentication(session)) redirect('/profile?password=reauth');
 
   const password = formData.get('password');
   const confirm = formData.get('confirmPassword');

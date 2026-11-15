@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { auth } from '../auth.js';
 import { getDatabase } from '../lib/mongodb.js';
 import { redirect } from 'next/navigation';
@@ -27,7 +28,7 @@ export default async function HomePage() {
 
   return (
     <main className="shell hub-shell oge-shell">
-      <SiteNavbar actions={<><a className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></a><ThemeToggle /></>} />
+      <SiteNavbar actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
 
       <HomeNewsFeed />
 
@@ -42,15 +43,15 @@ export default async function HomePage() {
             <h2 id="airnotes-heading">Air<span>Notes.</span></h2>
             <p className="quick-notes-lead">A focused space for capturing ideas, keeping references, and developing thoughts.</p>
           </div>
-          <a className="quick-note-add-button" href="/airnotes">Open AirNotes <span aria-hidden="true">→</span></a>
+          <Link className="quick-note-add-button" href="/airnotes">Open AirNotes <span aria-hidden="true">→</span></Link>
         </div>
-        <a className="hub-card oge-airnotes-card" href="/airnotes">
+        <Link className="hub-card oge-airnotes-card" href="/airnotes">
           <span className="hub-card-icon" aria-hidden="true">⌁</span>
           <span className="hub-card-kicker">02 · CAPTURE</span>
           <h2>Your ideas, in one place <span aria-hidden="true">↗</span></h2>
           <p>Keep longer thoughts and working drafts separate from quick, temporary notes.</p>
           <span className="hub-card-link">Go to AirNotes <span aria-hidden="true">→</span></span>
-        </a>
+        </Link>
       </section>
 
       <section className="oge-module-section" aria-labelledby="modules-title">
@@ -74,7 +75,7 @@ export default async function HomePage() {
         <QuickNotesPanel />
       </section>
 
-      <footer className="oge-footer"><a className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>A little more organized, every day.</span><a href="/settings">Settings <span aria-hidden="true">↗</span></a></footer>
+      <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>A little more organized, every day.</span><Link href="/settings">Settings <span aria-hidden="true">↗</span></Link></footer>
     </main>
   );
 }

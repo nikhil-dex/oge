@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
-import SiteNavbar from '../../components/site-navbar.js';
 import NotesPage from '../../notes/page.js';
 
 export const metadata = { title: 'Oge Vault · Notes workspace preview' };

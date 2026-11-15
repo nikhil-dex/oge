@@ -1,5 +1,6 @@
 import { auth } from '../../../../../auth.js';
 import { getDatabase } from '../../../../../lib/mongodb.js';
+import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../../lib/rate-limit.js';
 import { getVaultNoteClient } from '../../../../../lib/oge-vault-notes.js';
 import { inspectVaultSubject } from '../../../../../lib/oge-vault-subject-preflight.js';
 import { VaultGitHubError } from '../../../../../lib/oge-vault-github.js';
@@ -27,6 +28,8 @@ export async function GET(request) {
   try {
     const db = await getDatabase();
     const ownerId = session.user.id;
+    const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
     const subject = await db.collection('subjects').findOne({ ownerId, slug },
       { projection: { _id: 1 } });
     if (!subject) return json({ error: 'Subject not found.' }, 404);

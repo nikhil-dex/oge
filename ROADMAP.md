@@ -193,6 +193,23 @@ These criteria are release blockers, not optional polish:
 - Public launch before the security and operational release gates pass.
 - Unreviewed changes to the original `ogenotes` repository or its deployment.
 
+## Future milestone — Oge Vault (Phase A in progress)
+
+The previously deferred Oge Vault project is now approved for a **safe foundation milestone**, without any production data migration. Full migration and mandatory GitHub-backed note storage remain gated on tested reliability and authorization.
+
+- [x] Draft standalone GitHub App OAuth flow with one-time state, server-side app JWT, and separate setup from GitHub sign-in.
+- [x] Implement new user-owned private `ogenotes-vault` repository provisioning, owner/privacy verification, and a vault initialization marker.
+- [x] Store repository and GitHub App installation metadata in MongoDB without persisting OAuth access tokens.
+- [x] Add the retro onboarding/status page at `/vault` and a Profile entry point.
+- [ ] Perform live staging GitHub App authorization and GitHub account/repository checks.
+- [ ] Solve selected-repository installation without exposing other user repositories to the App. **All-repositories installation in the first implementation is a release blocker requiring explicit review.**
+- [ ] Add safe retries/reconciliation after partial provisioning and revocation, renames, deletions, and quota/rate-limit failures.
+- [ ] Add stable note files, durable/debounced sync queue, conflict handling, and read-after-write verification.
+- [ ] Migrate MongoDB Notes per user with complete reconciliation and rollback; do not delete source records without verified, approved retention.
+- [ ] Only after migration is safe, enable the mandatory GitHub Notes gate and integrate Quick Notes, AirNotes, Learning Tracks, and the extension.
+
+Implementation notes and setup: [Oge Vault Phase A](docs/OGE_VAULT_PHASE_A.md). **No existing notes are transferred in Phase A.**
+
 ## 7. Working rules
 
 1. Read before changing: inspect the existing implementation and tests first.

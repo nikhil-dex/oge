@@ -8,7 +8,7 @@
   const style = document.createElement('style');
   style.textContent = [
     '*{box-sizing:border-box}button,textarea,select{font:inherit}',
-    '.oge-dimmed{opacity:.36}.oge-open.oge-dimmed{opacity:.74}.oge-open:focus-within,.oge-open:hover{opacity:1!important}button,textarea,select{outline-offset:2px}@media(prefers-reduced-motion:no-preference){:host{transition:opacity .5s ease}}',
+    'button,textarea,select{outline-offset:2px}@media(prefers-reduced-motion:reduce){:host{transition:none!important}}',
     '.launcher{width:44px;height:44px;border:1px solid #ffffff55;border-radius:14px;background:#316b50;color:#fff;box-shadow:0 8px 26px #10251b40;font:800 19px system-ui;cursor:grab;touch-action:none;user-select:none;letter-spacing:-.05em;transition:box-shadow .18s,background .18s}.launcher:hover{background:#23563d;box-shadow:0 9px 28px #10251b55}.launcher:active{cursor:grabbing}',
     '.panel{position:fixed;left:16px;top:16px;right:auto;bottom:auto;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
     '.hidden{display:none}.resize-corner{position:sticky;bottom:0;float:right;width:24px;height:24px;margin-top:-24px;display:grid;place-items:center;border:0;border-top-left-radius:8px;color:#657a6d;background:#f1f6f2;cursor:nwse-resize;touch-action:none;user-select:none;font-size:15px}.resize-corner-left{float:left;border-radius:0 8px 0 0;cursor:nesw-resize}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
@@ -99,9 +99,8 @@
     host.style.opacity = '1';
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
-      const editing = shadow.activeElement === note || shadow.activeElement === subjectSelect ||
-        false;
-      if (!editing) host.style.opacity = panel.classList.contains('hidden') ? '.38' : '.78';
+      // Stay discoverable while idle; never hide the editing surface entirely.
+      host.style.opacity = panel.classList.contains('hidden') ? '.38' : '.78';
     }, IDLE_DELAY_MS);
   }
   for (const name of ['pointermove', 'keydown', 'wheel', 'touchstart']) {

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { memo, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import SiteNavbar from './site-navbar';
@@ -291,7 +293,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
         </>,
         document.body,
       )}
-      {!fullPage && <a className="quick-notes-view-all" href="/airnotes">Open AirNotes <span aria-hidden="true">→</span></a>}
+      {!fullPage && <Link className="quick-notes-view-all" href="/airnotes">Open AirNotes <span aria-hidden="true">→</span></Link>}
       {fullPage && <footer><span>Your ideas, saved as you write.</span><span>OGENOTES · AIRNOTES</span></footer>}
     </section>
   );

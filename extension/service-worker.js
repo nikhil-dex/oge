@@ -1,7 +1,7 @@
 // All OgeNotes requests are made from the extension service worker.
 // The floating content script never receives the bearer token or app origin.
 const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
-const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS']);
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME']);
 const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
 
 function normalizeBase(value) {
@@ -48,6 +48,23 @@ async function handleAction(message, sender) {
   if (sender.id !== chrome.runtime.id || !sender.tab?.id ||
       !validWebsiteUrl(sender.tab.url) || !EXTENSION_ACTIONS.has(message?.type)) {
     throw new Error('Unsupported extension action.');
+  }
+  if (message.type === 'GET_THEME') {
+    const stored = await chrome.storage.local.get(['ogeTheme', 'baseUrl']);
+    let isOgePage = false;
+    try { isOgePage = new URL(sender.tab.url).origin === normalizeBase(stored.baseUrl); }
+    catch { /* Not connected yet. */ }
+    return { theme: stored.ogeTheme === 'light' ? 'light' : 'dark', isOgePage };
+  }
+  if (message.type === 'SET_THEME') {
+    // Only a page on the user's configured Oge origin may set the global
+    // widget theme. Ordinary websites cannot change the stored appearance.
+    const { origin } = await getConnection();
+    if (new URL(sender.tab.url).origin !== origin || !['dark', 'light'].includes(message.theme)) {
+      throw new Error('Only your connected OgeNotes site can change the widget theme.');
+    }
+    await chrome.storage.local.set({ ogeTheme: message.theme });
+    return { theme: message.theme };
   }
   if (message.type === 'CREATE_QUICK_NOTE') {
     const content = message.content;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeLoginEmail, validAccountPassword, hashAccountPassword,
-  verifyAccountPassword, isRecentGoogleAuthentication } from '../lib/password-auth.js';
+  verifyAccountPassword, isRecentGoogleAuthentication, isPasswordSessionActive } from '../lib/password-auth.js';
 
 test('email is normalized but ownership is not derived from email', () => {
   assert.equal(normalizeLoginEmail(' Student@Gmail.com '), 'student@gmail.com');
@@ -25,4 +25,13 @@ test('setting a linked password needs a recent Google login', () => {
   assert.equal(isRecentGoogleAuthentication({ user: { authenticatedAt: now - 11 * 60000 } }, now), false);
   assert.equal(isRecentGoogleAuthentication({ user: { authenticatedAt: now + 1000 } }, now), false);
   assert.equal(isRecentGoogleAuthentication(null, now), false);
+});
+
+test('password sessions expire after eight hours on shared computers', () => {
+  const now = Date.now();
+  assert.equal(isPasswordSessionActive(now - 60_000, now), true);
+  assert.equal(isPasswordSessionActive(now - 8 * 60 * 60 * 1000, now), true);
+  assert.equal(isPasswordSessionActive(now - 8 * 60 * 60 * 1000 - 1, now), false);
+  assert.equal(isPasswordSessionActive(now + 1, now), false);
+  assert.equal(isPasswordSessionActive(undefined, now), false);
 });

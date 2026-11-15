@@ -40,6 +40,21 @@ test('GitHub Notes adapter uses only GitHub content calls for all five CRUD verb
   assert.doesNotMatch(adapter, /deleteOne\(/);
 });
 
+test('familiar vault Notes paginates without changing the legacy production endpoint', async () => {
+  const page = await read('../app/notes/page.js');
+  const adapter = await read('../app/api/vault/notes-main/route.js');
+  assert.match(page, /vaultMode \? notesApi \+ '\?paged=true&limit=20' : notesApi/);
+  assert.match(page, /setNextNotesCursor\(vaultMode \? response\.nextCursor \|\| null : null\)/);
+  assert.match(page, /encodeURIComponent\(nextNotesCursor\)/);
+  assert.match(page, /setNotes\(\(existing\) => \{/);
+  assert.match(page, /Load more GitHub notes/);
+  assert.match(page, /Search, filters and sorting apply to loaded notes/);
+  assert.match(adapter, /params\.get\('paged'\) === 'true'/);
+  assert.match(adapter, /listVaultNotePage\(ctx\.client, \{ limit, cursor: params\.get\('cursor'\) \}\)/);
+  assert.match(adapter, /note\.subjectId === subject/);
+  assert.doesNotMatch(adapter, /collection\(['"]notes['"]\)/);
+});
+
 test('GitHub Notes adapter translates GitHub SHA and owner-scoped subject fields for classic UI', async () => {
   const adapter = await read('../app/api/vault/notes-main/route.js');
   assert.match(adapter, /subjectSlug: note\.subjectId/);

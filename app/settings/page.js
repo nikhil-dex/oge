@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import Image from 'next/image';
 import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
@@ -28,7 +30,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="shell oge-shell oge-settings-page">
-      <SiteNavbar actions={<a className="oge-signin" href="/">Back to dashboard <span aria-hidden="true">↗</span></a>} />
+      <SiteNavbar actions={<Link className="oge-signin" href="/">Back to dashboard <span aria-hidden="true">↗</span></Link>} />
       <section className="oge-settings-hero">
         <p className="oge-eyebrow"><span className="oge-status-dot" /> YOUR WORKSPACE</p>
         <h1>Settings<span>.</span></h1>
@@ -50,7 +52,7 @@ export default async function SettingsPage() {
           <section className="oge-settings-card" id="account" aria-labelledby="account-heading">
             <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">01 · ACCOUNT</span><h2 id="account-heading">Your account</h2></div><span className="oge-settings-pill"><span className="oge-status-dot" /> Connected</span></div>
             <div className="oge-account-row">
-              {user?.image || session.user.image ? <img className="oge-account-avatar" src={user?.image || session.user.image} alt="" referrerPolicy="no-referrer" /> : <span className="oge-account-avatar oge-account-avatar-fallback" aria-hidden="true">{displayName.slice(0,1).toUpperCase()}</span>}
+              {user?.image || session.user.image ? <Image className="oge-account-avatar" src={user?.image || session.user.image} alt="" width={48} height={48} unoptimized referrerPolicy="no-referrer" /> : <span className="oge-account-avatar oge-account-avatar-fallback" aria-hidden="true">{displayName.slice(0,1).toUpperCase()}</span>}
               <div className="oge-account-details"><strong>{displayName}</strong><span>{email}</span><small>Signed in securely with Google</small></div>
             </div>
             <p className="oge-settings-note">Your account is used to keep your notes, quick notes, saved links, and preferences private to you.</p>
@@ -76,7 +78,7 @@ export default async function SettingsPage() {
             </form>
           </section>
 
-          <footer className="oge-settings-footer"><a className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>YOUR WORKSPACE · YOUR WAY</span></footer>
+          <footer className="oge-settings-footer"><Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>YOUR WORKSPACE · YOUR WAY</span></footer>
         </div>
       </div>
     </main>

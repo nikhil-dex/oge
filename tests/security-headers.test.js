@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applySecurityHeaders } from '../lib/security-headers.js';
+import { applySecurityHeaders, cspForNonce } from '../lib/security-headers.js';
 
 function response() {
   return new Response('ok');
@@ -81,4 +81,17 @@ test('CSP enforcement requires an explicit opt-in and preserves the policy direc
     if (previous === undefined) delete process.env.OGE_ENFORCE_CSP;
     else process.env.OGE_ENFORCE_CSP = previous;
   }
+});
+
+
+test('CSP nonce authorizes inline framework scripts without unsafe-inline', () => {
+  const nonce = '0123456789abcdef0123456789abcdef';
+  const value = cspForNonce(nonce);
+  assert.match(value, /script-src 'self' 'nonce-0123456789abcdef0123456789abcdef' https:\/\/accounts\.google\.com/);
+  assert.doesNotMatch(value, /script-src[^;]*'unsafe-inline'/);
+  assert.match(value, /report-uri \/api\/csp-report/);
+  const responsePolicy = applySecurityHeaders(response(), nonce);
+  assert.equal(responsePolicy.headers.get('Content-Security-Policy-Report-Only'), value);
+  assert.equal(responsePolicy.headers.get('Content-Security-Policy'), null);
+  assert.throws(() => cspForNonce("abc'; script-src *"), /Invalid CSP nonce/);
 });

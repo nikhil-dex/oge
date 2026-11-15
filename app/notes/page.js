@@ -56,18 +56,22 @@ export default function NotesPage() {
         responseJson(await fetch('/api/subjects', { cache: 'no-store' })),
         responseJson(await fetch('/api/notes', { cache: 'no-store' })),
       ]);
-      const slug = preferredSubject || activeSubject || subjectList[0]?.slug || '';
+      const defaultSubject = subjectList[0]?.slug || '';
       setSubjects(subjectList);
       setNotes(noteList);
-      setActiveSubject(slug);
+      setActiveSubject((current) => preferredSubject || current || defaultSubject);
     } catch (err) {
       setError(err.message || 'Could not load your notes.');
     } finally {
       setLoading(false);
     }
-  }, [activeSubject]);
+  }, []);
 
-  useEffect(() => { load(); }, []); // Initial load only; changes refresh explicitly.
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void load(); });
+    return () => { active = false; };
+  }, [load]);
 
   const availableTags = useMemo(
     () => [...new Set(notes.flatMap((note) => Array.isArray(note.tags) ? note.tags : []))].sort(),

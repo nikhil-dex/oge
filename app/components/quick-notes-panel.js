@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { memo, useCallback, useEffect, useState } from 'react';
 import SiteNavbar from './site-navbar';
 
@@ -198,7 +200,7 @@ export default function QuickNotesPanel({ fullPage = false }) {
           <button className="add-button" type="button" onClick={addNote} disabled={creating}><span aria-hidden="true">＋</span> Create your first note</button>
         </div>
       )}
-      {!fullPage && <a className="quick-notes-view-all" href="/quick-notes">Open AirNotes <span aria-hidden="true">→</span></a>}
+      {!fullPage && <Link className="quick-notes-view-all" href="/quick-notes">Open AirNotes <span aria-hidden="true">→</span></Link>}
       {fullPage && <footer><span>Your ideas, saved as you write.</span><span>OGENOTES · QUICK NOTES</span></footer>}
     </section>
   );

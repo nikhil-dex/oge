@@ -24,10 +24,12 @@ export default async function VaultNotesPage() {
     { projection: { vault: 1 } },
   );
   if (user?.vault?.status !== 'connected') redirect('/vault');
+  const hybridDrafts = process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
   return (
     <>
       <div className="oge-vault-editor-back"><Link href="/vault">← Return to Oge Vault</Link></div>
-      <NotesPage notesApi="/api/vault/notes-main" vaultMode />
+      <NotesPage notesApi="/api/vault/notes-main" vaultMode hybridDrafts={hybridDrafts}
+        vaultOwnerId={session.user.id} vaultRepoId={user.vault.repoId} />
     </>
   );
 }

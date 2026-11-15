@@ -40,7 +40,11 @@ export default function RevisionHistoryPage() {
     } catch (err) { setError(err.message || 'Could not load revision history.'); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => {\n    let active = true;\n    Promise.resolve().then(() => { if (active) void load(); });\n    return () => { active = false; };\n  }, [load]);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void load(); });
+    return () => { active = false; };
+  }, [load]);
 
   const subjects = useMemo(() => [...new Set(history.map((item) => item.subjectSlug).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [history]);
   const filtered = useMemo(() => {

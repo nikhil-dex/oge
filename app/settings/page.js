@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
@@ -28,7 +29,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="shell oge-shell oge-settings-page">
-      <SiteNavbar actions={<a className="oge-signin" href="/">Back to dashboard <span aria-hidden="true">↗</span></a>} />
+      <SiteNavbar actions={<Link className="oge-signin" href="/">Back to dashboard <span aria-hidden="true">↗</span></Link>} />
       <section className="oge-settings-hero">
         <p className="oge-eyebrow"><span className="oge-status-dot" /> YOUR WORKSPACE</p>
         <h1>Settings<span>.</span></h1>
@@ -76,7 +77,7 @@ export default async function SettingsPage() {
             </form>
           </section>
 
-          <footer className="oge-settings-footer"><a className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></a><span>YOUR WORKSPACE · YOUR WAY</span></footer>
+          <footer className="oge-settings-footer"><Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>YOUR WORKSPACE · YOUR WAY</span></footer>
         </div>
       </div>
     </main>

@@ -2,36 +2,37 @@
   if (window.top !== window || document.getElementById('oge-floating-toolbelt-host')) return;
   const host = document.createElement('div');
   host.id = 'oge-floating-toolbelt-host';
-  host.style.cssText = 'all:initial;position:fixed;z-index:2147483647;right:18px;bottom:18px';
+  host.style.cssText = 'all:initial;position:fixed;z-index:2147483647;right:18px;bottom:18px;opacity:1;transition:opacity .45s ease';
   document.documentElement.appendChild(host);
   const shadow = host.attachShadow({ mode: 'closed' });
   const style = document.createElement('style');
   style.textContent = [
-    '*{box-sizing:border-box}button,textarea{font:inherit}',
-    '.launcher{width:48px;height:48px;border:0;border-radius:50%;background:#40795e;color:#fff;box-shadow:0 8px 25px #1f342766;font:800 22px system-ui;cursor:pointer}',
-    '.panel{position:absolute;right:0;bottom:60px;width:min(355px,calc(100vw - 28px));max-height:min(580px,calc(100vh - 100px));overflow:auto;border:1px solid #d9e7dd;border-radius:14px;background:#fcfdfb;color:#1d2d22;box-shadow:0 18px 60px #10251b45;font:13px/1.45 system-ui,-apple-system,sans-serif}',
-    '.hidden{display:none}.top{display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid #e4eee6;cursor:move;touch-action:none;user-select:none}',
-    '.mark{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#40795e;color:white;font-weight:800}.heading{flex:1;font-weight:750}',
+    '*{box-sizing:border-box}button,textarea,select{font:inherit}',
+    '.oge-dimmed{opacity:.36}.oge-open.oge-dimmed{opacity:.74}.oge-open:focus-within,.oge-open:hover{opacity:1!important}button,textarea,select{outline-offset:2px}@media(prefers-reduced-motion:no-preference){:host{transition:opacity .5s ease}}',
+    '.launcher{width:44px;height:44px;border:1px solid #ffffff55;border-radius:14px;background:#316b50;color:#fff;box-shadow:0 8px 26px #10251b40;font:800 19px system-ui;cursor:grab;touch-action:none;user-select:none;letter-spacing:-.05em;transition:box-shadow .18s,background .18s}.launcher:hover{background:#23563d;box-shadow:0 9px 28px #10251b55}.launcher:active{cursor:grabbing}',
+    '.panel{position:absolute;right:0;bottom:54px;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
+    '.hidden{display:none}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
+    '.mark{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#316b50;color:white;font-size:12px;font-weight:800}.heading{flex:1;font-size:12px;font-weight:750;letter-spacing:.01em}',
     '.close{padding:2px 6px;border:0;background:transparent;color:#536c59;font-size:22px;cursor:pointer}',
-    '.body{padding:14px}.body[hidden]{display:none}.hint{margin:0 0 10px;color:#6b7b70;font-size:11px;line-height:1.55}',
-    'textarea{display:block;width:100%;height:168px;padding:11px;resize:vertical;border:1px solid #cfdbd2;border-radius:8px;color:#15251b;background:#fff;font:13px/1.5 ui-monospace,monospace;outline-color:#40795e}',
-    '.primary{display:block;width:100%;margin-top:12px;padding:11px;border:0;border-radius:8px;background:#40795e;color:white;font-size:12px;font-weight:750;cursor:pointer}',
-    'button:disabled{opacity:.65;cursor:wait}.status{min-height:16px;margin:10px 14px 0;color:#40795e;font-size:11px;overflow-wrap:anywhere}.error{color:#b42318}',
-    '.belt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 12px;border-top:1px solid #e2ebe4}',
-    '.belt button{padding:9px 2px;border:1px solid transparent;border-radius:8px;background:transparent;color:#52685a;font-size:11px;cursor:pointer}',
+    '.body{padding:11px 12px}.body[hidden]{display:none}.hint{margin:0 0 9px;color:#6b7b70;font-size:10px;line-height:1.45}',
+    'textarea{display:block;width:100%;height:116px;min-height:75px;padding:10px;resize:vertical;border:1px solid #d5e0d8;border-radius:8px;color:#15251b;background:#fff;font:12px/1.5 ui-monospace,monospace;outline-color:#40795e}',
+    '.primary{display:block;width:100%;margin-top:9px;padding:9px;border:0;border-radius:8px;background:#316b50;color:white;font-size:11px;font-weight:750;cursor:pointer}.primary:hover{background:#23563d}',
+    'button:disabled{opacity:.65;cursor:wait}.status{min-height:0;margin:0 12px;color:#316b50;font-size:10px;overflow-wrap:anywhere}.status:not(:empty){padding:6px 0}.error{color:#b42318}',
+    '.belt{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:7px 10px;border-top:1px solid #e7eee8;background:#fafcfb}',
+    '.belt button{padding:7px 2px;border:1px solid transparent;border-radius:7px;background:transparent;color:#52685a;font-size:10px;font-weight:600;cursor:pointer}',
     '.belt button.selected{border-color:#b6d8bf;background:#e5f3e9;color:#275d39}',
     '.link{display:grid;gap:8px;padding:9px 0;border-bottom:1px solid #e4eee6}.link:last-child{border:0}.link strong{font-size:12px}',
     '.address{display:block;color:#6c7b71;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.link-actions{display:flex;gap:8px}.link-actions button{flex:1;padding:8px;border:1px solid #a9c7b1;border-radius:7px;background:#eff7f0;color:#255837;font-size:11px;cursor:pointer}',
-    '.empty{font-size:12px;color:#637568}.subject-label{display:block;margin:10px 0 6px;font-size:11px;font-weight:700;color:#546d5b}.subject-select{display:block;width:100%;padding:10px;border:1px solid #cfdbd2;border-radius:8px;background:#fff;color:#15251b;font:12px system-ui}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
+    '.empty{font-size:11px;color:#637568}.subject-label{display:block;margin:8px 0 4px;font-size:10px;font-weight:700;color:#546d5b}.subject-select{display:block;width:100%;padding:8px;border:1px solid #d5e0d8;border-radius:8px;background:#fff;color:#15251b;font:11px system-ui}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
   ].join('');
   const panel = document.createElement('section');
   panel.className = 'panel hidden';
   panel.setAttribute('aria-label', 'OgeNotes floating toolbelt');
   // HTML is static extension-owned markup; user content uses textContent.
   panel.innerHTML = [
-    '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes Toolbelt</strong><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
-    '<div class="body" data-panel="note"><p class="hint">The first line becomes the title. Choose a subject to save in Notes, or leave Quick Notes selected.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
+    '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
+    '<div class="body" data-panel="note"><p class="hint">First line = title · Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
     '<div class="body" data-panel="url" hidden><p class="hint">Save this website to your personal Saved Links.</p><button class="primary" type="button" data-save-url>Save current page ↗</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your social and portfolio URLs from OgeNotes Profile.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div></div>',
     '<p class="status" role="status" aria-live="polite"></p>',

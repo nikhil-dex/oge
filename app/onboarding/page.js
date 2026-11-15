@@ -20,7 +20,7 @@ export default async function OnboardingPage() {
       <Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link>
       <div className="oge-eyebrow"><span className="oge-status-dot" /> ONE LAST THING</div>
       <h1>Make news<br /><span>yours.</span></h1>
-      <p className="oge-placeholder-copy">Pick the topics you care about. We'll use these preferences to personalize your news feed. You can change them any time in Settings.</p>
+      <p className="oge-placeholder-copy">Pick the topics you care about. We&apos;ll use these preferences to personalize your news feed. You can change them any time in Settings.</p>
       <form action={saveNewsInterests} className="oge-interest-form">
         <div className="oge-interest-grid">
           {NEWS_TOPICS.map((topic) => (

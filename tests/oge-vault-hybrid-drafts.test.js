@@ -98,6 +98,13 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.ok(page.includes("if (!navigator.onLine)"));
   assert.ok(page.includes("stillLatest ? 'Draft saved' : 'Draft pending'"));
   assert.ok(page.includes("disabled={hybridDrafts && !hybridReady}"));
+  assert.match(page, /window\.addEventListener\('online', resume\)/);
+  assert.match(page, /Retry draft autosave/);
+  assert.match(page, /hybridConflictRef\.current = true/);
+  assert.match(page, /if \(hybridConflictRef\.current\) return undefined/);
+  assert.match(page, /received\.item\.revision/);
+  assert.match(page, /Draft server unavailable\. Restore this browser copy/);
+  assert.match(page, /if \(generation !== hybridGenerationRef\.current\) return/);
 
 
   assert.match(page, /Flush the exact editor snapshot before final GitHub Save/);

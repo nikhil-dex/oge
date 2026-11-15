@@ -63,9 +63,37 @@ test('expanded toolbelt hides O launcher and restores it on close', async () => 
 
 test('Saved Links tool has a visible Save page link button using existing API', async () => {
   const script = await readFile(new URL('../extension/content.js', import.meta.url), 'utf8');
-  assert.match(script, /data-tool="url" type="button">↗ Saved Links<\/button>/);
-  assert.match(script, /data-save-url>Save page link →<\/button>/);
+  assert.doesNotMatch(script, /data-tool="url"/);
+  assert.match(script, /data-tool="links" type="button">☷ My links<\/button>/);
+  assert.match(script, /data-save-url>＋ Save current page to Saved Links<\/button>/);
+  assert.match(script, /Reserved for future tool/);
   assert.match(script, /urlSave\.addEventListener\('click', async \(\) =>/);
   assert.match(script, /send\('SAVE_CURRENT_TAB'\)/);
   assert.match(script, /Page link saved to Saved Links/);
+});
+
+
+test('expanded panel overlays the collapsed O footprint without reserving a launcher gap', async () => {
+  const script = await readFile(new URL('../extension/content.js', import.meta.url), 'utf8');
+  assert.match(script, /const y = clamp\(launcherBounds\.bottom - height, GAP, window\.innerHeight - height - GAP\)/);
+  assert.match(script, /panel\.style\.top = y \+ 'px'/);
+  assert.doesNotMatch(script, /bottom:54px/);
+  assert.doesNotMatch(script, /const above = launcherBounds\.top - height - GAP/);
+  assert.match(script, /launcher\.classList\.toggle\('is-panel-open', open\)/);
+});
+
+test('theme comes only from connected Oge page and updates live across tabs', async () => {
+  const script = await readFile(new URL('../extension/content.js', import.meta.url), 'utf8');
+  const worker = await readFile(new URL('../extension/service-worker.js', import.meta.url), 'utf8');
+  assert.match(script, /send\('GET_THEME'\)/);
+  assert.match(script, /state\.isOgePage/);
+  assert.match(script, /document\.documentElement\.dataset\.theme/);
+  assert.match(script, /new MutationObserver\(sync\)/);
+  assert.match(script, /chrome\.storage\.onChanged\.addListener/);
+  assert.match(script, /host\.dataset\.ogeTheme/);
+  assert.match(script, /:host\(\[data-oge-theme="dark"\]\)/);
+  assert.match(worker, /'GET_THEME'/);
+  assert.match(worker, /'SET_THEME'/);
+  assert.match(worker, /new URL\(sender\.tab\.url\)\.origin !== origin/);
+  assert.match(worker, /chrome\.storage\.local\.set\(\{ ogeTheme: message\.theme \}\)/);
 });

@@ -4,6 +4,7 @@ import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 import { getVaultNoteClient, listVaultNotes, listVaultNotePage, readVaultNote, saveVaultNote, deleteVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
+import { withVaultSubjectWrite, VaultSubjectLockedError } from '../../../../lib/oge-vault-subject-fence.js';
 
 // Isolated experimental API; it does NOT replace any existing MongoDB note
 // endpoint until all note paths, extension saves, and migration are verified.
@@ -15,6 +16,7 @@ function json(data, status = 200) {
 }
 
 function errorResponse(error) {
+  if (error instanceof VaultSubjectLockedError) return json({ error: error.message }, 409);
   if (error instanceof SyntaxError || error instanceof TypeError) {
     return json({ error: 'Invalid vault note request.' }, 400);
   }
@@ -73,10 +75,11 @@ export async function POST(request) {
       ownerId: ctx.identity.ownerId, slug: data?.subjectId,
     }, { projection: { _id: 1 } });
     if (!subject) return json({ error: 'Subject not found.' }, 404);
-    const saved = await saveVaultNote(ctx.client, {
-      subjectId: data.subjectId, heading: data.heading, answer: data.answer,
-      tags: data.tags, favorite: data.favorite,
-    });
+    const saved = await withVaultSubjectWrite(ctx.db, ctx.identity.ownerId, data.subjectId,
+      () => saveVaultNote(ctx.client, {
+        subjectId: data.subjectId, heading: data.heading, answer: data.answer,
+        tags: data.tags, favorite: data.favorite,
+      }));
     return json(saved, 201);
   } catch (error) { return errorResponse(error); }
 }
@@ -100,10 +103,11 @@ export async function PUT(request) {
     if (data.subjectId !== undefined && data.subjectId !== previous.subjectId) {
       return json({ error: 'Changing subjects is not yet supported.' }, 400);
     }
-    const saved = await saveVaultNote(ctx.client, {
-      subjectId: previous.subjectId, heading: data.heading, answer: data.answer,
-      tags: data.tags, favorite: data.favorite ?? previous.favorite,
-    }, { id: data.id, sha: data.sha });
+    const saved = await withVaultSubjectWrite(ctx.db, ctx.identity.ownerId, previous.subjectId,
+      () => saveVaultNote(ctx.client, {
+        subjectId: previous.subjectId, heading: data.heading, answer: data.answer,
+        tags: data.tags, favorite: data.favorite ?? previous.favorite,
+      }, { id: data.id, sha: data.sha }));
     return json(saved);
   } catch (error) { return errorResponse(error); }
 }
@@ -118,6 +122,8 @@ export async function DELETE(request) {
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
     const sha = url.searchParams.get('sha');
-    return json(await deleteVaultNote(ctx.client, id, sha));
+    const previous = await readVaultNote(ctx.client, id);
+    return json(await withVaultSubjectWrite(ctx.db, ctx.identity.ownerId, previous.subjectId,
+      () => deleteVaultNote(ctx.client, id, sha)));
   } catch (error) { return errorResponse(error); }
 }

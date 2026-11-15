@@ -35,7 +35,7 @@ export default function RevisionPage() {
     catch (err) { setError(err.message || 'Could not load revision cards.'); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {\n    let active = true;\n    Promise.resolve().then(() => { if (active) void load(); });\n    return () => { active = false; };\n  }, [load]);
 
   const subjects = useMemo(() => [...new Set(notes.map((note) => note.subjectSlug).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [notes]);
   const queue = useMemo(() => subject === 'all' ? notes : notes.filter((note) => note.subjectSlug === subject), [notes, subject]);

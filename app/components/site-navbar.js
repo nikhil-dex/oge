@@ -10,6 +10,7 @@ const links = [
   { href: '/', label: 'Home' },
   { href: '/notes', label: 'Notes' },
   { href: '/news', label: 'News' },
+  { href: '/profile', label: 'Profile' },
 ];
 
 export default function SiteNavbar({ actions = null }) {

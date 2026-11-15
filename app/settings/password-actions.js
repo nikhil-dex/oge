@@ -9,18 +9,18 @@ import { checkRateLimit } from '../../lib/rate-limit.js';
 import { hashAccountPassword, validAccountPassword, isRecentGoogleAuthentication } from '../../lib/password-auth.js';
 
 export async function reauthenticateWithGoogle() {
-  await signIn('google', { redirectTo: '/settings' });
+  await signIn('google', { redirectTo: '/profile' });
 }
 
 export async function setLinkedPassword(formData) {
   const session = await auth();
   const ownerId = session?.user?.id;
   if (!ownerId) redirect('/register');
-  if (!isRecentGoogleAuthentication(session)) redirect('/settings?password=reauth');
+  if (!isRecentGoogleAuthentication(session)) redirect('/profile?password=reauth');
 
   const password = formData.get('password');
   const confirm = formData.get('confirmPassword');
-  if (password !== confirm || !validAccountPassword(password)) redirect('/settings?password=invalid');
+  if (password !== confirm || !validAccountPassword(password)) redirect('/profile?password=invalid');
 
   const db = await getDatabase();
   const limit = await checkRateLimit(db, {
@@ -29,18 +29,18 @@ export async function setLinkedPassword(formData) {
     limit: 4,
     windowMs: 60 * 60 * 1000,
   });
-  if (!limit.allowed) redirect('/settings?password=limited');
+  if (!limit.allowed) redirect('/profile?password=limited');
 
   const filter = ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion });
   const user = await db.collection('users').findOne(filter, { projection: { email: 1 } });
-  if (!user?.email) redirect('/settings?password=failed');
+  if (!user?.email) redirect('/profile?password=failed');
 
   // Reject ambiguous email identities before enabling the alternate login
   // method. Never merge accounts or trust email as a user ownership key.
   const matchingAccounts = await db.collection('users')
     .find({ email: user.email }, { projection: { googleSub: 1 } }).limit(2).toArray();
   if (matchingAccounts.length !== 1 || matchingAccounts[0].googleSub !== ownerId) {
-    redirect('/settings?password=failed');
+    redirect('/profile?password=failed');
   }
 
   const passwordHash = await hashAccountPassword(password);
@@ -48,7 +48,7 @@ export async function setLinkedPassword(formData) {
     filter,
     { $set: { passwordHash, sessionVersion: randomUUID(), passwordUpdatedAt: new Date(), updatedAt: new Date() } },
   );
-  if (result.matchedCount !== 1) redirect('/settings?password=failed');
+  if (result.matchedCount !== 1) redirect('/profile?password=failed');
   // Rotated sessionVersion revokes all old sessions, including this one.
   redirect('/register?password=enabled');
 }

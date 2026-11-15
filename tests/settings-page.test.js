@@ -2,14 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('settings page exposes account, organization, appearance, news, and data controls', async () => {
+test('workspace settings keep organization, appearance, news and data while profile owns account security', async () => {
   const page = await readFile(new URL('../app/settings/page.js', import.meta.url), 'utf8');
   const client = await readFile(new URL('../app/settings/settings-client.js', import.meta.url), 'utf8');
-  for (const section of ['account', 'organization', 'appearance', 'pixel-strip', 'news-preferences', 'data']) {
+  const profile = await readFile(new URL('../app/profile/page.js', import.meta.url), 'utf8');
+  for (const section of ['organization', 'appearance', 'pixel-strip', 'news-preferences', 'data']) {
     assert.ok(page.includes('#' + section) || page.includes('id="' + section + '"') || client.includes('id="' + section + '"'), 'Missing settings section: ' + section);
   }
   assert.match(page, /saveNewsInterests/);
-  assert.match(page, /signOutOfOgeNotes/);
+  assert.match(page, /href="\/profile"/);
+  assert.match(profile, /signOutOfOgeNotes/);
+  assert.match(profile, /setLinkedPassword/);
   assert.ok(client.includes('/api/subjects'));
   assert.match(client, /ogenotes-pixel-strip-settings/);
   assert.match(client, /Restore from backup/);

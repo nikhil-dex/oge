@@ -12,7 +12,7 @@ test('anonymous registration renders without OAuth or database access', async ({
 });
 
 test('private pages redirect anonymous browsers back to registration', async ({ page }) => {
-  for (const path of ['/', '/notes', '/settings', '/saved-links', '/airnotes']) {
+  for (const path of ['/', '/notes', '/settings', '/profile', '/saved-links', '/airnotes']) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/register$/);
     await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();

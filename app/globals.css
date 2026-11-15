@@ -304,3 +304,41 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-password-settings h3{font-size:16px;margin:0 0 10px}
 .oge-password-settings p{font-size:12px;line-height:1.75;color:var(--muted);max-width:540px}
 .oge-password-settings .oge-password-login-form{margin-top:17px}
+
+/* Profile: identity, curated avatars, account security */
+.oge-profile-layout{display:grid;gap:20px;max-width:960px;padding-bottom:56px}
+.oge-profile-form{display:grid;gap:22px;margin-top:16px}
+.oge-profile-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.oge-profile-form-grid>div{display:grid;gap:8px;min-width:0}
+.oge-profile-form-grid label,.oge-avatar-fieldset legend{color:var(--ink);font-size:13px;font-weight:700}
+.oge-profile-form-grid input{width:100%;min-width:0;padding:12px 14px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:10px}
+.oge-profile-form-grid input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.oge-profile-form-grid small,.oge-profile-email small{color:var(--muted);font-size:11px;line-height:1.6}
+.oge-profile-email{display:grid;gap:5px;padding:15px 16px;border-radius:12px;border:1px solid var(--line)}
+.oge-profile-email strong{font-size:12px}
+.oge-profile-email span{font-size:13px;overflow-wrap:anywhere;color:var(--muted)}
+.oge-avatar-fieldset{min-width:0;margin:0;padding:0;border:0}
+.oge-avatar-fieldset p{font-size:12px;color:var(--muted);line-height:1.6}
+.oge-avatar-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.oge-avatar-option{display:flex;align-items:center;flex-direction:column;gap:7px;padding:13px 7px;min-height:113px;border:1px solid var(--line);border-radius:13px;cursor:pointer;color:var(--muted);font-size:11px;text-align:center}
+.oge-avatar-option.is-selected{border-color:var(--green);background:color-mix(in srgb,var(--green) 10%,var(--paper));color:var(--ink)}
+.oge-avatar-option:focus-within{outline:2px solid var(--green);outline-offset:2px}
+.oge-avatar-option input{width:15px;height:15px;margin:0;accent-color:var(--green)}
+.oge-avatar-image{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;font-size:26px;background:#dbeade;overflow:hidden}
+.oge-avatar-image img{width:100%;height:100%;object-fit:cover}
+.oge-avatar-google{background:#dfeae7;color:#245a43}
+.oge-avatar-forest{background:#e1edc7}.oge-avatar-night{background:#cad9ef}.oge-avatar-ocean{background:#c9ebf4}.oge-avatar-sunrise{background:#f9dfc5}.oge-avatar-violet{background:#e8d7f2}.oge-avatar-mint{background:#d9f2d8}.oge-avatar-ember{background:#f9dfd0}.oge-avatar-sky{background:#d5e8f8}
+.oge-profile-form>.oge-google-button{justify-self:start;margin:0}
+.oge-profile-help{border-top:1px solid var(--line);margin-top:24px;padding-top:18px}
+.oge-profile-help h3{font-size:15px;margin:0 0 7px}
+.oge-profile-help p{color:var(--muted);font-size:12px;line-height:1.65}
+.oge-profile-success{font-size:12px;font-weight:700;color:var(--green)}
+.oge-profile-page .oge-settings-card{min-width:0}
+@media(max-width:640px){.oge-profile-form-grid{grid-template-columns:1fr}.oge-avatar-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.oge-profile-form>.oge-google-button{width:100%}}
+
+/* Optional public profile handles */
+.oge-social-links-fieldset{border:0;min-width:0;padding:22px 0 0;margin:0;border-top:1px solid var(--line)}
+.oge-social-links-fieldset legend{padding:0 0 8px;color:var(--ink);font-size:14px;font-weight:700}
+.oge-social-links-fieldset>p{margin:0 0 17px;color:var(--muted);font-size:12px;line-height:1.7}
+.oge-social-links-fieldset .oge-profile-form-grid{gap:18px}
+.oge-social-links-fieldset input{font-size:12px}

@@ -31,7 +31,6 @@ export default async function ProfilePage({ searchParams }) {
   const isGitHubAccount = user.identityProvider === 'github' || ownerId.startsWith('github:');
   const providerLabel = isGitHubAccount ? 'GitHub' : 'Google';
   const googleConnected = Boolean(user.linkedGoogleSub || user.linkedGithubOwnerId);
-  const googleRequired = session.user.googleConnectionRequired === true;
 
   return (
     <main className="shell oge-shell oge-settings-page oge-profile-page oge-retro-workspace">
@@ -48,10 +47,9 @@ export default async function ProfilePage({ searchParams }) {
           <section className="oge-settings-card" aria-labelledby="profile-google-link-heading">
             <div className="oge-settings-card-heading">
               <div><span className="oge-section-kicker">ACCOUNT CONNECTION</span><h2 id="profile-google-link-heading">Google account</h2></div>
-              <span className="oge-settings-pill">{googleConnected ? 'Connected' : googleRequired ? 'Required' : 'Optional'}</span>
+              <span className="oge-settings-pill">{googleConnected ? 'Connected' : 'Optional'}</span>
             </div>
-            {googleRequired && <p role="alert" className="oge-password-error">An existing Google OgeNotes account uses your verified GitHub email. Verify ownership by connecting that Google account before continuing to the workspace.</p>}
-            {!googleRequired && !googleConnected && <p className="oge-settings-description">Connect Google if you also use it to sign in. This is optional when no existing Google account matches your verified GitHub email.</p>}
+            {!googleConnected && <p className="oge-settings-description">Connect Google if you also use it to sign in. This is always optional, even when your verified GitHub email matches an existing Google account.</p>}
             {googleConnected && <p role="status" className="oge-profile-success">Your Google and GitHub sign-ins are connected.</p>}
             {['mismatch', 'expired', 'failed', 'migration-required', 'limited', 'not-available'].includes(query?.google) && (
               <p role="alert" className="oge-password-error">{query.google === 'migration-required'

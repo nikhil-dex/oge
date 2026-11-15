@@ -93,3 +93,18 @@ test('registration inline scripts carry the response CSP nonce', async ({ page }
   expect(scriptStats.withoutNonce).toBe(0);
   expect(scriptStats.mismatched).toBe(0);
 });
+
+
+test('separate registration responses use distinct nonces without enabling CSP enforcement', async ({ request }) => {
+  const first = await request.get('/register');
+  const second = await request.get('/register');
+  expect(first.status()).toBe(200);
+  expect(second.status()).toBe(200);
+  const getNonce = (response) => (response.headers()['content-security-policy-report-only'] || '')
+    .match(/'nonce-([A-Za-z0-9+/_=-]+)'/)?.[1];
+  expect(getNonce(first)).toBeTruthy();
+  expect(getNonce(second)).toBeTruthy();
+  expect(getNonce(first)).not.toBe(getNonce(second));
+  expect(first.headers()['content-security-policy']).toBeUndefined();
+  expect(second.headers()['content-security-policy']).toBeUndefined();
+});

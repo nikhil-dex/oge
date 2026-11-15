@@ -45,3 +45,11 @@ The widget's position and size apply to the current page session. They are not s
 ## Launcher visibility and Saved Links
 
 When you open the floating toolbelt, the draggable **O** launcher is hidden so it does not sit on top of or distract from the panel. The panel's **×** close button restores the launcher at its original position. The **Saved Links** tool in the bottom bar includes a prominent **Save page link →** button that saves the current website to the existing Saved Links collection; success or failure appears inside the panel.
+
+## Shared launcher space, theme, and My Links
+
+- **Launcher shares panel space:** when the toolbelt opens, the `O` is hidden **behind the panel in the same screen location**. The panel's bottom edge aligns with the launcher's bottom edge instead of reserving a separate 54-pixel gap, and you can drag the open panel toward the bottom of the viewport. The `×` button restores the launcher.
+- **Match Oge appearance:** the widget uses Oge's light and dark palette. Open the **connected OgeNotes site** and change its theme; the extension watches the site's `data-theme` and securely updates the widget across tabs. The connection must be set up first. Other websites cannot change this theme; the extension defaults to Oge's dark theme until synchronized.
+- **Save page link moved into My Links:** select **My links** to see GitHub, LinkedIn and portfolio URLs, followed by **Save current page to Saved Links**. The separate Saved Links tab is removed, leaving a reserved **Coming soon** slot for future features.
+
+The toolbar popup still includes its original standalone **Save tab** action; only the **floating widget** layout changes in this update.

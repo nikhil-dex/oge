@@ -67,8 +67,10 @@ export async function POST(request) {
     const client = await getVaultNoteClient(db, { ownerId, sessionVersion });
 
     return await withVaultOwnerImportExclusive(db, { ownerId, repoId: client.vault.repoId,
-      sessionVersion }, () => withVaultSubjectsWrite(db, ownerId, subjectIds, async () => {
+      sessionVersion }, ({ markGitHubWriteAttempt }) =>
+        withVaultSubjectsWrite(db, ownerId, subjectIds, async () => {
       const result = await executeApprovedVaultNotesImport(client, body, {
+        beforeGitHubWrite: markGitHubWriteAttempt,
         subjectVerifier: async (subjects) => {
           for (let offset = 0; offset < subjects.length; offset += 100) {
             const chunk = subjects.slice(offset, offset + 100);

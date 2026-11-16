@@ -5,11 +5,14 @@ import { readFile } from 'node:fs/promises';
 import { validatedNote } from '../lib/oge-vault-notes.js';
 import { VaultGitHubError } from '../lib/oge-vault-github.js';
 import {
-  exportVaultNotesSnapshot, MAX_VAULT_BACKUP_EXPORT_BYTES,
+  exportVaultNotesSnapshot as exportNotes, MAX_VAULT_BACKUP_EXPORT_BYTES,
 } from '../lib/oge-vault-backup-export.js';
 
 const H = (text) => createHash('sha1').update(text).digest('hex');
 const subjectId = randomUUID(), head = H('export-commit'), treeSha = H('export-tree');
+const exportVaultNotesSnapshot = (client, options = {}) =>
+  exportNotes(client, { subjectVerifier: async () => true, ...options });
+
 
 function fixture({ count = 3, changeHead = false, truncated = false,
   customTree, corruptBlob = false, oversized = false } = {}) {
@@ -57,6 +60,10 @@ function fixture({ count = 3, changeHead = false, truncated = false,
     get blobCalls() { return blobCalls; },
     get headCalls() { return headCalls; } };
 }
+
+test('D3b cannot export any note content without an explicit owner-subject verifier', async () => {
+  await assert.rejects(exportNotes(fixture().client), TypeError);
+});
 
 test('D3b exports every current GitHub Note from a stable tree with explicit Notes-only coverage', async () => {
   const f = fixture();

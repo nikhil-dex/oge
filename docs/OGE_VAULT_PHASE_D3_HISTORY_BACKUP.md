@@ -223,6 +223,55 @@ AirNotes, progress, unsynced browser drafts or an archive larger than
 8 MiB. It does not resolve conflicting existing Notes. A successful
 Notes-only import must never be presented as a full Oge restoration.
 
+## Phase D3b2b2: Race fence and read-only import reconciliation
+
+**Default-off staging implementations; not authenticated provider acceptance.**
+
+The approved `POST /api/vault/backup-import/commit` now obtains a signed
+exclusive lock on the owner's MongoDB `users` row in addition to the existing
+selected-subject write fences. The owner row contains only the operation ID,
+repository ID, timestamp and active draft-writer count, **not uploaded content**.
+Every hybrid draft PUT and verified draft-cleanup mutation increments/decrements
+that same owner-row counter while performing the operation, including when a
+caller tries to use a different subject for the selected note UUID. Import
+cannot start until all draft writers finish; autosave during import returns 409
+and must preserve the local recovery copy.
+
+The exclusive lock **does not auto-expire**. If its release is uncertain, the
+lock is left fail-closed and requires an authorized operator to inspect the
+exact signed account, GitHub state, encrypted drafts and import operation
+before any recovery. No automatic unlock or deletion is implemented. Owner
+lock is intentionally broader than one subject: it temporarily blocks all
+draft mutations for the owner during this bounded import.
+
+Each successful import commit now carries a SHA-256 marker calculated from
+the selected canonical notes and owner-approved target GitHub HEAD, rather
+than private text in the commit message. For a lost HTTP response, submit
+**exactly the same** approval body used for the import to:
+
+`POST /api/vault/backup-import/reconcile`
+
+The read-only endpoint has the same four default-off preview gates as the
+commit endpoint. It requires the signed account and repository, validates the
+archive and selected UUIDs, checks current subject ownership and then pins
+the current GitHub HEAD. It confirms only when the HEAD is the **direct child**
+of the approved HEAD, the immutable commit has the exact marker, the selected
+note paths did not exist in the approved base tree, the new immutable blobs
+match the canonical archived notes, and no unrelated files were modified.
+The branch HEAD and signed owner mapping are checked again before reporting
+success. The result contains only imported note IDs and the commit SHA, with
+`confirmed`, `readOnly`, `safeToRetryAutomatically: false` and
+`encryptedDraftsChanged: false`. No imported note text is returned.
+
+If GitHub HEAD advanced beyond the direct commit, the original commit
+cannot be proven by this bounded recovery endpoint: it reports
+`confirmed: false`, not a failed import and not permission to retry. Import
+must NEVER be blindly replayed after an unknown response, and encrypted
+drafts must NEVER be retired from a reconciliation result. A later milestone
+must add evidence-bounded ancestry tracking, owner-facing UI, operator lock
+recovery, signed live two-device/staging tests and local-only browser draft
+protection. This implementation is not full Oge backup restoration.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

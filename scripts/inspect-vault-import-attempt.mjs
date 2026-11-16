@@ -46,7 +46,7 @@ if (!allowed) {
     const github = await getVaultNoteClient(db, {
       ownerId: identity.ownerId,
       sessionVersion: identity.sessionVersion,
-    });
+    }, { readOnly: true });
     if (github.vault.repoId !== identity.repoId)
       throw new Error('Signed repository scope changed');
     const result = await inspectVaultImportAttemptEvidenceReadOnly(

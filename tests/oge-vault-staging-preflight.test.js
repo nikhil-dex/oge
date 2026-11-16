@@ -170,6 +170,6 @@ test('M51 import preflight returns no secrets or private credentials and cannot 
     '../scripts/check-vault-import-staging-preflight.mjs',
   ]) {
     const source = await readFile(new URL(path, import.meta.url), 'utf8');
-    assert.doesNotMatch(source, /\\bfetch\\(|getDatabase\\(|\.updateOne\\(|\.insertOne\\(|\.deleteOne\\(/);
+    assert.doesNotMatch(source, /\bfetch\(|getDatabase\(|\.updateOne\(|\.insertOne\(|\.deleteOne\(/);
   }
 });

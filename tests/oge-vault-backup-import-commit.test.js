@@ -67,6 +67,7 @@ function fixture({ existing = [], pending = [], drift = false, rateLimit = false
     subjectVerifier: async () => true,
     pendingDraftIds: async () => [...pending],
     ownerVerifier: async () => ownerValid,
+    beforeGitHubWrite: async () => {},
     batchWriter: async (_client, operations, opts) => {
       writes++;
       assert.equal(opts.expectedHead, HEAD);
@@ -209,4 +210,13 @@ test('D3b2b2c3 verified import hands its exact commit marker to the batch writer
   const result = await executeApprovedVaultNotesImport(f.client, approval(input), f.options);
   assert.equal(result.importedCount, 2);
   assert.equal(f.getWrites(), 1);
+});
+
+test('D3b2b2c3 import executor refuses to write if mandatory durable marker is absent', async () => {
+  const input = archive(1), f = fixture();
+  await assert.rejects(executeApprovedVaultNotesImport(
+    f.client, approval(input, [input.notes[0].id]), {
+      ...f.options, beforeGitHubWrite: undefined,
+    }), TypeError);
+  assert.equal(f.getWrites(), 0);
 });

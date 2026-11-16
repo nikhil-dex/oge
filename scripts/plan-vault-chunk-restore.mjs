@@ -119,8 +119,9 @@ async function readPrivateSelectionFile(path) {
     if (bytes.length !== before.size || before.ino !== after.ino ||
         before.size !== after.size || before.mtimeMs !== after.mtimeMs)
       throw new TypeError('Private selection changed');
-    return validateVaultChunkRestoreBatchSelection(
-      JSON.parse(bytes.toString('utf8')));
+    const selection = JSON.parse(bytes.toString('utf8'));
+    validateVaultChunkRestoreBatchSelection(selection);
+    return selection;
   } finally { await handle.close(); }
 }
 

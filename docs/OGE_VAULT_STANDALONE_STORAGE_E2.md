@@ -128,3 +128,20 @@ CAS removal of the exact committed draft while preserving newer remote
 autosaves. No silent retry, TTL, normal Quick Notes/AirNotes UI cutover,
 extension token grant, complete backups or live provider signoff exists.
 See `docs/OGE_VAULT_STANDALONE_ENCRYPTED_DRAFTS_E3.md`.
+
+## E5 / M73 current three-resource GitHub snapshot export
+
+The new independently default-OFF stage-only
+`/api/vault/backup-current-resources` reads one signed owner's immutable
+private GitHub HEAD/tree and downloads all **currently committed**
+subject-linked Notes, Quick Notes and AirNotes in a new, explicitly
+**non-importable** archive. Every reserved tree path and JSON blob must
+pass canonical validation, owner subject ownership and a final HEAD fence.
+Oversized/301+ standalone sets fail closed rather than silently truncate.
+The new read-only `verifyVaultCurrentResourcesArchive` verifies canonical
+resource count/order/checksums, but does **not** prove source authentication
+or grant restore approval. **Encrypted unsaved drafts, historical revisions,
+legacy MongoDB contents, Learning Tracks and metadata remain excluded.**
+This is not a full Oge account/disaster-recovery backup. Existing D3
+Notes-only formats and writers are unchanged. See
+`docs/OGE_VAULT_CURRENT_RESOURCE_BACKUP_E5.md`.

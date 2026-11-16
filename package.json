@@ -29,7 +29,8 @@
     "vault:chunk:verify-history": "node scripts/verify-vault-chunk-source.mjs",
     "vault:chunk:batch-intent": "node scripts/plan-vault-chunk-restore.mjs",
     "vault:chunk:restore-staging": "node scripts/commit-vault-chunk-restore-staging.mjs",
-    "vault:staging:provider-probe": "node scripts/probe-vault-live-provider-readonly.mjs"
+    "vault:staging:provider-probe": "node scripts/probe-vault-live-provider-readonly.mjs",
+    "vault:staging:two-device-evidence": "node scripts/review-vault-two-device-evidence.mjs"
   },
   "dependencies": {
     "mongodb": "^6.21.0",

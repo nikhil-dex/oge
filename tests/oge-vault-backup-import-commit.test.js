@@ -220,3 +220,59 @@ test('D3b2b2c3 import executor refuses to write if mandatory durable marker is a
     }), TypeError);
   assert.equal(f.getWrites(), 0);
 });
+
+test('M51 owner revocation after durable marker blocks GitHub writer, never retries', async () => {
+  const input = archive(1), f = fixture();
+  let checks = 0, markerCalls = 0;
+  const failure = executeApprovedVaultNotesImport(f.client,
+    approval(input, [input.notes[0].id]), {
+      ...f.options,
+      ownerVerifier: async () => ++checks === 1,
+      beforeGitHubWrite: async (marker, evidence) => {
+        markerCalls++;
+        assert.match(marker, /^Restore OgeNotes backup [a-f0-9]{64}$/);
+        assert.equal(evidence.expectedHead, HEAD);
+        assert.deepEqual(evidence.selectedIds, [input.notes[0].id]);
+      },
+    });
+  await assert.rejects(failure, (err) =>
+    err.status === 409 &&
+    err.message === 'vault-import-owner-or-repository-changed-after-marker');
+  assert.equal(checks, 2, 'second signed owner verifier happens after marker');
+  assert.equal(markerCalls, 1);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('M51 account/repository verifier must pass both sides of durable GitHub marker', async () => {
+  const input = archive(2), f = fixture();
+  let checks = 0, markerStored = false;
+  const result = await executeApprovedVaultNotesImport(
+    f.client, approval(input), {
+      ...f.options,
+      ownerVerifier: async () => { checks++; return true; },
+      beforeGitHubWrite: async () => { markerStored = true; },
+      batchWriter: async (...args) => {
+        assert.equal(markerStored, true);
+        assert.equal(checks, 2, 'signed repo reverified just before GitHub writer');
+        return f.options.batchWriter(...args);
+      },
+    });
+  assert.equal(result.importedCount, 2);
+  assert.equal(f.getWrites(), 1);
+  assert.equal(checks, 2);
+});
+
+test('M51 refusal on second owner check cannot release possible-write lock in production route', async () => {
+  const route = await readFile(new URL(
+    '../app/api/vault/backup-import/commit/route.js', import.meta.url), 'utf8');
+  const executor = await readFile(new URL(
+    '../lib/oge-vault-backup-import-commit.js', import.meta.url), 'utf8');
+  const fence = await readFile(new URL(
+    '../lib/oge-vault-import-fence.js', import.meta.url), 'utf8');
+  assert.match(route, /beforeGitHubWrite: markGitHubWriteAttempt/);
+  assert.ok(executor.indexOf("throw fail('vault-import-owner-or-repository-changed-after-marker')") <
+    executor.indexOf('await batchWriter(client, operations'));
+  assert.ok(executor.indexOf('await beforeGitHubWrite(commitMessage') <
+    executor.indexOf("throw fail('vault-import-owner-or-repository-changed-after-marker')"));
+  assert.match(fence, /if \(workError && githubWriteMayHaveStarted\)/);
+});

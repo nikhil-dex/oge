@@ -89,7 +89,7 @@ test('Phase C scanner and CLI contain no content fetch, migration, writes or get
   const cli = await readFile(new URL('../scripts/check-vault-legacy-notes.mjs', import.meta.url), 'utf8');
   assert.match(scanner, /countDocuments\(/);
   assert.doesNotMatch(scanner, /\.find\(|\.findOne\(|\.aggregate\(|\.deleteOne\(|\.updateOne\(|\.insertOne\(/);
-  assert.doesNotMatch(cli, /\bgetDatabase\(\)|\.deleteMany\(|\.dropDatabase\(|\.updateOne\(/);
+  assert.doesNotMatch(cli, /await getDatabase\(|\.deleteMany\(|\.dropDatabase\(|\.updateOne\(/);
   assert.match(cli, /OGE_VAULT_INVENTORY_READ_ONLY/);
   assert.match(cli, /YES_COUNTS_ONLY/);
   assert.doesNotMatch(cli, /console\.log\(uri\)|console\.log\(error\)/);

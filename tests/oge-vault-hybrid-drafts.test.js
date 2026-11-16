@@ -66,7 +66,8 @@ test('draft routes are preview-gated and production Notes remains separate', asy
   assert.match(api, /getVaultNoteClient/);
   assert.match(api, /ownerMutationFilter\(session\.user\.id/);
   assert.match(api, /repoId: vault\.repoId/);
-  assert.match(api, /readVaultNote\(client, scope\.noteId\)/);
+  assert.match(api, /reconcileConfirmedVaultDraft\(/);
+  assert.match(api, /readConfirmedVaultSaveReceipt\(/);
   assert.match(api, /readLimitedBody\(request, 32768\)/);
   assert.match(mongo, /vault_drafts.*createIndex/);
   assert.match(mongo, /vault_files.*createIndex/);
@@ -130,6 +131,11 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.match(page, /method: 'DELETE'/);
   assert.match(vaultPage, /OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true'/);
   assert.match(vaultPage, /vaultOwnerId=\{session\.user\.id\}/);
-  assert.match(api, /readVaultNote\(client, scope\.noteId\)/);
-  assert.match(api, /clearConfirmedDraft/);
+  assert.match(api, /reconcileConfirmedVaultDraft\(/);
+  assert.match(api, /readConfirmedVaultSaveReceipt\(/);
+  assert.match(api, /export async function DELETE\(request\) \{/);
+  assert.match(api, /return POST\(request\)/);
+  assert.match(page, /cleaned\?\.confirmed !== true \|\| cleaned\.cleared !== true/);
+  assert.match(page, /GitHub saved — draft cleanup pending/);
+  assert.match(page, /GitHub saved — newer browser draft retained/);
 });

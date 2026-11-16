@@ -116,12 +116,25 @@ test('M76 concurrent claims have exactly ONE winner and cannot issue a second us
   await disposable(async (db) => {
     const f = await fixture(db);
     await recordStandaloneRestoreTicket(db, f.owner, f.receipt);
+    // A second pending ticket issued BEFORE the first claim may not bypass
+    // a previous restore that is now claimed but still unconfirmed.
+    const pendingSecond = issueStandaloneRestoreTicket(f.owner, f.binding, {
+      secret: KEY,
+    });
+    const verifiedSecond = verifyStandaloneRestoreTicket(
+      pendingSecond.ticket, f.owner, f.binding, { secret: KEY });
+    await recordStandaloneRestoreTicket(db, f.owner, pendingSecond);
     const results = await Promise.allSettled(Array.from({ length: 12 }, () =>
       claimStandaloneRestoreTicketOnce(db, f.owner, f.verified)));
     assert.equal(results.filter((item) => item.status === 'fulfilled').length, 1);
     assert.equal(results.filter((item) => item.status === 'rejected').length, 11);
     assert.equal((await db.collection('vault_standalone_restore_approvals')
       .findOne({ _id: f.receipt.nonceHash })).state, 'claimed');
+    await assert.rejects(claimStandaloneRestoreTicketOnce(
+      db, f.owner, verifiedSecond),
+    /vault-standalone-ticket-previous-batch-unconfirmed/);
+    assert.equal((await db.collection('vault_standalone_restore_approvals')
+      .findOne({ _id: pendingSecond.nonceHash })).state, 'pending');
     const second = issueStandaloneRestoreTicket(f.owner, f.binding, {
       secret: KEY,
     });

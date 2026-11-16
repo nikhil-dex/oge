@@ -5,6 +5,7 @@ import {
   buildVaultRestoreReviewApproval, classifyVaultRestoreReviewHistory,
 } from '../../../lib/oge-vault-restore-review.js';
 import styles from './restore-staging.module.css';
+import { verifyVaultRestoreLocalChunkFiles } from '../../../lib/oge-vault-restore-local-chunks.js';
 
 const historyEndpoint = '/api/vault/backup-import/chunk/history';
 const approveEndpoint = '/api/vault/backup-import/chunk/authorize';
@@ -25,6 +26,10 @@ export default function RestoreReviewClient() {
   });
   const [reviewed, setReviewed] = useState(false);
   const [typedConfirmation, setTypedConfirmation] = useState('');
+  const [localFiles, setLocalFiles] = useState([]);
+  const [localIntegrity, setLocalIntegrity] = useState(null);
+  const [localVerifyBusy, setLocalVerifyBusy] = useState(false);
+  const [localVerifyError, setLocalVerifyError] = useState('');
   const [approveBusy, setApproveBusy] = useState(false);
   const [approvalError, setApprovalError] = useState('');
   const [receipt, setReceipt] = useState(null);
@@ -71,10 +76,14 @@ export default function RestoreReviewClient() {
   }, []);
 
   const review = classifyVaultRestoreReviewHistory(history);
+  const locallyVerified = localIntegrity?.reviewKey === JSON.stringify(fields) &&
+    localIntegrity?.report?.completeLocalSequenceVerified === true &&
+    localIntegrity?.report?.reviewedSelectionFingerprintMatches === true &&
+    localIntegrity?.report?.signedGitHubSourceAuthenticated === false;
   const canRequest = !historyBusy && !historyError &&
-    review.canRequestReceipt && reviewed &&
+    review.canRequestReceipt && locallyVerified && reviewed &&
     typedConfirmation === 'APPROVE ONE BATCH' &&
-    !approveBusy && !receipt;
+    !approveBusy && !localVerifyBusy && !receipt;
 
   async function requestReceipt(event) {
     event.preventDefault();
@@ -144,8 +153,28 @@ export default function RestoreReviewClient() {
     } finally { setStatusBusy(false); }
   }
 
-  const field = (name) => (event) =>
+  async function verifyLocalBackupFiles() {
+    if (!review.canRequestReceipt || localVerifyBusy || receipt) return;
+    const key = JSON.stringify(fields);
+    setLocalIntegrity(null);
+    setLocalVerifyError('');
+    setLocalVerifyBusy(true);
+    try {
+      const result = await verifyVaultRestoreLocalChunkFiles(
+        localFiles, fields);
+      setLocalIntegrity({ reviewKey: key, report: result });
+    } catch {
+      // Never echo File contents, parsed private notes or JSON exceptions.
+      setLocalVerifyError('The private chunks do not match the reviewed source, inventory, selected IDs or fingerprint. No files were uploaded; do not request a receipt.');
+    } finally { setLocalVerifyBusy(false); }
+  }
+
+  const field = (name) => (event) => {
+    setLocalIntegrity(null);
+    setLocalVerifyError('');
+    setReviewed(false);
     setFields((value) => ({ ...value, [name]: event.target.value }));
+  };
 
   return (
     <div className={styles.layout}>
@@ -226,6 +255,48 @@ export default function RestoreReviewClient() {
               placeholder="Paste only selected note UUIDs" rows={4}
               maxLength={600} disabled={Boolean(receipt)} required />
           </label>
+          <fieldset className={styles.localReview}>
+            <legend>Local private chunk integrity check</legend>
+            <p className={styles.helper}>
+              Choose all numbered part-0001.json through the final part,
+              up to 16 files. These files contain your private note text.
+              Your browser reads them locally in memory to verify the
+              complete sequence and reviewed selection fingerprint.
+              <strong> Files are never uploaded.</strong> This does
+              not authenticate GitHub ownership; the separate operator
+              independently verifies every original Git blob.
+            </p>
+            <label>Choose the private backup chunk files
+              <input type="file" accept=".json,application/json" multiple
+                disabled={Boolean(receipt) || localVerifyBusy}
+                onChange={(event) => {
+                  setLocalFiles(Array.from(event.target.files || []));
+                  setLocalIntegrity(null);
+                  setLocalVerifyError('');
+                  setReviewed(false);
+                }} />
+            </label>
+            <p className={styles.muted}>
+              {localFiles.length} local file(s) selected. No note bodies
+              or filenames will be sent to the server.
+            </p>
+            <button type="button" className={styles.secondary}
+              onClick={verifyLocalBackupFiles}
+              disabled={!localFiles.length || localVerifyBusy ||
+                Boolean(receipt) || !review.canRequestReceipt}>
+              {localVerifyBusy ? 'Verifying locally…' :
+                'Verify local chunks and reviewed fingerprint'}
+            </button>
+            {localVerifyError && <p role="alert" className={styles.alert}>
+              {localVerifyError}</p>}
+            {locallyVerified &&
+              <p role="status" className={styles.neutral}>
+                Local integrity verified: {localIntegrity.report.locallyVerifiedNoteCount}
+                {' '}Notes in {localIntegrity.report.locallyVerifiedPages} file(s);
+                {' '}{localIntegrity.report.selectedNoteCount} selected.
+                This does not prove signed GitHub provenance or authorize a restore.
+              </p>}
+          </fieldset>
           <label className={styles.checkbox}>
             <input type="checkbox" checked={reviewed} disabled={Boolean(receipt)}
               onChange={(e) => setReviewed(e.target.checked)} />
@@ -245,9 +316,11 @@ export default function RestoreReviewClient() {
             {approveBusy ? 'Requesting…' : 'Request one-time staging receipt'}
           </button>
         </form>
-        <p className={styles.muted}>This request issues a signed 10-minute receipt
-          only. It never commits Notes. The private operator must separately
-          verify the backup and claim the receipt once.</p>
+        <p className={styles.muted}>This request requires the complete local
+          chunk integrity and reviewed selection fingerprint check, then
+          issues only a signed 10-minute receipt. It never commits Notes.
+          The private operator must independently verify GitHub provenance
+          and claim the receipt once.</p>
       </section>
 
       {receipt && <section className={styles.panel} aria-labelledby="restore-ticket-heading">

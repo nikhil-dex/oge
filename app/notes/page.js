@@ -510,6 +510,13 @@ export default function NotesPage({
           }
         } catch { /* Retain draft; next editor visit will reconcile. */ }
       }
+      // An edit that raced with confirmed cleanup must remain in the open
+      // editor. Never close over new text just because an older Save worked.
+      if (hybridDrafts && JSON.stringify(liveEditorRef.current) !== submittedEditor) {
+        setDraftStatus('Newer edits pending — earlier revision saved to GitHub');
+        setMessage('GitHub saved the submitted version. New edits remain in the editor.');
+        return;
+      }
       hybridGenerationRef.current += 1;
       setNewDraftId('');
       editorInitialRef.current = null;

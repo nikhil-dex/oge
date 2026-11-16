@@ -1,4 +1,4 @@
-# Oge Vault — Milestones #46–48: import-lock triage and GitHub evidence
+# Oge Vault — Milestones #46–49: import-lock triage and GitHub proof
 
 **Status:** #46 read-only operator inspection and #47 disposable-local-only
 prewrite lock recovery are implemented in code. **No production release of an
@@ -204,6 +204,60 @@ release any `github-write-possible` or legacy lock, even after a positive
 candidate metadata check. Deep histories, merges and ambiguous results
 require human investigation. Live signed staging, verified operator
 quiescence and production recovery remain incomplete.
+
+## 6. Milestone #49 — Read-only canonical archive verification for an uncertain import
+
+Only an authorized operator who possesses the owner's **original four-key
+approved import request**, including the selected IDs and full private
+backup archive, may perform a stronger content check of a
+`github-write-possible` lock. The independent #48 metadata-only check does
+not need the archive, but cannot validate original note bytes.
+
+Supply an **absolute path** to a private JSON file containing exactly the
+approval body previously sent to the create-only import route
+(`archive`, `expectedTargetHead`, `selectedIds`, `confirmation`).
+The local file must be owned by the operator, regular, non-symlink, readable
+with permission mode `0600` (or stricter), no more than the 8MiB archive
+bound plus request overhead, and unchanged during read. Use a private
+encrypted-volume/secret-management workflow and never put the JSON or
+private note contents into CI logs, shell history, tickets or GitHub commits.
+
+Along with explicit `MONGODB_URI`, `MONGODB_DB`, private GitHub App
+credentials and the same exact signed-owner `OGE_VAULT_INSPECT_*` scope
+used for #46/#48, supply the *unset-by-default* variables
+`OGE_VAULT_IMPORT_ARCHIVE_PROOF_READ_ONLY=YES_EXACT_ARCHIVE_ONLY` and
+`OGE_VAULT_IMPORT_APPROVAL_FILE=/absolute/private/approval.json`.
+
+Then execute:
+
+```sh
+npm run vault:import-archive:prove
+```
+
+This CLI requests a repository-scoped GitHub installation token with
+**contents:read** (not write). It refuses a missing/inconsistent lock,
+target HEAD, commit digest, selected IDs, owner session or repository
+mapping **before GitHub verification**. For an exact match it runs the
+existing signed read-only 20-commit-window reconciler: verifies immutable
+Git blob bytes against the original canonical archive notes, the approved
+commit's parent/digest, complete tree delta, owned subjects and stable
+GitHub HEAD. It rechecks the exact MongoDB lock afterwards, and checks only
+the **existence** of encrypted drafts for those selected IDs. It never
+persists the private archive or prints note text, IDs, credentials, tokens,
+GitHub SHAs or draft contents.
+
+Output is a redacted result such as
+`ARCHIVE_IMPORT_CONFIRMED_HISTORICALLY` or
+`ARCHIVE_IMPORT_NOT_CONFIRMED`, with note counts and later-change counts.
+The CLI exits nonzero even on historical confirmation. A mismatch, changed
+owner, altered lock or unavailable GitHub state fails closed.
+
+**Historical content verification is not permission to unlock or retry.**
+A newer commit may already have changed or deleted a note, and neither a
+stable branch HEAD nor the best cryptographic content proof proves the old
+worker is quiescent. No post-GitHub-write import-lock release implementation
+has been authorized. Keep the lock quarantined until an externally verified,
+independently reviewed maintenance and recovery process exists.
 
 ## Release gates
 

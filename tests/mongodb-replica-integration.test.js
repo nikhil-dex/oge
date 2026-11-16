@@ -9,6 +9,7 @@ import { deleteAccountDataAtomically, ACCOUNT_OWNER_COLLECTIONS } from '../lib/a
 import { promoteStagedVaultFileIndex } from '../lib/oge-vault-file-index-promotion.js';
 import { reconcileVaultFileIndexVerification } from '../lib/oge-vault-file-index-recovery.js';
 import { reconcileConfirmedVaultDraft } from '../lib/oge-vault-save-finalize.js';
+import { retireConfirmedVaultDraftWithReceipt, readConfirmedVaultSaveReceipt } from '../lib/oge-vault-save-receipt.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -463,5 +464,77 @@ test('real MongoDB B7 ambiguous Save cleanup cannot remove a newer draft revisio
     const remaining = await drafts.findOne(scope);
     assert.equal(remaining.revision, 4);
     assert.equal(remaining.encrypted.ciphertext, 'newer synthetic draft');
+  });
+});
+
+test('real MongoDB B7 receipt cleanup is atomic, idempotent and GitHub reverified', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'save-receipt-' + randomUUID();
+    const repoId = 389, noteId = randomUUID(), sessionVersion = randomUUID();
+    const scope = { ownerId, repoId, noteId };
+    const sha = 'a'.repeat(40), commitSha = 'b'.repeat(40);
+    const credential = { sessionVersion };
+    const client = { vault: { repoId } };
+    const drafts = db.collection('vault_drafts');
+    await drafts.createIndex({ ownerId: 1, repoId: 1, noteId: 1 }, { unique: true });
+    await db.collection('vault_save_receipts').createIndex(
+      { ownerId: 1, repoId: 1, noteId: 1 }, { unique: true });
+    await db.collection('users').insertOne({ googleSub: ownerId,
+      sessionVersion, vault: { status: 'connected', repoId } });
+    await drafts.insertOne({ ...scope, revision: 3,
+      encrypted: { ciphertext: 'test encrypted draft' } });
+
+    const written = await retireConfirmedVaultDraftWithReceipt(
+      db, scope, 3, sha, commitSha, { credential });
+    assert.equal(written, true);
+    assert.equal(await drafts.countDocuments(scope), 0);
+    const receipt = await db.collection('vault_save_receipts').findOne(scope);
+    assert.equal(receipt.revision, 3);
+    assert.equal(receipt.sha, sha);
+    assert.deepEqual(Object.keys(receipt).filter((field) =>
+      ['heading', 'answer', 'content', 'tags', 'draft', 'encrypted'].includes(field)), []);
+
+    const checked = await readConfirmedVaultSaveReceipt(db, client, scope, 3,
+      { noteReader: async () => ({ id: noteId, sha }) });
+    assert.equal(checked.confirmed, true);
+    assert.equal(checked.alreadyCleared, true);
+    assert.equal(await retireConfirmedVaultDraftWithReceipt(
+      db, scope, 3, sha, commitSha, { credential }), false);
+    assert.equal(await db.collection('vault_save_receipts').countDocuments(scope), 1);
+
+    // A fresh encrypted autosave always takes precedence over an older receipt.
+    await drafts.insertOne({ ...scope, revision: 4,
+      encrypted: { ciphertext: 'newer encrypted test draft' } });
+    const stale = await readConfirmedVaultSaveReceipt(db, client, scope, 3,
+      { noteReader: async () => ({ id: noteId, sha }) });
+    assert.equal(stale.confirmed, false);
+    assert.equal(await retireConfirmedVaultDraftWithReceipt(
+      db, scope, 3, sha, commitSha, { credential }), false);
+    assert.equal((await drafts.findOne(scope)).revision, 4);
+  });
+});
+
+test('real MongoDB B7 receipt update failure rolls back encrypted draft deletion', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'receipt-abort-' + randomUUID();
+    const repoId = 390, noteId = randomUUID(), sessionVersion = randomUUID();
+    const scope = { ownerId, repoId, noteId };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+    });
+    await db.collection('vault_drafts').insertOne({
+      ...scope, revision: 2, encrypted: { ciphertext: 'must not disappear' },
+    });
+    const broken = { client: db.client, collection(name) {
+      if (name !== 'vault_save_receipts') return db.collection(name);
+      return { async updateOne() { throw new Error('synthetic-receipt-write-failure'); } };
+    } };
+    await assert.rejects(retireConfirmedVaultDraftWithReceipt(broken, scope,
+      2, 'a'.repeat(40), 'b'.repeat(40), { credential: { sessionVersion } }),
+    /synthetic-receipt-write-failure/);
+    const draft = await db.collection('vault_drafts').findOne(scope);
+    assert.equal(draft.revision, 2);
+    assert.equal(draft.encrypted.ciphertext, 'must not disappear');
+    assert.equal(await db.collection('vault_save_receipts').countDocuments(scope), 0);
   });
 });

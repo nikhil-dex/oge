@@ -61,6 +61,11 @@ export async function POST(request) {
     if (!heading || heading.length > 160) return json({ error: 'Heading must be 1–160 characters.' }, 400);
     if (!answer || answer.length > 20000) return json({ error: 'Note content must be 1–20,000 characters.' }, 400);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const subject = await ctx.db.collection('subjects').findOne({ ownerId: ctx.ownerId, slug: subjectSlug }, { session });
       if (!subject) return json({ error: 'Subject not found.' }, 404);
       const now = new Date();
@@ -92,6 +97,11 @@ export async function PUT(request) {
     if (!ObjectId.isValid(id)) return json({ error: 'Choose a valid note.' }, 400);
     if (!heading || heading.length > 160 || !answer || answer.length > 20000) return json({ error: 'Add a heading and content within the allowed lengths.' }, 400);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const collection = ctx.db.collection('notes');
       const previous = await collection.findOne({ _id: new ObjectId(id), ownerId: ctx.ownerId }, { session });
       if (!previous) return json({ error: 'Note not found.' }, 404);
@@ -123,6 +133,11 @@ export async function DELETE(request) {
     const id = new URL(request.url).searchParams.get('id');
     if (!ObjectId.isValid(id || '')) return json({ error: 'Choose a valid note.' }, 400);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const result = await ctx.db.collection('notes').deleteOne({ _id: new ObjectId(id), ownerId: ctx.ownerId }, { session });
       if (!result.deletedCount) return json({ error: 'Note not found.' }, 404);
       return json({ deleted: id });
@@ -147,6 +162,11 @@ export async function PATCH(request) {
     const id = String(data?.id || '');
     if (!ObjectId.isValid(id) || typeof data?.favorite !== 'boolean') return json({ error: 'Choose a note and a valid favorite value.' }, 400);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const result = await ctx.db.collection('notes').updateOne({ _id: new ObjectId(id), ownerId: ctx.ownerId }, { $set: { favorite: data.favorite, updatedAt: new Date() } }, { session });
       if (!result.matchedCount) return json({ error: 'Note not found.' }, 404);
       return json({ id, favorite: data.favorite });

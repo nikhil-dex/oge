@@ -120,6 +120,12 @@ export async function POST(request) {
     const { db, ownerId } = ctx;
     const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: ctx.sessionVersion });
     return await withAtomicBackupImport(db, async (session) => {
+    // Revalidate after starting the transaction. A GitHub Vault connection
+    // created since the initial check must never allow legacy backup import
+    // to repopulate permanent note content in MongoDB.
+    const lockedCutover = await inspectLegacyCutoverForOwner(db, ownerId,
+      { sessionVersion: ctx.sessionVersion }, { session });
+    if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
     const subjectCollection = db.collection('subjects');
     const noteCollection = db.collection('notes');
     const linkCollection = db.collection('savedLinks');

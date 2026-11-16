@@ -45,6 +45,9 @@ export default async function VaultPage({ searchParams }) {
   // M62 staging-only owner workflow; never link from production.
   const restoreStagingVisible =
     process.env.OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW === 'true' &&
     /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(
       process.env.MONGODB_DB || '') &&
     checkVaultStagingReadiness(process.env).ok;

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { checkVaultStagingReadiness } from '../lib/oge-vault-staging-preflight.js';
+import { checkVaultImportStagingReadiness } from '../lib/oge-vault-import-staging-preflight.js';
 
 const syntheticKey = Buffer.from(generateKeyPairSync('rsa', {
   modulusLength: 2048,
@@ -96,4 +97,79 @@ test('B7 staging preflight cannot provision vaults, read notes or mutate user da
   assert.doesNotMatch(checker, /\bfetch\(|getDatabase\(|createFile\(|insertOne\(|updateOne\(|deleteOne\(/);
   assert.doesNotMatch(script, /\bfetch\(|getDatabase\(|createFile\(|insertOne\(|updateOne\(|deleteOne\(/);
   assert.match(script, /checkVaultStagingReadiness\(process\.env\)/);
+});
+
+const importStaging = () => ({
+  ...baseline(),
+  OGE_VAULT_NOTE_API_PREVIEW: 'true',
+  OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW: 'true',
+  OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW: 'true',
+  OGE_VAULT_IMPORT_STAGING_ACK: 'ISOLATED_SYNTHETIC_ACCOUNTS_ONLY',
+});
+
+test('M51 isolated import staging passes configuration checks but NEVER claims live OAuth signoff', () => {
+  const report = checkVaultImportStagingReadiness(importStaging());
+  assert.equal(report.ok, true);
+  assert.deepEqual(report.failures, []);
+  assert.equal(report.evidence, 'configuration-only');
+  assert.equal(report.importPreviewEnabledHere, true);
+  assert.equal(report.liveProviderVerified, false);
+  assert.equal(report.authenticatedBrowserVerified, false);
+  assert.equal(report.twoDeviceSignedAcceptanceComplete, false);
+  assert.equal(report.productionImportAuthorized, false);
+  assert.equal(report.productionCutoverAuthorized, false);
+});
+
+test('M51 missing import dependency, acknowledgment, or dedicated staging isolation fails closed', () => {
+  for (const key of ['OGE_VAULT_NOTE_API_PREVIEW',
+    'OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW',
+    'OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW']) {
+    for (const value of ['', 'false']) {
+      const report = checkVaultImportStagingReadiness({
+        ...importStaging(), [key]: value,
+      });
+      assert.equal(report.ok, false);
+      assert.ok(report.failures.some((entry) =>
+        entry.code === 'import-gate-' + key.toLowerCase().replaceAll('_', '-')));
+    }
+  }
+  const missingAcknowledgment = checkVaultImportStagingReadiness({
+    ...importStaging(), OGE_VAULT_IMPORT_STAGING_ACK: '',
+  });
+  assert.equal(missingAcknowledgment.ok, false);
+  assert.ok(missingAcknowledgment.failures.some((entry) =>
+    entry.code === 'import-synthetic-acknowledgment'));
+  assert.equal(checkVaultImportStagingReadiness({
+    ...importStaging(), OGE_STAGING_URL: 'https://oge.example',
+  }).ok, false);
+});
+
+test('M51 import preflight rejects destructive and staging recovery release controls', () => {
+  for (const key of ['OGE_VAULT_DESTRUCTIVE_DELETE_INTERNAL',
+    'OGE_VAULT_SUBJECT_RETIRE_INTERNAL', 'OGE_ACCOUNT_DELETION_ENABLED',
+    'OGE_VAULT_PREWRITE_RELEASE_STAGING_ONLY']) {
+    const report = checkVaultImportStagingReadiness({
+      ...importStaging(), [key]: 'YES_DISPOSABLE_PREWRITE_ONLY',
+    });
+    assert.equal(report.ok, false);
+    assert.ok(report.failures.some((entry) =>
+      entry.code === 'import-destructive-or-operator-recovery-enabled'));
+  }
+});
+
+test('M51 import preflight returns no secrets or private credentials and cannot mutate data', async () => {
+  const secret = 'UNIQUE_PRIVATE_STAGE_TOKEN_NEVER_LEAK';
+  const report = checkVaultImportStagingReadiness({
+    ...importStaging(), OGE_VAULT_GITHUB_CLIENT_SECRET: secret,
+    OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW: 'false',
+  });
+  assert.equal(report.ok, false);
+  assert.equal(JSON.stringify(report).includes(secret), false);
+  for (const path of [
+    '../lib/oge-vault-import-staging-preflight.js',
+    '../scripts/check-vault-import-staging-preflight.mjs',
+  ]) {
+    const source = await readFile(new URL(path, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /\\bfetch\\(|getDatabase\\(|\.updateOne\\(|\.insertOne\\(|\.deleteOne\\(/);
+  }
 });

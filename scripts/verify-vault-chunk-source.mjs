@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * M55: independently compare local private chunk files to raw Git blobs
- * in the signed owner's CURRENT GitHub Vault. Never writes GitHub, stores
- * content in MongoDB, grants approval or recovers old snapshots.
+ * M55 current-source proof; M56 independently gated bounded-history proof.
+ * Both compare local private chunks with raw Git blobs in the signed
+ * owner's Vault, never write MongoDB/GitHub or authorize restore.
  */
 import { constants } from 'node:fs';
 import { lstat, readdir, open } from 'node:fs/promises';
@@ -21,8 +21,15 @@ const identity = {
   repoId: Number(env.OGE_VAULT_INSPECT_REPO_ID),
 };
 const directory = env.OGE_VAULT_CHUNK_PLAN_DIRECTORY;
-const allowed =
-  env.OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY === 'YES_CURRENT_GITHUB_HEAD_ONLY' &&
+const currentMode = env.OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY ===
+  'YES_CURRENT_GITHUB_HEAD_ONLY';
+const historyMode = env.OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY ===
+  'YES_20_LINEAR_ANCESTORS_ONLY';
+// Exactly one explicit mode is permitted; the older command remains
+// current-only unless the distinct historical opt-in is deliberately used.
+const allowed = (currentMode !== historyMode) &&
+  !((!currentMode && env.OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY) ||
+    (!historyMode && env.OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY)) &&
   typeof directory === 'string' && isAbsolute(directory) &&
   typeof env.MONGODB_URI === 'string' && !!env.MONGODB_URI &&
   typeof env.MONGODB_DB === 'string' &&
@@ -88,7 +95,7 @@ if (allowed) {
   catch { /* Report only redacted failure, no private file paths */ }
 }
 if (!allowed || !safeFiles) {
-  console.error('BLOCKED: exact owner and an owned private chunk directory plus explicit current-HEAD-only consent required.');
+  console.error('BLOCKED: exact owner, private chunk files, and one explicit read-only source mode are required.');
   process.exitCode = 1;
 } else {
   const mongo = new MongoClient(env.MONGODB_URI, {
@@ -118,9 +125,11 @@ if (!allowed || !safeFiles) {
         a.githubLogin === b.githubLogin && a.repoName === b.repoName;
     };
     const proof = await verifyVaultNotesChunkGitHubSourceReadOnly(
-      github, privateChunks(directory), { ownerVerifier });
+      github, privateChunks(directory), {
+        ownerVerifier, allowBoundedHistory: historyMode,
+      });
     console.log(JSON.stringify(proof, null, 2));
-    // Even a correct current GitHub source is NOT authorization to import.
+    // Current or bounded historical proof NEVER authorizes import/retry/unlock.
     process.exitCode = 2;
   } catch (error) {
     console.error('BLOCKED: GitHub source proof unavailable (' +

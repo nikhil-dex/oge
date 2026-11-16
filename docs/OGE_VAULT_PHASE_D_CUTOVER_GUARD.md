@@ -45,6 +45,33 @@ The GitHub Vault note API still performs its own owner, session, GitHub
 App installation and repository authorization. This guard **never grants
 GitHub access** and does not trust matching email addresses for ownership.
 
+## Phase D2: familiar Notes URL routing (staging-only)
+
+With the same `OGE_VAULT_CUTOVER_GUARD_PREVIEW=true` flag, the server
+layout for `/notes` now chooses the destination **before rendering** the
+legacy browser editor:
+
+- A fully signed-in account with a connected Vault, positive repository ID
+  and positive GitHub App installation ID is redirected to `/vault/notes`.
+  This reuses the same familiar editor, but with the separate GitHub-only
+  `/api/vault/notes-main` API and encrypted temporary draft recovery.
+- An account with no Vault connection continues to use the legacy
+  `/notes` editor **only for this isolated preview**.
+- Incomplete connections, missing signed owner records, disabled required
+  previews, or uncertain owner state result in a blocked workspace. They
+  are **not** interpreted as permission to open MongoDB Notes.
+- A database or GitHub failure is never handled by a fallback to MongoDB.
+  The Vault editor and its API independently verify owner and repository
+  authorization. Notes are not imported or copied during redirection.
+- If the flag is false (the default), the layout immediately returns the
+  existing Notes client without an extra database lookup or redirect.
+
+This is a *routing prototype*, not the mandatory production cutover. Other
+pages and APIs must continue to be protected by the D1 guard because
+third-party clients can call legacy endpoints directly. Existing browser
+drafts must be audited during final user-facing rollout, and authenticated
+navigation/staging tests remain outstanding.
+
 ## Legacy routes fenced
 
 | API route | Covered operations |

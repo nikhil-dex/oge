@@ -134,7 +134,7 @@ test('D3b2 import rejects any unsupported legacy format, missing coverage or sus
 
 test('D3b2 invalid size and unauthorized subject fail before remote Git tree reads', async () => {
   const input = archive(2);
-  assert.throws(() => validateVaultNotesImportArchive(input, { maxBytes: 1024 }),
+  assert.throws(() => validateVaultNotesImportArchive(archive(12), { maxBytes: 1024 }),
     /vault-import-archive-invalid/);
   const f = githubFixture();
   await assert.rejects(plan(f.client, input, {

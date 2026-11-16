@@ -1,10 +1,10 @@
 # Oge Vault — Phase D3: GitHub revision history and backup architecture
 
-**Status: bounded GitHub revision read/restore, Notes-only export, read-only
-import planning and separate create-only, explicitly owner-approved import
-commit preview implemented. The import route is default-off and untested with
-live authenticated staging. Full backup, cross-request recovery and production
-cutover remain pending.**
+**Status: bounded revision read/restore, Notes-only export, read-only import
+planning, owner-approved create-only import and read-only bounded Git ancestry
+recovery previews implemented. All import routes are default-off and untested
+with live authenticated staging. Full-resource backup, owner-facing recovery
+and production cutover remain pending.**
 
 ## Staging-only revision preview
 
@@ -253,24 +253,34 @@ than private text in the commit message. For a lost HTTP response, submit
 
 The read-only endpoint has the same four default-off preview gates as the
 commit endpoint. It requires the signed account and repository, validates the
-archive and selected UUIDs, checks current subject ownership and then pins
-the current GitHub HEAD. It confirms only when the HEAD is the **direct child**
-of the approved HEAD, the immutable commit has the exact marker, the selected
-note paths did not exist in the approved base tree, the new immutable blobs
-match the canonical archived notes, and no unrelated files were modified.
-The branch HEAD and signed owner mapping are checked again before reporting
-success. The result contains only imported note IDs and the commit SHA, with
-`confirmed`, `readOnly`, `safeToRetryAutomatically: false` and
-`encryptedDraftsChanged: false`. No imported note text is returned.
+archive and selected UUIDs, checks current subject ownership and pins the
+current GitHub HEAD. It walks at most **20 Git commits**, requiring a linear,
+single-parent history to find the exact approved import commit. The import
+commit's direct parent must be the previously approved target HEAD; its
+content-derived SHA-256 marker must match; complete immutable Git trees must
+prove that only the selected note files were newly added; and all imported
+blobs must match the canonical archived notes. A later modification or
+deletion does not erase proof of the **historical** import.
 
-If GitHub HEAD advanced beyond the direct commit, the original commit
-cannot be proven by this bounded recovery endpoint: it reports
-`confirmed: false`, not a failed import and not permission to retry. Import
-must NEVER be blindly replayed after an unknown response, and encrypted
-drafts must NEVER be retired from a reconciliation result. A later milestone
-must add evidence-bounded ancestry tracking, owner-facing UI, operator lock
-recovery, signed live two-device/staging tests and local-only browser draft
-protection. This implementation is not full Oge backup restoration.
+The result returns only metadata: `commitSha` is the verified historical
+import commit (not the current branch HEAD), `currentHead` is the HEAD
+pinned for this check, `commitsAfterImport` counts newer commits, and
+`currentNotesUnchanged` / `currentNotesChanged` distinguish unchanged
+current Notes from later edits/deletions. The branch HEAD and signed owner
+mapping must still match before confirming. No private note text is returned;
+no permanent MongoDB note content, drafts, receipts or GitHub files are
+modified by the recovery endpoint.
+
+When the target commit lies beyond the 20-commit window, the history is
+merged/nonlinear, or the approved commit is not proven, the result is
+`confirmed: false`, **not proof the import failed**. Invalid Git trees,
+cycles and provider limits fail closed. Every result includes
+`safeToRetryAutomatically: false`; this remains true even when import was
+historically confirmed. Do not replay an uncertain import, overwrite newer
+edits or retire encrypted drafts. Owner-facing UI, operator lock recovery,
+signed live two-device/staging tests, merge-aware/deep history and local-only
+browser draft protection remain unimplemented. This is not full Oge backup
+restoration.
 
 ## Next: Full import recovery and backup coverage (not implemented)
 
@@ -304,6 +314,7 @@ No migration or cleanup of existing data is authorized by this document.
 - The revision preview is capped to recent note history, the current-Notes
   export is size bounded, and Notes-only import has a **read-only planner and
   separately disabled create-only approved commit API**. Full history, multi-resource export, large-vault
-  pagination, conflict resolution and cross-request import recovery remain unimplemented.
+  pagination, conflict resolution, merge-aware/deep-history recovery and
+  owner-facing import recovery remain unimplemented.
 - PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
   isolated staging until security and explicit release approval.

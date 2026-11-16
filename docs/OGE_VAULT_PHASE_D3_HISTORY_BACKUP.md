@@ -705,6 +705,64 @@ two-device staging, or production flag change**. A confirmed
 historical source never implies that the notes are unchanged today.
 See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
 
+## Phase D3b2b2c4j / Milestone #57: Authenticated 12-note create-only intent (NO WRITE)
+
+The signed current/historical source GitHub proof from M55/M56 can now
+be combined with selected destination conflict checks to prepare an
+**explicit, bounded, non-authorizing** recovery intent for **1–12 Notes
+from a private source backup of up to 1,024 Notes**.
+
+`prepareVaultChunkRestoreBatchIntentReadOnly` requires the original
+complete private chunk sequence and an exact owner-supplied five-field
+request: `confirmation=PREPARE_CREATE_ONLY_RESTORE_BATCH`,
+`expectedSourceSnapshot`, `expectedSourceInventorySha256`,
+`expectedTargetHead`, and distinct `selectedIds`.
+It verifies the **entire** source sequence against the signed current
+GitHub Vault or a linear ancestor within 20 newer commits, rechecking
+raw Git blob SHA-1 and all note contents. The source helper emits only
+private **selected metadata** (UUID, subject UUID, Git blob SHA and
+SHA-256 canonical content digest) inside the process for intent binding;
+it never returns or stores original note plaintext.
+
+The destination is the **same owner-connected private GitHub Vault**.
+After source proof, the planner validates selected subject ownership,
+strictly scans the entire current Git tree at the **exact requested
+target HEAD**, checks exact selected UUIDs against unsaved encrypted
+MongoDB drafts, then rechecks the signed owner and current branch HEAD.
+Draft conflicts take priority over existing GitHub note conflicts.
+It returns only selected ID/status pairs, bounded counts, and a
+deterministic SHA-256 fingerprint of the source-selected metadata,
+selection order, source inventory and destination HEAD.
+
+There is no write route, no new GitHub App write token, no
+`commitVaultNoteBatch` call, no MongoDB draft deletion or lock release.
+A positive `eligibleForIndependentApproval` only means no current
+known conflict. All results remain `canCommit:false`,
+`commitAuthorized:false`, `requiresFreshUserApproval:true`, and
+`requiresIndependentWriteRecovery:true`: the digest is NOT a
+signed approval token.
+
+The operator-only `npm run vault:chunk:batch-intent` uses an
+**exclusive**, default-off `OGE_VAULT_CHUNK_BATCH_INTENT_READ_ONLY=
+YES_EXACT_VERIFIED_SELECTION_ONLY` mode and a separate owned 0600
+regular non-symlink selection JSON file. It retains all existing
+0700 private downloaded chunk-directory checks, inspects files
+**before database/GitHub access**, uses GitHub `contents:read`
+permissions and prints no note bodies. It never authorizes an
+actual restore.
+
+M57 tests cover a 520-note, over-8-MiB source, 12-note maximum,
+explicit source/target binding, conflicting committed notes,
+encrypted drafts, malicious selection keys, forged chunks,
+moving HEAD, stale owner and private local file safety.
+
+**Actual one-batch GitHub creation and multi-batch resumption remain
+M58+ work**, requiring a separate signed owner approval/authorization
+surface, fresh owner and subject fences, GitHub CAS, durable metadata-only
+uncertainty marker and a proven read-only reconciliation mechanism before
+any uncertain lock can be released. Live authenticated GitHub staging,
+Quick Notes, AirNotes, extension and full cutover are also pending.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

@@ -55,6 +55,9 @@ export async function POST(request) {
     const throttle = await checkRateLimit(db, { scope: 'revision-rating', identifier: ownerId, limit: 120, windowMs: 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      const lockedCutover = await inspectLegacyCutoverForOwner(db, ownerId,
+        { sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const collection = db.collection('notes');
       const now = new Date();
       const nextReviewAt = new Date(now.getTime() + intervals[rating] * 24 * 60 * 60 * 1000);

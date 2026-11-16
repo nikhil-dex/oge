@@ -175,3 +175,21 @@ staging gates. Existing Phase C dynamic collection audit requires
 
 **PR #35 stays DRAFT and UNMERGED, flags remain OFF, and no live
 user Notes or production data are touched by development/testing.**
+
+## E8 / M76 independent signed one-time restore approval
+
+The M75 standalone commit endpoint now also REQUIRES an independently
+enabled HMAC-SHA256 10-minute one-time ticket obtained from
+`POST /api/vault/backup-current-resources/authorize`. The issuer checks
+the signed owner, complete M73 source, original kind/selected UUIDs,
+fresh GitHub HEAD/draft safety and the exact M75 selection fingerprint.
+The authenticated same-origin `/commit` verifies this ticket before
+the owner import lock, then atomically claims it exactly once **inside**
+that lock before any GitHub writer. A validated remote commit is recorded
+against the hashed receipt before the lock releases. An unresolved claimed
+receipt, including a previously pending second ticket, cannot authorize
+another write; uncertain outcomes leave the owner import quarantine
+in place. No private note text/raw ticket is stored in MongoDB.
+The HMAC does not authenticate an externally supplied backup or enable
+production restoration. See
+`docs/OGE_VAULT_STANDALONE_ONE_TIME_APPROVAL_E8.md`.

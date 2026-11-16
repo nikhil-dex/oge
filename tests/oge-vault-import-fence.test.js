@@ -11,6 +11,7 @@ const ownerId = 'synthetic-owner';
 const repoId = 43;
 const sessionVersion = randomUUID();
 const owner = { ownerId, repoId, sessionVersion };
+const recoveryEvidence = { expectedHead: 'b'.repeat(40), selectedIds: [randomUUID()] };
 
 function database() {
   const user = {
@@ -153,7 +154,7 @@ test('D3b2b2c3 preserves durable quarantine for a failed GitHub write of unknown
   let initiated = false;
   await assert.rejects(withVaultOwnerImportExclusive(f.db, owner,
     async ({ markGitHubWriteAttempt }) => {
-      await markGitHubWriteAttempt(marker);
+      await markGitHubWriteAttempt(marker, recoveryEvidence);
       initiated = true;
       throw new Error('lost GitHub acknowledgment even if GitHub persisted');
     }), (err) => err.message === 'vault-import-write-outcome-unconfirmed-lock-retained' &&
@@ -172,7 +173,7 @@ test('D3b2b2c3 verified GitHub success releases lock after durable write marker'
   const f = database();
   const value = await withVaultOwnerImportExclusive(f.db, owner,
     async ({ markGitHubWriteAttempt }) => {
-      await markGitHubWriteAttempt('Restore OgeNotes backup ' + 'b'.repeat(64));
+      await markGitHubWriteAttempt('Restore OgeNotes backup ' + 'b'.repeat(64), recoveryEvidence);
       return 'verified-commit';
     });
   assert.equal(value, 'verified-commit');
@@ -186,7 +187,7 @@ test('D3b2b2c3 marker refusal happens before any GitHub write', async () => {
     let writes = 0;
     await assert.rejects(withVaultOwnerImportExclusive(f.db, owner,
       async ({ markGitHubWriteAttempt }) => {
-        await markGitHubWriteAttempt(malformed);
+        await markGitHubWriteAttempt(malformed, recoveryEvidence);
         writes++;
       }), TypeError);
     assert.equal(writes, 0);
@@ -199,8 +200,8 @@ test('D3b2b2c3 repeated markers cannot turn a second import into a write', async
   const marker = 'Restore OgeNotes backup ' + 'c'.repeat(64);
   await assert.rejects(withVaultOwnerImportExclusive(f.db, owner,
     async ({ markGitHubWriteAttempt }) => {
-      await markGitHubWriteAttempt(marker);
-      await markGitHubWriteAttempt(marker);
+      await markGitHubWriteAttempt(marker, recoveryEvidence);
+      await markGitHubWriteAttempt(marker, recoveryEvidence);
     }), (err) => err.status === 503);
   assert.equal(f.user.vaultImportLock.state, 'github-write-possible');
 });
@@ -211,7 +212,7 @@ test('D3b2b2c3 GitHub adapter invokes owner write marker before the batch writer
   const adapter = await readFile(new URL(
     '../lib/oge-vault-backup-import-commit.js', import.meta.url), 'utf8');
   assert.match(route, /beforeGitHubWrite: markGitHubWriteAttempt/);
-  assert.match(adapter, /await beforeGitHubWrite\(commitMessage\)/);
-  assert.ok(adapter.indexOf('await beforeGitHubWrite(commitMessage)') <
+  assert.match(adapter, /await beforeGitHubWrite\(commitMessage, \{/);
+  assert.ok(adapter.indexOf('await beforeGitHubWrite(commitMessage, {') <
     adapter.indexOf('await batchWriter(client, operations'));
 });

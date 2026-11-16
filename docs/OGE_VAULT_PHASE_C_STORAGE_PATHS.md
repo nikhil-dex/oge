@@ -36,6 +36,7 @@ unreachable branches.
 | `app/api/quick-notes/route.js` | Create/update/delete `quickNotes.content/title` | Move confirmed Quick Notes to GitHub; preserve encrypted temporary drafts |
 | `app/api/personal-quick-notes/route.js` | Create/update/delete `personalQuickNotes.content/title` (AirNotes) | Move confirmed AirNotes to GitHub; preserve temporary drafts |
 | `app/api/extension/quick-note/route.js` | Subject-linked capture writes full `notes`; standalone capture writes full `quickNotes` | Require extension capture through the Vault coordinator and stable owner/subject mapping |
+| `lib/mongodb.js` | Legacy collection **index definitions only** | Review/index cleanup separately; does not itself store note content |
 | `lib/atomic-subject-deletion.js` | Legacy MongoDB notes cascade removal | Keep connected Vault deletion fail-closed until GitHub and metadata transactional coordinator is validated |
 | `lib/oge-vault-subject-finalization.js` | Read-only check that legacy subject notes are absent | Keep as a safety gate until the legacy note audit is complete |
 | `lib/account-deletion-transaction.js` | Dynamically iterates collections for account deletion | Existing connected-Vault guard must stay until safe cross-store lifecycle handling is approved |

@@ -26,7 +26,8 @@
     "vault:import:staging-preflight": "node scripts/check-vault-import-staging-preflight.mjs",
     "vault:chunk:restore-plan": "node scripts/plan-vault-chunk-restore.mjs",
     "vault:chunk:verify-source": "node scripts/verify-vault-chunk-source.mjs",
-    "vault:chunk:verify-history": "node scripts/verify-vault-chunk-source.mjs"
+    "vault:chunk:verify-history": "node scripts/verify-vault-chunk-source.mjs",
+    "vault:chunk:batch-intent": "node scripts/plan-vault-chunk-restore.mjs"
   },
   "dependencies": {
     "mongodb": "^6.21.0",

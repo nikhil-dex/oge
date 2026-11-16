@@ -390,3 +390,38 @@ test('real MongoDB resolves interrupted post-commit verification without rewriti
       ...f.scope, status: 'present' }), 51);
   });
 });
+
+test('real MongoDB account deletion blocks connected GitHub Vaults without removing their mapping', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'vault-owner-' + randomUUID();
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion: epochA,
+      vault: { status: 'connected', repoId: 771, installationId: 99 },
+    });
+    await db.collection('vault_drafts').insertOne({
+      ownerId, repoId: 771, noteId: randomUUID(),
+      encrypted: { ciphertext: 'synthetic-test-only' },
+    });
+    await assert.rejects(deleteAccountDataAtomically(db, ownerId, epochA),
+      /Vault account deletion is disabled/);
+    assert.equal(await db.collection('users').countDocuments({ googleSub: ownerId }), 1);
+    assert.equal(await db.collection('vault_drafts').countDocuments({ ownerId }), 1);
+  });
+});
+
+test('real MongoDB account deletion blocks orphaned drafts and file-index recovery records', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    for (const collectionName of [
+      'vault_drafts', 'vault_file_index_state', 'vault_file_index_bootstrap',
+      'vault_files', 'vault_subject_inspections', 'vault_subject_deletion_jobs',
+    ]) {
+      const ownerId = 'orphan-' + randomUUID();
+      await db.collection('users').insertOne({ googleSub: ownerId, sessionVersion: epochA });
+      await db.collection(collectionName).insertOne({ ownerId, repoId: 812 });
+      await assert.rejects(deleteAccountDataAtomically(db, ownerId, epochA),
+        /Vault recovery data exists/);
+      assert.equal(await db.collection('users').countDocuments({ googleSub: ownerId }), 1);
+      assert.equal(await db.collection(collectionName).countDocuments({ ownerId }), 1);
+    }
+  });
+});

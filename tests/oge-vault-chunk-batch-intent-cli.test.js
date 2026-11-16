@@ -90,7 +90,12 @@ test('M57 read-only batch script never mints a write-token or persists note bodi
   assert.match(file, /prepareVaultChunkRestoreBatchIntentReadOnly/);
   assert.match(file, /validateVaultChunkRestoreBatchSelection/);
   assert.match(file, /O_NOFOLLOW/);
-  assert.match(file, /before MongoDB or GitHub/);
+  assert.ok(file.indexOf('readPrivateSelectionFile(selectionFile)') <
+    file.indexOf('new MongoClient('),
+  'private selection is checked before database access');
+  assert.ok(file.indexOf('checkPrivateChunkDirectory(directory)') <
+    file.indexOf('new MongoClient('),
+  'private chunk directory is checked before database access');
   assert.match(file, /getVaultNoteClient\(db, identity, \{ readOnly: true \}\)/);
   assert.doesNotMatch(file,
     /\.insertOne\(|\.updateOne\(|\.deleteOne\(|commitVaultNoteBatch\(/);

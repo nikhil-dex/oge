@@ -793,7 +793,7 @@ test('real MongoDB D3b2b2c3 durable marker survives uncertain GitHub response', 
     await assert.rejects(withVaultOwnerImportExclusive(db, scope, async ({
       markGitHubWriteAttempt,
     }) => {
-      await markGitHubWriteAttempt('Restore OgeNotes backup ' + 'a'.repeat(64));
+      await markGitHubWriteAttempt('Restore OgeNotes backup ' + 'a'.repeat(64), {\n        expectedHead: 'a'.repeat(40), selectedIds: [randomUUID()],\n      });
       throw new Error('synthetic ambiguous GitHub response');
     }, { operationId }), (err) =>
       err.status === 503 &&

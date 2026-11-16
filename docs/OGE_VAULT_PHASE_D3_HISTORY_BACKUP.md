@@ -571,6 +571,48 @@ No note content is stored in MongoDB. See
 **Live signed GitHub OAuth/two-device acceptance, cross-resource backup,
 chunk restoration, owner-facing UI and production flags remain blocked.**
 
+## Phase D3b2b2c4g / Milestone #54: Verified sequence, read-only large-vault restore preview
+
+Large Notes-only chunk backups are not valid inputs to the existing
+8 MiB/12-selected-note approved import. The new
+`planVaultNotesChunkRestoreReadOnly` engine reads one private chunk at a
+time, validates all pages against the existing canonical
+`createVaultNotesChunkSequenceVerifier`, and accumulates only source
+note/subject UUID metadata. An incomplete or reordered source backup
+fails **before** any target GitHub inspection.
+
+Once the entire source sequence passes the self-consistency checks,
+the planner independently verifies the signed current owner, owner-scoped
+subject IDs (100 per query), the **complete destination GitHub tree**,
+temporary encrypted draft conflicts (100 per query), stable destination
+HEAD and the signed owner/repository mapping at finish. A draft conflict
+takes precedence over a committed-note conflict. Results give the
+count of create-candidates, existing-note conflicts and draft conflicts,
+plus the first 12 source IDs/statuses **without any headings or answers**.
+
+An opt-in private, operator-only local command
+`npm run vault:chunk:restore-plan` reads operator-owned, 0700 private
+directories of contiguous `part-0001.json` etc files with 0600
+permissions, checks these files prior to any network I/O, and obtains a
+repo-restricted **contents:read** installation token. It never persists
+note bodies to MongoDB, modifies GitHub, deletes encrypted drafts, or
+changes an import lock. The separate `OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY`
+opt-in is unset by default.
+
+This preview authenticates the signed **destination** owner, not the
+origin of user-supplied backup pages. SHA-256 chunk/inventory digests are
+not source signatures and do not prove original GitHub blob provenance;
+this must be solved separately before any chunk restore can be approved.
+**No large-vault import/write is implemented in Milestone #54.**
+Every plan says `canCommit:false` and a new, independently validated,
+explicit owner approval is required for any future import.
+
+Synthetic >8 MiB/520-note tests, real disposable MongoDB subject/draft
+integration, stale sessions, source truncation, target drift, invalid
+draft output and private-file permissions are covered in CI. Signed
+live GitHub two-device staging and all non-Notes data paths remain
+release blockers. See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

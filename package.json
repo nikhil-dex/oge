@@ -19,7 +19,8 @@
     "vault:storage-path-audit": "node scripts/check-vault-storage-paths.mjs",
     "staging:http": "node scripts/verify-staging-http.mjs",
     "test:browser": "playwright test",
-    "vault:import-lock:inspect": "node scripts/inspect-vault-import-lock.mjs"
+    "vault:import-lock:inspect": "node scripts/inspect-vault-import-lock.mjs",
+    "vault:import-lock:release-prewrite-staging": "node scripts/release-vault-import-lock-staging.mjs"
   },
   "dependencies": {
     "mongodb": "^6.21.0",

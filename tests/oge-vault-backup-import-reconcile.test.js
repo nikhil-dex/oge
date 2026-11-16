@@ -68,6 +68,9 @@ function fixture(body, { head = NEXT, wrongMessage = false, wrongParent = false,
         headReads++;
         return { object: { sha: headDrift && headReads > 1 ? H('drift') : head } };
       }
+      if (head !== NEXT && head !== BASE && path === '/git/commits/' + head)
+        return { tree: { sha: NEXT_TREE }, parents: [{ sha: H('unknown-parent') }],
+          message: 'Unrelated commit' };
       if (path === '/git/commits/' + NEXT) return {
         tree: { sha: NEXT_TREE },
         parents: [{ sha: wrongParent ? H('other-base') : BASE }],

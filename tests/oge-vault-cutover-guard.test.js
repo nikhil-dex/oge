@@ -117,3 +117,46 @@ test('Phase D preview protects backup imports and token-based extension capture 
   assert.match(extension, /\{ extensionTokenHash: tokenHash \}, \{ session \}/);
   assert.doesNotMatch(legacyNotes, /OGE_VAULT_CUTOVER_GUARD_PREVIEW/);
 });
+
+test('Phase D every known legacy content endpoint is guarded before MongoDB access', async () => {
+  const cases = [
+    ['notes', ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']],
+    ['quick-notes', ['GET', 'POST', 'PUT', 'DELETE']],
+    ['personal-quick-notes', ['GET', 'POST', 'PUT', 'DELETE']],
+    ['revision', ['GET', 'POST']],
+    ['revision-history', ['GET', 'POST']],
+    ['backup', ['GET', 'POST']],
+    ['notes/cleanup', ['POST']],
+  ];
+  for (const [route, methods] of cases) {
+    const source = await readFile(new URL('../app/api/' + route + '/route.js', import.meta.url), 'utf8');
+    for (const [index, method] of methods.entries()) {
+      const start = source.indexOf('export async function ' + method + '(');
+      const end = index + 1 < methods.length
+        ? source.indexOf('export async function ' + methods[index + 1] + '(', start + 1)
+        : source.length;
+      assert.ok(start >= 0, route + ' ' + method);
+      const body = source.slice(start, end < 0 ? source.length : end);
+      assert.match(body, /inspectLegacyCutoverForOwner\(/, route + ' ' + method);
+      assert.match(body, /if \(cutover\.blocked\) return legacyCutoverBlockedResponse\(cutover\)/,
+        route + ' ' + method);
+    }
+    assert.doesNotMatch(source, /process\.env\.OGE_VAULT_CUTOVER_GUARD_PREVIEW = 'true'/);
+  }
+});
+
+test('Phase D transactional legacy writers have a second owner-scoped preflight in the same session', async () => {
+  const cases = [
+    ['notes', 4], ['quick-notes', 3], ['personal-quick-notes', 3],
+    ['revision', 1], ['revision-history', 1], ['backup', 2],
+  ];
+  for (const [route, expected] of cases) {
+    const source = await readFile(new URL('../app/api/' + route + '/route.js', import.meta.url), 'utf8');
+    const fenced = (source.match(/\{ sessionVersion(?:: ctx\.sessionVersion)? \}, \{ session \}/g) || []).length;
+    assert.equal(fenced, expected, route + ' requires transactional cutover checks');
+    assert.match(source, /lockedCutover\.blocked/);
+  }
+  const extension = await readFile(new URL('../app/api/extension/quick-note/route.js', import.meta.url), 'utf8');
+  assert.match(extension, /if \(cutover\.blocked\) return legacyCutoverBlockedResponse\(cutover\)/);
+  assert.match(extension, /\{ extensionTokenHash: tokenHash \}, \{ session \}/);
+});

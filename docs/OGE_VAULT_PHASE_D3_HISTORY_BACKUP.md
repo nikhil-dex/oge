@@ -501,6 +501,35 @@ live OAuth/browser acceptance. See
 `docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md` for the remaining
 real two-browser GitHub installation and mobile/429/revocation cases.
 
+## Phase D3b2b2c4e / Milestone #52: GitHub batch-write failure matrix
+
+The test suite now uses the REAL `commitVaultNoteBatch` Git tree/commit/ref
+algorithm together with the approved owner import executor and real
+disposable MongoDB account/subject fences. Only the GitHub network provider
+is simulated. It introduces deterministic rate limits, competing Git
+ref updates, ambiguous PATCH response failures, and failures verifying
+GitHub HEAD or imported-note content **after** the branch may have advanced.
+
+Successful GitHub commits with a lost 503/422 PATCH response are confirmed
+only after reading exact GitHub HEAD, immutable commit ancestry and note
+contents; the owner lock is then released after verified success. A 429
+before import mutation leaves no Git objects or lock. If a potential
+mutation cannot be proven (429 on a POST, ref conflict/422 or 429 during
+post-commit HEAD/content verification), the durable owner lock remains
+quarantined, and no write is retried. An unrelated external Git branch
+update is not overwritten. Later signed owner-archive recovery can prove
+historical content read-only, but **does not** permit automatic lock release.
+
+Only temporary encrypted drafts and non-content coordination metadata
+belong in MongoDB. Tests explicitly reject permanent note plaintext in
+owner records. See
+`docs/OGE_VAULT_GITHUB_FAILURE_ACCEPTANCE.md` for the complete matrix.
+
+All of this is **synthetic GitHub transport** acceptance, not real signed
+GitHub OAuth/installation, actual provider throttling, mobile browser
+recovery or production cutover. Those live checks remain mandatory.
+Import preview flags remain default-off outside isolated staging.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

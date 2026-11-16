@@ -13,6 +13,20 @@
 .kicker { font-size: .76rem; letter-spacing: .14em; font-weight: 800; color: var(--accent, #a46d43); text-transform: uppercase; }
 .helper { color: var(--muted, inherit); line-height: 1.65; margin: .4rem 0 1rem; }
 .form { display: grid; gap: 1.25rem; }
+.localReview {
+  min-width: 0; margin: 0; padding: 1rem;
+  border: 1px dashed var(--border-color, #8a8175);
+  border-radius: 8px; background: rgba(163, 126, 80, .055);
+}
+.localReview legend {
+  font-weight: 800; letter-spacing: .03em; padding: 0 .35rem;
+}
+.localReview input[type='file'] {
+  width: 100%; max-width: 100%; font-size: .9rem;
+  padding: .65rem .25rem; border: 0; background: transparent;
+}
+.localReview .secondary { width: auto; max-width: 100%; }
+
 .form label:not(.checkbox) { display: grid; gap: .4rem; font-weight: 650; font-size: .9rem; }
 .form input:not([type='checkbox']), .form textarea {
   width: 100%; min-width: 0; font: inherit; font-weight: 450; line-height: 1.4;

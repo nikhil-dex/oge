@@ -469,6 +469,38 @@ revocation and browser sessionStorage recovery require further signed
 staging. Production flags are still disabled. No production migration or
 merge is authorized.
 
+## Phase D3b2b2c4d / Milestone #51: Late owner revocation and staging readiness
+
+The owner-approved create-only import executor now checks the same signed
+account incarnation and connected GitHub Vault mapping **again**, after its
+durable `github-write-possible` marker and immediately before the GitHub
+batch writer. A changed owner session or revoked/replaced GitHub
+installation at this point blocks the remote writer. The outer import lock
+remains in conservative quarantine rather than treating a no-write failure
+as permission for automatic unlock. This reduces one important
+time-of-check/time-of-use window; it does **not** provide a cross-service
+atomic guarantee against a later provider revocation.
+
+New real disposable MongoDB replica-set acceptance tests use simulated
+GitHub content and two concurrent devices to verify the account-wide
+import/draft fence **across different subjects**, including a different
+subject for the same note UUID. A draft written before import remains
+encrypted and causes a fresh conflict, while a draft attempted during
+another subject's import receives 409. The tests also revoke the DB
+installation mapping or change the signed session epoch between the
+durable marker and the GitHub writer; no remote note content is written
+and the lock stays protected.
+
+`npm run vault:import:staging-preflight` is a separate, **no-network,
+no-database, configuration-only** readiness check for an isolated
+**synthetic-account** import rehearsal. It verifies all required preview
+gates, disabled destructive/recovery controls, dedicated staging
+credentials and an explicit acknowledgment. It does **not** enable any
+flag, mint a GitHub token, test actual provider permissions or certify
+live OAuth/browser acceptance. See
+`docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md` for the remaining
+real two-browser GitHub installation and mobile/429/revocation cases.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

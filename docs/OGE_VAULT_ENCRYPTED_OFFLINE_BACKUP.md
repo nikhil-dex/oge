@@ -30,7 +30,7 @@ On the hidden authenticated staging restore review page, select the **complete e
 
 Wrong passwords, tampered ciphertext or header, mixed backup sets, missing/duplicate/renamed parts, unexpected original content, changed selection and malformed Notes fail closed. The password input is cleared after a local verification attempt. Plaintext part-NNNN.json files remain accepted only for controlled older staging review, but the M65 browser export no longer offers them as downloads.
 
-**Critical operator limitation:** the existing M58/M59 restricted restore CLI still requires private 0700 directories with owner-only 0600 PLAINTEXT part-NNNN.json files. It **cannot directly consume encrypted .oge.json files**. A separately security-reviewed operator conversion and temporary-file lifecycle is future work. No signed GitHub provider proof, GitHub write authorization, import-lock release or production restoration follows from merely decrypting locally.
+**M66 operator update:** An additional default-off encrypted mode now authenticates and decrypts private .oge.json files only in transient memory, before ticket claim, while preserving independent M58 signed source proof. External audited operator and live-provider acceptance are still pending. No signed GitHub provider proof, GitHub write authorization, import-lock release or production restoration follows from merely decrypting locally.
 
 ## Data and release limitations
 
@@ -47,3 +47,48 @@ Wrong passwords, tampered ciphertext or header, mixed backup sets, missing/dupli
 Tests include encrypted roundtrip through the actual M63 verifier for 130 Notes and **520 Notes greater than 8 MiB**, wrong password, header/ciphertext tamper, IV/salt/part mismatch, weak KDF, mixed/partial files, no plaintext note text in sealed JSON and read-only no-persistent-storage UI. CI generic Chromium smoke is NOT a live authenticated multi-download staging drill.
 
 Keep PR #35 draft, all production flags off, and real user Notes unchanged.
+
+## Milestone #66 — Secure operator-side encrypted backup intake (isolated staging)
+
+The existing one-batch M59 operator now accepts a complete private encrypted
+part-NNNN.oge.json backup set DIRECTLY, behind the additional default-OFF
+OGE_VAULT_CHUNK_RESTORE_ENCRYPTED_OPERATOR=YES_PRIVATE_ENCRYPTED_PARTS_FD3_ONLY
+gate. All prior staging gates, independent signed owner and exact single-use
+10-minute HMAC receipt are still required. The encrypted directory must be
+owner-only 0700, with 1–16 complete contiguous owner-only 0600 regular
+encrypted parts and no symlinks, gaps or mixed plaintext parts.
+
+The backup passphrase must arrive on dedicated FD3 as an EOF-terminated
+private pipe, never as an exported environment variable, command-line
+argument or reusable password file. Example for a trusted Unix operator
+shell with other staging configuration already present:
+
+~~~bash
+read -r -s -p 'Backup passphrase: ' OGE_PRIVATE_BACKUP_PW
+printf '\n'
+printf '%s' "$OGE_PRIVATE_BACKUP_PW" | node scripts/commit-vault-chunk-restore-staging.mjs 3<&0
+unset OGE_PRIVATE_BACKUP_PW
+~~~
+
+Do not type the literal secret into shell history, run shell tracing or use
+production credentials. Pipe must close at EOF; the Node runtime rejects
+regular-file and terminal FD3. The shell variable is local (not exported).
+Passphrase strings still briefly exist in process memory; those cannot
+be guaranteed to be immediately scrubbed.
+
+The CLI authenticates every M65 AES-256-GCM envelope and checks M63's exact
+full original Notes/cursor/inventory plus M57 reviewed selected-content
+fingerprint BEFORE MongoDB connection or HMAC receipt claim. Wrong passphrase,
+tampered metadata, missing/mixed parts, bad permissions or changed review
+fail closed without consuming the receipt. It passes decrypted Notes only
+as temporary in-memory objects to the unchanged M58 source proof and
+single create-only GitHub CAS executor. No plaintext conversion directory
+or file, note body in MongoDB, password logs, auto-next batch, retry or
+import-lock release is introduced.
+
+This is code and synthetic test acceptance only. The original signed
+private GitHub source blobs still must be independently reverified, and
+the system cannot prove ownership of an archive whose original GitHub
+source has disappeared. Live two-device OAuth/App acceptance, physical
+browser downloads, independent cryptographic review, wider data coverage,
+production release and final merge are NOT approved.

@@ -6,6 +6,7 @@ import {
 } from '../../../lib/oge-vault-restore-review.js';
 import styles from './restore-staging.module.css';
 import { verifyVaultRestoreLocalChunkFiles } from '../../../lib/oge-vault-restore-local-chunks.js';
+import { openVaultOfflineEncryptedFiles } from '../../../lib/oge-vault-offline-backup-crypto.js';
 
 const historyEndpoint = '/api/vault/backup-import/chunk/history';
 const approveEndpoint = '/api/vault/backup-import/chunk/authorize';
@@ -27,6 +28,7 @@ export default function RestoreReviewClient() {
   const [reviewed, setReviewed] = useState(false);
   const [typedConfirmation, setTypedConfirmation] = useState('');
   const [localFiles, setLocalFiles] = useState([]);
+  const [offlinePassphrase, setOfflinePassphrase] = useState('');
   const [localIntegrity, setLocalIntegrity] = useState(null);
   const [localVerifyBusy, setLocalVerifyBusy] = useState(false);
   const [localVerifyError, setLocalVerifyError] = useState('');
@@ -165,13 +167,29 @@ export default function RestoreReviewClient() {
     setLocalVerifyError('');
     setLocalVerifyBusy(true);
     try {
+      const encrypted = localFiles.length > 0 &&
+        localFiles.every((file) => /^part-\d{4}\.oge\.json$/.test(
+          file?.name || ''));
+      const plaintext = localFiles.length > 0 &&
+        localFiles.every((file) => /^part-\d{4}\.json$/.test(
+          file?.name || ''));
+      if (!encrypted && !plaintext)
+        throw new TypeError('Do not mix different backup formats.');
+      // The encrypted format is decrypted only into transient memory views,
+      // which the unchanged M63 canonical Notes verifier then checks.
+      const verifiedFiles = encrypted
+        ? await openVaultOfflineEncryptedFiles(localFiles, offlinePassphrase)
+        : localFiles;
       const result = await verifyVaultRestoreLocalChunkFiles(
-        localFiles, fields);
+        verifiedFiles, fields);
       setLocalIntegrity({ reviewKey: key, report: result });
     } catch {
-      // Never echo File contents, parsed private notes or JSON exceptions.
-      setLocalVerifyError('The private chunks do not match the reviewed source, inventory, selected IDs or fingerprint. No files were uploaded; do not request a receipt.');
-    } finally { setLocalVerifyBusy(false); }
+      // Never echo File contents, passphrases, private notes or crypto errors.
+      setLocalVerifyError('Unable to decrypt or verify the complete private backup set against the reviewed source and selected IDs. Do not request a receipt.');
+    } finally {
+      setOfflinePassphrase('');
+      setLocalVerifyBusy(false);
+    }
   }
 
   const field = (name) => (event) => {
@@ -263,10 +281,13 @@ export default function RestoreReviewClient() {
           <fieldset className={styles.localReview}>
             <legend>Local private chunk integrity check</legend>
             <p className={styles.helper}>
-              Choose all numbered part-0001.json through the final part,
-              up to 16 files. These files contain your private note text.
-              Your browser reads them locally in memory to verify the
-              complete sequence and reviewed selection fingerprint.
+              Choose all numbered <code>part-0001.oge.json</code> through
+              the final encrypted part (up to 16 files). Enter the same
+              passphrase you used when downloading. The browser decrypts
+              pages only in memory and verifies the original Notes chunks
+              and reviewed selection fingerprint. Older plaintext
+              <code>part-NNNN.json</code> backups remain accepted for
+              controlled staging migration. Never mix the two formats.
               <strong> Files are never uploaded.</strong> This does
               not authenticate GitHub ownership; the separate operator
               independently verifies every original Git blob.
@@ -282,9 +303,22 @@ export default function RestoreReviewClient() {
                 }} />
             </label>
             <p className={styles.muted}>
-              {localFiles.length} local file(s) selected. No note bodies
-              or filenames will be sent to the server.
+              {localFiles.length} local file(s) selected. No note bodies,
+              passphrases or filenames will be sent to the server.
             </p>
+            <label>Offline backup passphrase (for encrypted .oge.json files)
+              <input type="password" name="offline-restore-passphrase"
+                autoComplete="off" value={offlinePassphrase}
+                onChange={(event) => {
+                  setOfflinePassphrase(event.target.value);
+                  setLocalIntegrity(null);
+                  setReviewed(false);
+                  setLocalVerifyError('');
+                }}
+                maxLength={256}
+                disabled={Boolean(receipt) || localVerifyBusy}
+                placeholder="Use the exact original backup passphrase" />
+            </label>
             <button type="button" className={styles.secondary}
               onClick={verifyLocalBackupFiles}
               disabled={!localFiles.length || localVerifyBusy ||

@@ -156,3 +156,35 @@ test('M62 link to restore review remains invisible outside isolated approved sta
   ]) assert.ok(page.includes('process.env.' + flag + " === 'true'"));
   assert.match(page, /checkVaultStagingReadiness\(process\.env\)\.ok/);
 });
+
+test('M63 owner UI requires all local chunks matching reviewed M57 fingerprint before a receipt POST', async () => {
+  const source = await readFile(new URL(
+    '../app/vault/restore-staging/restore-review-client.js', import.meta.url),
+  'utf8');
+  assert.match(source, /verifyVaultRestoreLocalChunkFiles/);
+  assert.match(source, /const locallyVerified =/);
+  assert.match(source, /localIntegrity\?\.reviewKey === JSON\.stringify\(fields\)/);
+  assert.match(source, /completeLocalSequenceVerified === true/);
+  assert.match(source, /reviewedSelectionFingerprintMatches === true/);
+  assert.match(source, /signedGitHubSourceAuthenticated === false/);
+  assert.match(source, /review\.canRequestReceipt && locallyVerified && reviewed/);
+  assert.match(source, /type="file" accept="\.json,application\/json" multiple/);
+  assert.match(source, /onClick=\{verifyLocalBackupFiles\}/);
+  assert.match(source, /setLocalIntegrity\(null\)/);
+  assert.match(source, /Files are never uploaded/);
+  assert.match(source, /This does not prove signed GitHub provenance/);
+  assert.doesNotMatch(source,
+    /FormData|XMLHttpRequest|localStorage|sessionStorage|indexedDB|fetch\(.*files/);
+});
+
+test('M63 unknown browser approval POST outcome cannot be replayed in the same review session', async () => {
+  const source = await readFile(new URL(
+    '../app/vault/restore-staging/restore-review-client.js', import.meta.url),
+  'utf8');
+  assert.match(source, /const \[receiptAttempted, setReceiptAttempted\] = useState\(false\)/);
+  assert.match(source, /!receiptAttempted && !receipt/);
+  assert.match(source, /setReceiptAttempted\(true\)/);
+  assert.ok(source.indexOf('setReceiptAttempted(true)') <
+    source.indexOf('const response = await fetch(approveEndpoint'));
+  assert.match(source, /do not replay an unknown POST response/);
+});

@@ -1,16 +1,22 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '../../../auth.js';
+import { getDatabase } from '../../../lib/mongodb.js';
+import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 import { checkVaultStagingReadiness } from '../../../lib/oge-vault-staging-preflight.js';
 import SiteNavbar from '../../components/site-navbar.js';
 import RestoreReviewClient from './restore-review-client.js';
 import styles from './restore-staging.module.css';
 
-export const metadata = { title: 'Staging restore review' };
+export const metadata = { title: 'Staging restore review',
+  robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 function stagingAllowed(env) {
   if (env.OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW !== 'true' ||
+      env.OGE_VAULT_NOTE_API_PREVIEW !== 'true' ||
+      env.OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW !== 'true' ||
+      env.OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW !== 'true' ||
       env.OGE_VAULT_MAIN_PREVIEW !== 'true' ||
       !/^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(
         env.MONGODB_DB || '') ||
@@ -31,6 +37,15 @@ export default async function RestoreStagingPage() {
   if (!stagingAllowed(process.env)) notFound();
   const session = await auth();
   if (!session?.user?.id) redirect('/register');
+  const db = await getDatabase();
+  const owner = await db.collection('users').findOne(
+    { ...ownerMutationFilter(session.user.id, {
+      sessionVersion: session.user.sessionVersion,
+    }), 'vault.status': 'connected',
+      'vault.repoName': 'ogenotes-vault' },
+    { projection: { _id: 1 } },
+  );
+  if (!owner) notFound();
   return (
     <main className={'shell oge-shell oge-retro-workspace ' + styles.page}>
       <SiteNavbar actions={<Link className="oge-signin" href="/vault">

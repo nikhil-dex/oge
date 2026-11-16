@@ -182,6 +182,8 @@ test('M66 reads passphrase only from FD3 private pipe with strict EOF and bounds
     child.stdout.on('data', (x) => { out += x; });
     child.stderr.on('data', (x) => { err += x; });
     child.on('error', reject);
+    // A deliberate invalid secret may close FD3 before the parent drains.
+    child.stdio[3].on('error', () => {});
     child.on('close', (code) => resolve({ code, out, err }));
     child.stdio[3].end(input);
   });

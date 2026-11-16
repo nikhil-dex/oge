@@ -9,6 +9,10 @@ import { constants } from 'node:fs';
 import { lstat, readdir, open } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { MongoClient } from 'mongodb';
+import {
+  readVaultOperatorBackupPassphraseFd3,
+  prepareVaultOperatorEncryptedRestore,
+} from '../lib/oge-vault-operator-encrypted-chunks.js';
 import { checkVaultStagingReadiness } from '../lib/oge-vault-staging-preflight.js';
 import { getVaultNoteClient } from '../lib/oge-vault-notes.js';
 import { ownerMutationFilter } from '../lib/active-owner-mutation.js';
@@ -24,6 +28,8 @@ const uri = env.MONGODB_URI;
 const dbName = env.MONGODB_DB;
 const directory = env.OGE_VAULT_CHUNK_PLAN_DIRECTORY;
 const ticketFile = env.OGE_VAULT_CHUNK_RESTORE_TICKET_FILE;
+const encryptedMode = env.OGE_VAULT_CHUNK_RESTORE_ENCRYPTED_OPERATOR ===
+  'YES_PRIVATE_ENCRYPTED_PARTS_FD3_ONLY';
 const identity = {
   ownerId: env.OGE_VAULT_INSPECT_OWNER_ID,
   sessionVersion: env.OGE_VAULT_INSPECT_SESSION_VERSION === '0' ? 0 :
@@ -47,6 +53,8 @@ const allowed =
   env.OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW === 'true' &&
   !env.OGE_VAULT_CHUNK_BATCH_INTENT_READ_ONLY &&
   !env.OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY &&
+  (env.OGE_VAULT_CHUNK_RESTORE_ENCRYPTED_OPERATOR === undefined ||
+    encryptedMode) &&
   typeof uri === 'string' &&
   /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(dbName || '') &&
   typeof directory === 'string' && isAbsolute(directory) &&
@@ -114,11 +122,12 @@ async function* privateChunks(folder) {
 }
 
 let ticket = null, privateFilesReady = false;
+let trustedChunkSource = () => privateChunks(directory);
 if (allowed) {
   try {
     // Local permission/format checks and HMAC verification happen BEFORE
     // connecting to MongoDB or minting a contents:write installation token.
-    await checkPrivateChunks(directory);
+    if (!encryptedMode) await checkPrivateChunks(directory);
     const obj = await readPrivateFile(ticketFile, 4096);
     if (!obj || typeof obj !== 'object' || Array.isArray(obj) ||
         Object.keys(obj).length !== 1 || typeof obj.ticket !== 'string')
@@ -126,6 +135,14 @@ if (allowed) {
     ticket = verifyVaultRestoreApprovalTicket(obj.ticket, identity, {
       secret: env.OGE_VAULT_CHUNK_RESTORE_APPROVAL_KEY,
     });
+    if (encryptedMode) {
+      // Complete local review of all ciphertext BEFORE any MongoDB access,
+      // claim or GitHub write token. FD3 keeps secret out of argv/env.
+      const passphrase = await readVaultOperatorBackupPassphraseFd3();
+      const prepared = await prepareVaultOperatorEncryptedRestore(
+        directory, passphrase, ticket.approval);
+      trustedChunkSource = () => prepared.chunks();
+    }
     privateFilesReady = true;
   } catch {
     // NEVER print private file paths, ticket, note content, owner or secrets.
@@ -171,7 +188,7 @@ if (!allowed || !privateFilesReady) {
       ownerId: identity.ownerId,
       sessionVersion: identity.sessionVersion,
       repoId: identity.repoId,
-    }, github, privateChunks(directory), ticket.approval, { env });
+    }, github, trustedChunkSource(), ticket.approval, { env });
     await confirmVaultRestoreApproval(db, identity, ticket, result.commitSha);
     // Deliberately NEVER output the private approval, chunk text or owner.
     console.log(JSON.stringify({

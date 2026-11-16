@@ -10,6 +10,7 @@ import { promoteStagedVaultFileIndex } from '../lib/oge-vault-file-index-promoti
 import { reconcileVaultFileIndexVerification } from '../lib/oge-vault-file-index-recovery.js';
 import { reconcileConfirmedVaultDraft } from '../lib/oge-vault-save-finalize.js';
 import { retireConfirmedVaultDraftWithReceipt, readConfirmedVaultSaveReceipt } from '../lib/oge-vault-save-receipt.js';
+import { inspectVaultLegacyData } from '../lib/oge-vault-legacy-inventory.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -537,5 +538,46 @@ test('real MongoDB B7 receipt update failure rolls back encrypted draft deletion
     assert.equal(draft.revision, 2);
     assert.equal(draft.encrypted.ciphertext, 'must not disappear');
     assert.equal(await db.collection('vault_save_receipts').countDocuments(scope), 0);
+  });
+});
+
+test('real MongoDB Phase C inventory is count-only and preserves notes, drafts and recovery rows', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'inventory-' + randomUUID();
+    const otherOwner = 'other-inventory-' + randomUUID();
+    const privateBody = 'SYNTHETIC_NOTE_BODY_NEVER_OUTPUT';
+    const collections = [
+      ['notes', [{ ownerId, heading: 'Sensitive fake heading', answer: privateBody },
+        { heading: 'missing owner synthetic test row' }]],
+      ['quickNotes', [{ ownerId, content: privateBody }]],
+      ['personalQuickNotes', [{ ownerId: otherOwner, content: privateBody }]],
+      ['vault_drafts', [{ ownerId, revision: 3, encrypted: { ciphertext: privateBody } }]],
+      ['vault_save_receipts', [{ ownerId, revision: 2, sha: 'a'.repeat(40) }]],
+      ['vault_files', [{ ownerId, repoId: 501, noteId: randomUUID(), status: 'present' }]],
+      ['vault_file_index_state', [{ ownerId, repoId: 501, state: 'verifying' }]],
+      ['vault_file_index_bootstrap', [{ ownerId, repoId: 501, operationId: randomUUID() }]],
+      ['vault_subject_inspections', [{ ownerId, repoId: 501, operationId: randomUUID() }]],
+      ['vault_subject_deletion_jobs', [{ ownerId, repoId: 501, operationId: randomUUID() }]],
+    ];
+    for (const [name, rows] of collections)
+      await db.collection(name).insertMany(rows);
+
+    const first = await inspectVaultLegacyData(db);
+    assert.deepEqual(first.counts, { notes: 2, quickNotes: 1, personalQuickNotes: 1 });
+    assert.deepEqual(first.missingOwnerCounts,
+      { notes: 1, quickNotes: 0, personalQuickNotes: 0 });
+    assert.equal(first.total, 4);
+    assert.equal(first.protectedTotal, 7);
+    assert.equal(first.cleanupAuthorized, false);
+    assert.equal(first.cutoverAuthorized, false);
+    assert.doesNotMatch(JSON.stringify(first), /SYNTHETIC_NOTE_BODY|Sensitive fake heading|missing owner synthetic test row|inventory-/);
+
+    const second = await inspectVaultLegacyData(db);
+    assert.deepEqual(second, first);
+    for (const [name, rows] of collections)
+      assert.equal(await db.collection(name).countDocuments({}), rows.length);
+    assert.equal((await db.collection('notes').findOne({ ownerId })).answer, privateBody);
+    assert.equal((await db.collection('vault_drafts').findOne({ ownerId })).encrypted.ciphertext,
+      privateBody);
   });
 });

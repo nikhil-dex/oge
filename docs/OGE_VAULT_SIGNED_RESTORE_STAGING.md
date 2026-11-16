@@ -88,6 +88,70 @@ The owner-scoped route returns one of:
 
 Every status explicitly says no automatic retry, no lock release, no automatic next batch. A second batch requires a new signed browser approval and a new reviewed fingerprint at the NEW current target HEAD.
 
+## Milestone #60 — Bounded read-only history across independent batches
+
+A single M59 receipt has its own read-only status, but restorations may
+need several **separately reviewed** batches. M60 adds a signed-owner,
+staging-only HTTP GET that reports recent receipt metadata without
+contacting GitHub or exposing backup contents:
+
+`GET /api/vault/backup-import/chunk/history`
+
+This endpoint requires the same **disabled-by-default** staging
+approval feature flag, valid Auth.js owner/session, exact connected
+private GitHub repo/installation and approved HTTPS staging database.
+It checks the signed owner context **twice**, before and after reading
+only matching approval documents. A dedicated compound MongoDB index
+serves the latest **25 receipts** in descending creation order.
+No note IDs, titles, answers, private chunks, full approval ticket,
+user identifier or HMAC secret appear in the response. Confirmed
+GitHub commit SHA and opaque hashed receipt IDs may be returned.
+
+The report includes counts **only within the visible window**, one
+status per receipt and explicit limits:
+
+- `CONFIRMED_BATCHES_FRESH_REVIEW_REQUIRED`: confirmed recent batches
+  exist; this is **not** proof of the current Git HEAD or permission to
+  start another batch.
+- `PENDING_UNCONSUMED_APPROVAL` or
+  `EXPIRED_APPROVAL_REQUIRES_NEW_REVIEW`: a ticket has not been
+  consumed; a fresh signed owner review is still needed.
+- `BLOCKED_CLAIMED_OUTCOME_UNCONFIRMED`: a prior claimed receipt
+  may have committed at GitHub, even without a successful local
+  confirmation. **Do not retry or issue another restore approval.**
+- `BLOCKED_IMPORT_LOCK_PRESENT`: MongoDB holds an import fence,
+  potentially due to a write with unknown remote outcome. It cannot
+  be cleared automatically.
+- `BLOCKED_INCOMPLETE_HISTORY_WINDOW`: more than 25 receipt records
+  exist. The displayed subset is **not a complete restore ledger**.
+- `BLOCKED_INVALID_HISTORY_METADATA`: malformed historical metadata
+  was found; treat the ledger as unsafe to use for recovery decisions.
+
+M60 also refuses new signed approval receipts when a prior claimed
+batch remains unresolved or the owner Vault import lock is present.
+Only an independently confirmed, nonquarantined previous batch can
+be followed by a **new M57 read-only plan**, exact current HEAD and
+a completely **new Auth.js owner approval and 10-minute ticket**.
+Concurrent new browser approvals are not by themselves a multi-batch
+commit sequence; each one-time ticket is checked independently and
+the GitHub CAS/exclusive owner import lock still prevents unsafe
+writes.
+
+**No automatic continuation exists.** In all status reports:
+`automaticNextBatchAuthorized:false`,
+`automaticRetryAuthorized:false`,
+`operatorLockReleaseAuthorized:false`,
+`historicalTotalsProven:false` and
+`currentGitHubHeadVerified:false`. Ordinary TTL cleanup means an
+older receipt might no longer be present; this read-only window
+cannot prove the number or provenance of all earlier restore commits.
+
+Real MongoDB replica-set tests cover multiple verified receipts,
+unknown outcomes, expired approval, more than 25 rows, import lock
+presence, malformed rows, revoked session and GitHub App mapping.
+A standalone signed staging acceptance with a real GitHub installation
+and two authenticated devices **has not been executed**.
+
 ## Remaining release blockers
 
 M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no finished owner-facing UI for managing private backup downloads. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.

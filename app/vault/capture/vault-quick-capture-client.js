@@ -65,10 +65,23 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
   }, [noteId, subjectId, content, preserveLocal]);
 
   const choose = useCallback(async (selected) => {
-    if (busyRef.current) return;
+    if (busyRef.current || uncertainRef.current) return;
+    busyRef.current = true; setBusy(true);
+    // Finish any in-flight encrypted draft CAS before switching note scope.
+    // A lost autosave acknowledgement must never reset its unknown revision.
+    try { await queueRef.current; }
+    catch {
+      setError('Previous encrypted draft write is uncertain. Recover it in Vault Notes first.');
+      busyRef.current = false; setBusy(false); return;
+    }
+    if (blockedRef.current) {
+      setError('Resolve the previous draft conflict before changing subjects.');
+      busyRef.current = false; setBusy(false); return;
+    }
+    if (content && !window.confirm('Keep this capture for recovery and switch subjects?')) {
+      busyRef.current = false; setBusy(false); return;
+    }
     const generation = ++generationRef.current;
-    setBusy(true);
-    busyRef.current = true;
     setError('');
     setBlocked(false); blockedRef.current = false;
     setUncertain(false); uncertainRef.current = false;
@@ -138,11 +151,19 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         setBusy(false); busyRef.current = false;
       }
     }
-  }, [ownerId, repoId]);
+  }, [ownerId, repoId, content]);
 
-  const newCapture = () => {
-    if (!subjectId || busyRef.current) return;
-    if (content && !window.confirm('Keep your previous capture in server/browser recovery and start a different one?')) return;
+  const newCapture = async () => {
+    if (!subjectId || busyRef.current || blockedRef.current || uncertainRef.current) return;
+    busyRef.current = true; setBusy(true);
+    try { await queueRef.current; }
+    catch {
+      setError('Previous encrypted draft write is uncertain. Recover it in Vault Notes first.');
+      busyRef.current = false; setBusy(false); return;
+    }
+    if (content && !window.confirm('Keep your previous capture in server/browser recovery and start a different one?')) {
+      busyRef.current = false; setBusy(false); return;
+    }
     const id = crypto.randomUUID();
     setNoteId(id);
     setContent('');
@@ -152,6 +173,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
     setStatus('Ready. Your first line becomes the title.');
     blockedRef.current = false; setBlocked(false);
     uncertainRef.current = false; setUncertain(false);
+    busyRef.current = false; setBusy(false);
   };
 
   const persist = useCallback(async (id, subject, text) => {
@@ -308,7 +330,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
       </select>
       {subjectId && <div className="oge-note-editor-actions">
         <button type="button" className="oge-primary-link" disabled={busy || uncertain}
-          onClick={newCapture}>New capture</button>
+          onClick={() => { void newCapture(); }}>New capture</button>
         <span>Encrypted draft revision: {revision}</span>
       </div>}
       <form onSubmit={commit} className="oge-note-editor-form">

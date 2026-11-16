@@ -365,7 +365,7 @@ test('M74 route requires separate default-OFF protected staging, reads typed enc
     /readOnly: true/,
     /collection\('vault_drafts'\)/,
     /collection\('vault_standalone_drafts'\)/,
-    /kind, captureId: \{ \$in: ids \}/,
+    /kind,\s*captureId: \{ \$in: ids \}/,
     /ownerId, repoId: client\.vault\.repoId/,
     /ownerVerifier/,
     /planVaultCurrentResourcesRestoreReadOnly/,

@@ -499,6 +499,33 @@ truncated/malicious-response conditions. Real live GitHub
 provider and authenticated browser multi-download testing
 remain outstanding.
 
+## Milestone #65 — Offline encrypted Notes parts
+
+The M64 owner-facing staging browser downloader now encrypts verified
+Notes-only JSON chunks **before offering any file for disk download**.
+Files use sequential part-NNNN.oge.json names rather than plaintext
+part-NNNN.json. The new format is versioned AES-256-GCM (authenticated
+header and random 96-bit IV per part) with one fresh 128-bit salt and
+PBKDF2-SHA-256 at 600,000 iterations per export session. The owner
+provides and confirms a strong unique 16+ character passphrase.
+No passphrase or private source content is posted to another endpoint
+or persisted by the application.
+
+The staging M63 local review can read complete encrypted part sets,
+authenticate/decrypt pages **in browser memory** and pass canonical
+original Notes pages to the existing full sequence/selected-note
+fingerprint checker. This does **not** establish detached GitHub
+ownership or allow the M58 operator to ingest encrypted parts.
+That separate restricted CLI still needs plaintext private chunk
+files, and securely reviewed operator conversion remains pending.
+
+No password reset/recovery exists; losing the backup password
+permanently loses access to the offline copies. An actual browser
+disk-save cannot be attested automatically, and encryption does
+not protect against compromised browser code during export.
+Use a trusted device and retain password and ciphertext separately.
+Detailed threat model: docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md.
+
 ## Remaining release blockers
 
 An explicitly approved assembly and restore workflow (including

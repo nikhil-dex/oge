@@ -6,7 +6,9 @@ import { validatedNote } from '../lib/oge-vault-notes.js';
 import {
   validateVaultNotesImportApproval, approvedVaultImportCommitMessage,
 } from '../lib/oge-vault-backup-import-commit.js';
-import { reconcileApprovedVaultNotesImport } from '../lib/oge-vault-backup-import-reconcile.js';
+import {
+  reconcileApprovedVaultNotesImport, MAX_VAULT_IMPORT_RECOVERY_COMMITS,
+} from '../lib/oge-vault-backup-import-reconcile.js';
 import { VaultGitHubError } from '../lib/oge-vault-github.js';
 
 const H = (value) => createHash('sha1').update(value).digest('hex');
@@ -38,10 +40,12 @@ function request(count = 2) {
   };
 }
 
-function fixture(body, { head = NEXT, wrongMessage = false, wrongParent = false,
+function fixture(body, { head: explicitHead, wrongMessage = false, wrongParent = false,
   headDrift = false, unrelatedChange = false, unapprovedExisting = false,
   corrupt = false, truncated = false, invalidSubject = false, ownerChanged = false,
-  rateLimited = false, extraNote = false } = {}) {
+  rateLimited = false, extraNote = false, laterCommits = 0,
+  laterNoteChanged = false, laterNoteDeleted = false, laterOtherFileChanged = false,
+  mergeCommit = false, cycle = false } = {}) {
   const approved = validateVaultNotesImportApproval(body);
   const calls = [];
   let headReads = 0;
@@ -59,6 +63,48 @@ function fixture(body, { head = NEXT, wrongMessage = false, wrongParent = false,
   if (extraNote) nextLeaves.push({
     path: 'extra.md', type: 'blob', mode: '100644', sha: H('extra'),
   });
+
+  const laterIds = Array.from({ length: laterCommits }, (_, i) => H('later-' + i));
+  const head = explicitHead ?? (laterIds.at(-1) || NEXT);
+  const snapshots = new Map([
+    [BASE_TREE, baseLeaves], [NEXT_TREE, nextLeaves],
+  ]);
+  const commits = new Map([
+    [BASE, { tree: { sha: BASE_TREE }, parents: [] }],
+    [NEXT, {
+      tree: { sha: NEXT_TREE },
+      parents: [{ sha: wrongParent ? H('other-base') : BASE }],
+      message: wrongMessage ? 'Unrelated commit' : approvedVaultImportCommitMessage(approved),
+    }],
+    [H('other-base'), { tree: { sha: BASE_TREE }, parents: [{ sha: BASE }],
+      message: 'Unrelated parent' }],
+    [H('new-commit'), { tree: { sha: NEXT_TREE }, parents: [{ sha: BASE }],
+      message: 'Unrelated head' }],
+  ]);
+  for (let i = 0; i < laterIds.length; i++) {
+    const previous = i === 0 ? NEXT : laterIds[i - 1];
+    const treeSha = H('later-tree-' + i);
+    const leaves = nextLeaves.map((entry) => ({ ...entry }));
+    if (laterNoteChanged) {
+      const notePath = files[0].path;
+      const index = leaves.findIndex((item) => item.path === notePath);
+      if (index >= 0) leaves[index] = { ...leaves[index], sha: H('edited-current-note') };
+    }
+    if (laterNoteDeleted) {
+      const index = leaves.findIndex((item) => item.path === files[0].path);
+      if (index >= 0) leaves.splice(index, 1);
+    }
+    if (laterOtherFileChanged) {
+      leaves[0] = { ...leaves[0], sha: H('readme-later-revision') };
+    }
+    snapshots.set(treeSha, leaves);
+    commits.set(laterIds[i], {
+      tree: { sha: treeSha }, parents: mergeCommit && i === laterIds.length - 1
+        ? [{ sha: previous }, { sha: H('merge-parent') }]
+        : [{ sha: cycle && i === laterIds.length - 1 ? laterIds[i] : previous }],
+      message: 'Ordinary GitHub edit ' + i,
+    });
+  }
   const client = {
     branch: 'main', vault: { repoId: 8 },
     async call(path, opts = {}) {
@@ -68,19 +114,13 @@ function fixture(body, { head = NEXT, wrongMessage = false, wrongParent = false,
         headReads++;
         return { object: { sha: headDrift && headReads > 1 ? H('drift') : head } };
       }
-      if (head !== NEXT && head !== BASE && path === '/git/commits/' + head)
-        return { tree: { sha: NEXT_TREE }, parents: [{ sha: H('unknown-parent') }],
-          message: 'Unrelated commit' };
-      if (path === '/git/commits/' + NEXT) return {
-        tree: { sha: NEXT_TREE },
-        parents: [{ sha: wrongParent ? H('other-base') : BASE }],
-        message: wrongMessage ? 'Unrelated commit' : approvedVaultImportCommitMessage(approved),
-      };
-      if (path === '/git/commits/' + BASE) return { tree: { sha: BASE_TREE } };
-      if (path === '/git/trees/' + BASE_TREE + '?recursive=1')
-        return { truncated, tree: baseLeaves };
-      if (path === '/git/trees/' + NEXT_TREE + '?recursive=1')
-        return { truncated, tree: nextLeaves };
+      if (path.startsWith('/git/commits/'))
+        return commits.get(path.slice('/git/commits/'.length)) ||
+          { tree: { sha: NEXT_TREE }, parents: [{ sha: BASE }],
+            message: 'Unrelated history' };
+      if (path.startsWith('/git/trees/'))
+        return { truncated,
+          tree: snapshots.get(path.slice('/git/trees/'.length).split('?')[0]) };
       throw Error('Unexpected GitHub operation ' + path);
     },
   };
@@ -92,7 +132,7 @@ function fixture(body, { head = NEXT, wrongMessage = false, wrongParent = false,
       return { ...found, sha, answer: corrupt ? 'Wrong archived content' : found.answer };
     },
   };
-  return { client, opts, calls };
+  return { client, opts, calls, laterIds };
 }
 
 test('D3b2b2b lost response is confirmed only from approved commit marker, parent and exact immutable blobs', async () => {
@@ -165,3 +205,83 @@ test('D3b2b2b reconciliation route is read-only, signed and default-off', async 
   assert.doesNotMatch(route + engine,
     /\.insertOne\(|\.updateOne\(|\.deleteOne\(|commitVaultNoteBatch\(/);
 });
+
+test('D3b2b2c advanced HEAD recovers exact import through later GitHub commits', async () => {
+  const body = request(3);
+  for (const commits of [1, 3, MAX_VAULT_IMPORT_RECOVERY_COMMITS - 1]) {
+    const f = fixture(body, { laterCommits: commits });
+    const result = await reconcileApprovedVaultNotesImport(f.client, body, f.opts);
+    assert.equal(result.confirmed, true);
+    assert.equal(result.commitSha, NEXT, 'verified historical import, not the newer HEAD');
+    assert.equal(result.currentHead, f.laterIds.at(-1));
+    assert.equal(result.commitsAfterImport, commits);
+    assert.equal(result.currentNotesUnchanged, 3);
+    assert.equal(result.currentNotesChanged, 0);
+    assert.equal(result.safeToRetryAutomatically, false);
+    assert.ok(f.calls.every((entry) => entry.method === 'GET'));
+  }
+});
+
+test('D3b2b2c confirmed historical import distinguishes later edits and deletions', async () => {
+  for (const options of [
+    { laterCommits: 3, laterNoteChanged: true },
+    { laterCommits: 1, laterNoteDeleted: true },
+    { laterCommits: 2, laterOtherFileChanged: true },
+  ]) {
+    const body = request(2), f = fixture(body, options);
+    const result = await reconcileApprovedVaultNotesImport(f.client, body, f.opts);
+    assert.equal(result.confirmed, true);
+    assert.equal(result.importedCount, 2);
+    assert.equal(result.currentNotesChanged, options.laterOtherFileChanged ? 0 : 1);
+    assert.equal(result.currentNotesUnchanged, options.laterOtherFileChanged ? 2 : 1);
+    assert.equal(result.currentHead, f.laterIds.at(-1));
+  }
+});
+
+test('D3b2b2c never confirms a commit beyond the fixed ancestry budget', async () => {
+  const body = request(1);
+  const f = fixture(body, { laterCommits: MAX_VAULT_IMPORT_RECOVERY_COMMITS });
+  const result = await reconcileApprovedVaultNotesImport(f.client, body, f.opts);
+  assert.equal(result.confirmed, false);
+  assert.equal(result.safeToRetryAutomatically, false);
+  assert.equal(result.reason, 'approved-import-not-proven-in-bounded-history');
+  assert.ok(f.calls.filter((call) => call.path.startsWith('/git/commits/')).length <=
+    MAX_VAULT_IMPORT_RECOVERY_COMMITS);
+  assert.equal(f.calls.filter((call) => call.path.startsWith('/git/trees/')).length, 0);
+});
+
+test('D3b2b2c rejects merged, cyclic and misattributed GitHub ancestry', async () => {
+  const body = request(2);
+  const merged = fixture(body, { laterCommits: 2, mergeCommit: true });
+  const pending = await reconcileApprovedVaultNotesImport(merged.client, body, merged.opts);
+  assert.equal(pending.confirmed, false);
+  assert.equal(pending.reason, 'github-ancestry-non-linear-or-incomplete');
+  const cycle = fixture(body, { laterCommits: 1, cycle: true });
+  await assert.rejects(reconcileApprovedVaultNotesImport(cycle.client, body, cycle.opts),
+    /vault-import-reconcile-ancestry-invalid/);
+  const wrongParent = fixture(body, { laterCommits: 2, wrongParent: true });
+  assert.equal((await reconcileApprovedVaultNotesImport(
+    wrongParent.client, body, wrongParent.opts)).confirmed, false);
+  const wrongMessage = fixture(body, { laterCommits: 2, wrongMessage: true });
+  assert.equal((await reconcileApprovedVaultNotesImport(
+    wrongMessage.client, body, wrongMessage.opts)).confirmed, false);
+});
+
+test('D3b2b2c catches HEAD drift, rate limit and invalid later trees without false success', async () => {
+  const body = request(1);
+  for (const options of [{ laterCommits: 2, headDrift: true },
+    { laterCommits: 3, rateLimited: true }]) {
+    const f = fixture(body, options);
+    if (options.rateLimited) {
+      await assert.rejects(reconcileApprovedVaultNotesImport(f.client, body, f.opts),
+        (error) => error.status === 429);
+    } else {
+      const result = await reconcileApprovedVaultNotesImport(f.client, body, f.opts);
+      assert.equal(result.confirmed, false);
+    }
+  }
+  const broken = fixture(body, { laterCommits: 1, truncated: true });
+  await assert.rejects(reconcileApprovedVaultNotesImport(broken.client, body, broken.opts),
+    /vault-import-reconcile-tree-incomplete/);
+});
+

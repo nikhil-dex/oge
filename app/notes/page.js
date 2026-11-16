@@ -62,6 +62,10 @@ export default function NotesPage({
   const [hybridError, setHybridError] = useState('');
   const [hybridRetryToken, setHybridRetryToken] = useState(0);
   const hybridConflictRef = useRef(false);
+  // Track the latest rendered editor content, not a stale async Save closure.
+  // Edits made while a GitHub request is in flight must never be discarded.
+  const liveEditorRef = useRef(null);
+  liveEditorRef.current = { heading, answer, tagsText, activeSubject, editingId, newDraftId };
 
   // Browser connection events are hints, not proof that the server is up.
   // Retry only the latest editor snapshot; conflict errors require explicit
@@ -344,7 +348,7 @@ export default function NotesPage({
   // the request, so fast typing never creates parallel out-of-order revisions.
   useEffect(() => {
     if (!hybridDrafts || !hybridReady || !noteDialog || (!editingId && !newDraftId) ||
-        !hasUnsavedEditorChanges() || saving) return undefined;
+        !hasUnsavedEditorChanges()) return undefined;
     const current = notes.find((note) => note.id === editingId);
     if (editingId && !current?.sha) return undefined;
     const noteId = editingId || newDraftId;
@@ -356,6 +360,9 @@ export default function NotesPage({
       window.sessionStorage.setItem(key, JSON.stringify({ draft }));
       if (!editingId) window.sessionStorage.setItem(newDraftPointerKey(activeSubject), noteId);
     } catch { /* Server copy still available if the next request succeeds. */ }
+    // Even while Save is running, preserve newer keystrokes in sessionStorage.
+    // Server autosave remains paused until Save returns.
+    if (saving) return undefined;
     // A conflicting edit is not a transient outage; keep the user's local
     // copy, but never overwrite the other device automatically.
     if (hybridConflictRef.current) return undefined;
@@ -421,6 +428,9 @@ export default function NotesPage({
     event.preventDefault();
     if (saving || !activeSubject || (hybridDrafts && !hybridReady)) return;
     setSaving(true);
+    const submittedEditor = JSON.stringify({
+      heading, answer, tagsText, activeSubject, editingId, newDraftId,
+    });
     if (hybridDrafts) await hybridPendingRef.current.catch(() => {});
     setError('');
     setMessage('');
@@ -463,6 +473,13 @@ export default function NotesPage({
           ...(vaultMode ? { sha: current.sha } : {}) } :
           (hybridDrafts ? { ...payload, id: newDraftId } : payload)),
       }));
+      // If typing continued during Save, never clear the draft or close the
+      // editor: the confirmed GitHub commit covers only the submitted version.
+      if (hybridDrafts && JSON.stringify(liveEditorRef.current) !== submittedEditor) {
+        setDraftStatus('Newer edits pending — earlier revision saved to GitHub');
+        setMessage('The submitted revision was saved to GitHub. Newer edits are still in this editor; review and save them separately.');
+        return;
+      }
       if (hybridDrafts && draftNoteId) {
         // Only delete the matching revision, after GitHub confirms the save.
         // Cleanup errors preserve the draft for later reconciliation.
@@ -473,11 +490,23 @@ export default function NotesPage({
               id: draftNoteId, revision: hybridRevisionRef.current, sha: note.sha,
             }),
           }));
-          if (cleaned.cleared) {
-            window.sessionStorage.removeItem(hybridKey(draftNoteId));
-            if (!editingId &&
-                window.sessionStorage.getItem(newDraftPointerKey(activeSubject)) === draftNoteId)
-              window.sessionStorage.removeItem(newDraftPointerKey(activeSubject));
+          if (cleaned.cleared && JSON.stringify(liveEditorRef.current) === submittedEditor) {
+            // A browser draft written after the submitted Save must survive.
+            // The server's revision-CAS cleanup is not proof of browser freshness.
+            const draftKeyName = hybridKey(draftNoteId);
+            let local;
+            try { local = JSON.parse(window.sessionStorage.getItem(draftKeyName) || 'null')?.draft; }
+            catch { local = null; }
+            const confirmedDraft = {
+              subjectId: current?.subjectSlug || activeSubject, heading, answer,
+              tags, favorite: Boolean(current?.favorite), baseSha: current?.sha || null,
+            };
+            if (local && JSON.stringify(local) === JSON.stringify(confirmedDraft)) {
+              window.sessionStorage.removeItem(draftKeyName);
+              if (!editingId &&
+                  window.sessionStorage.getItem(newDraftPointerKey(activeSubject)) === draftNoteId)
+                window.sessionStorage.removeItem(newDraftPointerKey(activeSubject));
+            }
           }
         } catch { /* Retain draft; next editor visit will reconcile. */ }
       }

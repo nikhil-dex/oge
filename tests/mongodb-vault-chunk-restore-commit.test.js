@@ -10,6 +10,11 @@ import { executeApprovedVaultChunkRestoreBatch,
 } from '../lib/oge-vault-backup-chunk-restore-execute.js';
 import { withVaultOwnerDraftWrite } from '../lib/oge-vault-import-fence.js';
 import { VaultGitHubError } from '../lib/oge-vault-github.js';
+import {
+  issueVaultRestoreApprovalTicket, verifyVaultRestoreApprovalTicket,
+  recordVaultRestoreApproval, claimVaultRestoreApprovalOnce,
+  confirmVaultRestoreApproval,
+} from '../lib/oge-vault-restore-approval-ticket.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Requires disposable localhost Mongo replica set' : false };
@@ -365,5 +370,78 @@ test('M58 stale fingerprint and changed source/target fail before mutation and u
         expectedTargetHead: SHA_SOURCE }, { env: FLAGS }),
     (e) => e.status === 409);
     assert.equal(f.refPatches, 0);
+  });
+});
+
+
+test('M59 signed one-time browser ticket -> atomic Mongo claim -> real Git CAS creates one safe batch', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = await fixture(db);
+    const ids = [idAt(1), idAt(2)];
+    const intent = await f.preview(ids);
+    const identity = { ...f.owner,
+      installationId: f.client.vault.installationId,
+      repoName: f.client.vault.repoName };
+    const approved = f.commitApproval(ids, intent.selectionFingerprint);
+    const key = 'a1'.repeat(32);
+    const now = Date.now();
+    const receipt = issueVaultRestoreApprovalTicket(identity, approved, {
+      secret: key, now,
+    });
+    const verified = verifyVaultRestoreApprovalTicket(receipt.ticket, identity, {
+      secret: key, now: now + 500,
+    });
+    await recordVaultRestoreApproval(db, identity, receipt);
+    const claim = await claimVaultRestoreApprovalOnce(db, identity, verified);
+    assert.equal(claim.claimed, true);
+    const result = await executeApprovedVaultChunkRestoreBatch(
+      db, f.owner, f.client, f.parts, verified.approval, { env: FLAGS });
+    await confirmVaultRestoreApproval(db, identity, verified, result.commitSha);
+    assert.equal(result.restoredCount, 2);
+    assert.equal(f.refPatches, 1);
+    assert.equal(f.treePosts, 1);
+    assert.equal(f.commitPosts, 1);
+    assert.equal((await db.collection('vault_restore_approvals').findOne({
+      _id: receipt.nonceHash,
+    })).state, 'confirmed');
+    await assert.rejects(claimVaultRestoreApprovalOnce(
+      db, identity, verified), /vault-restore-approval-already-used-or-expired/);
+    assert.equal(f.refPatches, 1, 'the receipt cannot cause a second write');
+    const records = JSON.stringify(await db.collection('vault_restore_approvals').find({}).toArray());
+    assert.equal(records.includes('PRIVATE SOURCE ANSWER'), false);
+    assert.equal(records.includes(receipt.ticket), false);
+    assert.equal(await db.collection('vault_drafts').countDocuments({}), 0);
+  });
+});
+
+test('M59 lost GitHub write verification consumes approval and preserves owner quarantine without replay', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = await fixture(db, { failure: 'lost-head-after-patch' });
+    const ids = [idAt(1)], intent = await f.preview(ids);
+    const identity = { ...f.owner,
+      installationId: f.client.vault.installationId,
+      repoName: f.client.vault.repoName };
+    const approval = f.commitApproval(ids, intent.selectionFingerprint);
+    const secret = '7c'.repeat(32);
+    const receipt = issueVaultRestoreApprovalTicket(identity, approval, { secret });
+    const verified = verifyVaultRestoreApprovalTicket(receipt.ticket, identity,
+      { secret });
+    await recordVaultRestoreApproval(db, identity, receipt);
+    await claimVaultRestoreApprovalOnce(db, identity, verified);
+    await assert.rejects(executeApprovedVaultChunkRestoreBatch(
+      db, f.owner, f.client, f.parts, verified.approval, { env: FLAGS }),
+    (e) => e.status === 503 &&
+      e.message === 'vault-import-write-outcome-unconfirmed-lock-retained');
+    assert.equal(f.refPatches, 1);
+    assert.equal(f.treePosts, 1);
+    assert.equal((await db.collection('vault_restore_approvals').findOne({
+      _id: receipt.nonceHash,
+    })).state, 'claimed');
+    assert.equal((await db.collection('users').findOne({
+      googleSub: f.owner.ownerId,
+    })).vaultImportLock.state, 'github-write-possible');
+    await assert.rejects(claimVaultRestoreApprovalOnce(
+      db, identity, verified), /vault-restore-approval-already-used-or-expired/);
+    assert.equal(f.refPatches, 1);
   });
 });

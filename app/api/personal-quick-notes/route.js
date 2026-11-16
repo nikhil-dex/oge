@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../lib/oge-vault-cutover-guard.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
@@ -27,6 +28,9 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to view AirNotes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const notes = await ctx.db.collection('personalQuickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(300).toArray();
     return json(notes.map(({ _id, content, title, createdAt, updatedAt }) => ({ id: String(_id), content, title, createdAt, updatedAt })));
   } catch (error) {
@@ -44,6 +48,9 @@ export async function POST(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to create AirNotes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
@@ -68,6 +75,9 @@ export async function PUT(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update AirNotes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
@@ -90,6 +100,9 @@ export async function DELETE(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to delete AirNotes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';

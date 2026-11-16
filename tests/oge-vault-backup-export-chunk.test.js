@@ -11,6 +11,7 @@ import {
 } from '../lib/oge-vault-backup-export-chunk.js';
 import { createVaultNotesChunkSequenceVerifier } from '../lib/oge-vault-backup-chunk-verifier.js';
 import { validateVaultNotesImportArchive } from '../lib/oge-vault-backup-import-plan.js';
+import { planVaultNotesChunkRestoreReadOnly } from '../lib/oge-vault-backup-chunk-restore-plan.js';
 
 const H = (text) => createHash('sha1').update(text).digest('hex');
 const DIGEST = (text) => createHash('sha256').update(text).digest('hex');
@@ -256,4 +257,138 @@ test('M53 new chunk HTTP endpoint is owner-scoped, default-off, non-mutating and
   assert.doesNotMatch(route + core,
     /\.insertOne\(|\.updateOne\(|\.deleteOne\(|commitVaultNoteBatch|collection\('notes'\)/);
   assert.doesNotMatch(route, /export async function POST|export async function PUT/);
+});
+
+function restoreTarget({ existingIds = [], headDrift = false,
+  corruptTree = false, rejectOwner = false, draftIds = [],
+  rejectSubject = false } = {}) {
+  const TARGET = H('synthetic-target-head'), TARGET_TREE = H('synthetic-target-tree');
+  const calls = [], checkedDraftChunks = [];
+  let heads = 0, owners = 0;
+  const client = { branch: 'main', vault: { repoId: 678 },
+    async call(path, opts = {}) {
+      assert.ok(!opts.method || opts.method === 'GET', 'read-only restore plan');
+      calls.push(path);
+      if (path === '/git/ref/heads/main')
+        return { object: { sha: headDrift && ++heads > 1
+          ? H('external-target-change') : TARGET } };
+      if (path === '/git/commits/' + TARGET)
+        return { tree: { sha: TARGET_TREE } };
+      if (path === '/git/trees/' + TARGET_TREE + '?recursive=1')
+        return { truncated: corruptTree, tree: existingIds.map((id) => ({
+          path: 'notes/' + id + '.json', type: 'blob',
+          mode: '100644', sha: H('remote-target-' + id), size: 300,
+        })) };
+      throw new Error('Unexpected target call: ' + path);
+    } };
+  return {
+    client, calls, checkedDraftChunks,
+    subjectVerifier: async (ids) => !rejectSubject &&
+      ids.every((id) => id === SUBJECT),
+    ownerVerifier: async () => { owners++; return !rejectOwner || owners === 1; },
+    pendingDraftIds: async (ids) => {
+      checkedDraftChunks.push(ids);
+      return ids.filter((id) => draftIds.includes(id));
+    },
+    get ownerChecks() { return owners; },
+  };
+}
+
+test('M54 full 520-note >8MiB backup gets a read-only metadata-only target conflict plan', async () => {
+  const source = fixture({ count: 520, answerSize: 16500 });
+  const parts = await chunks(source);
+  const existingIds = [source.notes[0].id, source.notes[2].id];
+  const draftIds = [source.notes[2].id, source.notes[3].id];
+  const target = restoreTarget({ existingIds, draftIds });
+  async function* sourceParts() { for (const part of parts) yield part; }
+  const report = await planVaultNotesChunkRestoreReadOnly(
+    target.client, sourceParts(), target);
+  assert.equal(report.format, 'oge-vault-notes-chunk-restore-plan');
+  assert.equal(report.fullSourceVerified, true);
+  assert.equal(report.sourcePagesVerified, 9);
+  assert.equal(report.sourceNotesVerified, 520);
+  assert.equal(report.summary.total, 520);
+  assert.equal(report.summary.draftConflicts, 2);
+  assert.equal(report.summary.existingConflicts, 1);
+  assert.equal(report.summary.createCandidates, 517);
+  assert.deepEqual(report.preview.slice(0, 4).map((x) => x.outcome), [
+    'existing-note-conflict', 'create-candidate', 'draft-conflict', 'draft-conflict',
+  ]);
+  assert.equal(report.preview.length, 12);
+  assert.equal(report.previewTruncated, true);
+  assert.equal(report.canCommit, false);
+  assert.equal(report.requiresFreshOwnerApproval, true);
+  assert.equal(report.sourceShaTrustedAsAuthorization, false);
+  assert.equal(report.changesEncryptedDrafts, false);
+  assert.equal(report.createsMongoNoteBodies, false);
+  assert.ok(target.checkedDraftChunks.every((items) => items.length <= 100));
+  assert.equal(target.ownerChecks, 2);
+  assert.ok(target.calls.every((x) => !x.startsWith('/contents/')));
+  const text = JSON.stringify(report);
+  for (const secret of ['PRIVATE TITLE', 'p'.repeat(40)])
+    assert.equal(text.includes(secret), false);
+});
+
+test('M54 missing, reordered, modified chunks fail before any destination GitHub read', async () => {
+  const source = fixture({ count: 135 });
+  const [a, b, c] = await chunks(source);
+  const altered = structuredClone(b);
+  altered.notes[0].answer = 'PRIVATE ALTERED SOURCE ANSWER';
+  const candidates = [[a], [a, c], [b, a, c], [a, b, b], [a, altered, c]];
+  for (const parts of candidates) {
+    const target = restoreTarget();
+    await assert.rejects(planVaultNotesChunkRestoreReadOnly(
+      target.client, parts, target));
+    assert.equal(target.calls.length, 0);
+    assert.equal(target.ownerChecks, 0);
+  }
+});
+
+test('M54 destination read-only planner rejects stale HEAD, owner changes, tree errors and unowned subjects', async () => {
+  const source = fixture({ count: 70 });
+  const parts = await chunks(source);
+  for (const opt of [
+    { headDrift: true }, { rejectOwner: true }, { rejectSubject: true },
+    { corruptTree: true },
+  ]) {
+    const target = restoreTarget(opt);
+    await assert.rejects(planVaultNotesChunkRestoreReadOnly(
+      target.client, parts, target), (e) =>
+        e instanceof VaultGitHubError && e.status === 409);
+    assert.ok(target.calls.every((x) => !x.startsWith('/contents/')));
+  }
+});
+
+test('M54 untrustworthy encrypted-draft responses or source tampering reject plan', async () => {
+  const source = fixture({ count: 70 });
+  const parts = await chunks(source);
+  const wrongDrafts = restoreTarget();
+  await assert.rejects(planVaultNotesChunkRestoreReadOnly(
+    wrongDrafts.client, parts, {
+      ...wrongDrafts, pendingDraftIds: async () => ['unexpected-draft'],
+    }), /vault-chunk-restore-draft-check-invalid/);
+  const duplicateDrafts = restoreTarget();
+  await assert.rejects(planVaultNotesChunkRestoreReadOnly(
+    duplicateDrafts.client, parts, {
+      ...duplicateDrafts, pendingDraftIds: async (ids) => [ids[0], ids[0]],
+    }), /vault-chunk-restore-draft-check-invalid/);
+  const malformed = structuredClone(parts[0]);
+  malformed.notes[0].subjectId = randomUUID();
+  malformed.chunkSha256 = DIGEST(JSON.stringify(malformed.notes));
+  const target = restoreTarget();
+  await assert.rejects(planVaultNotesChunkRestoreReadOnly(
+    target.client, [malformed, parts[1]], target));
+  assert.equal(target.calls.length, 0);
+});
+
+test('M54 isolated read-only planner stores no archived note bodies or Mongo writes', async () => {
+  const engine = await readFile(new URL(
+    '../lib/oge-vault-backup-chunk-restore-plan.js', import.meta.url), 'utf8');
+  assert.match(engine, /createVaultNotesChunkSequenceVerifier/);
+  assert.match(engine, /scanVaultNotesSnapshotIndex/);
+  assert.match(engine, /canCommit: false/);
+  assert.match(engine, /requiresFreshOwnerApproval: true/);
+  assert.doesNotMatch(engine,
+    /\.updateOne\(|\.insertOne\(|\.deleteOne\(|commitVaultNoteBatch\(/);
+  assert.doesNotMatch(engine, /notes\.push\(note\)/);
 });

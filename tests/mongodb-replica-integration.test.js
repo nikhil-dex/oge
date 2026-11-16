@@ -14,6 +14,7 @@ import { inspectVaultLegacyData } from '../lib/oge-vault-legacy-inventory.js';
 import { inspectLegacyCutoverForOwner } from '../lib/oge-vault-cutover-guard.js';
 import { withVaultOwnerDraftWrite, withVaultOwnerImportExclusive } from '../lib/oge-vault-import-fence.js';
 import { inspectVaultImportLockReadOnly } from '../lib/oge-vault-import-lock-inspection.js';
+import { releasePreWriteVaultImportLockInStaging } from '../lib/oge-vault-import-lock-prewrite-release.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -778,5 +779,160 @@ test('real MongoDB D3b2b2c2 live exclusive import lock remains intact after oper
     }
     assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultImportLock,
       undefined);
+  });
+});
+
+test('real MongoDB D3b2b2c3 durable marker survives uncertain GitHub response', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'import-write-uncertain-' + randomUUID(), repoId = 806;
+    const sessionVersion = randomUUID(), operationId = randomUUID();
+    const scope = { ownerId, repoId, sessionVersion };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+    });
+    await assert.rejects(withVaultOwnerImportExclusive(db, scope, async ({
+      markGitHubWriteAttempt,
+    }) => {
+      await markGitHubWriteAttempt('Restore OgeNotes backup ' + 'a'.repeat(64));
+      throw new Error('synthetic ambiguous GitHub response');
+    }, { operationId }), (err) =>
+      err.status === 503 &&
+      err.message === 'vault-import-write-outcome-unconfirmed-lock-retained');
+    const current = await db.collection('users').findOne({ googleSub: ownerId });
+    assert.equal(current.vaultImportLock.operationId, operationId);
+    assert.equal(current.vaultImportLock.state, 'github-write-possible');
+    assert.equal(current.vaultImportLock.commitMarker,
+      'Restore OgeNotes backup ' + 'a'.repeat(64));
+    await assert.rejects(withVaultOwnerImportExclusive(db, scope, async () => {}),
+      (err) => err.status === 409);
+    await assert.rejects(withVaultOwnerDraftWrite(db, scope, async () => {}),
+      (err) => err.status === 409);
+  });
+});
+
+test('real MongoDB D3b2b2c3 transaction releases ONLY exact prewrite lock and preserves drafts', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'import-prewrite-release-' + randomUUID(), repoId = 807;
+    const sessionVersion = randomUUID(), operationId = randomUUID();
+    const incidentId = randomUUID(), noteId = randomUUID();
+    const start = new Date('2026-11-16T08:00:00.000Z');
+    const identity = { ownerId, repoId, sessionVersion, expectedOperationId: operationId };
+    const args = { incidentId, startedAt: start.toISOString(),
+      maintenanceConfirmed: true, independentReviewConfirmed: true,
+      now: new Date('2026-11-16T09:00:00.000Z') };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion,
+      vault: { status: 'connected', repoId },
+      vaultImportLock: { operationId, repoId, startedAt: start, state: 'acquired' },
+      vaultActiveDraftWriters: 0,
+    });
+    const protectedBody = 'PRIVATE_ENCRYPTED_DRAFT_NEVER_CLEAR';
+    await db.collection('vault_drafts').insertOne({
+      ownerId, repoId, noteId, revision: 3,
+      encrypted: { ciphertext: protectedBody },
+    });
+    const result = await releasePreWriteVaultImportLockInStaging(db, identity, args);
+    assert.equal(result.status, 'PREWRITE_LOCK_RELEASED');
+    assert.equal(result.lockReleased, true);
+    assert.equal(result.productionRecoveryAuthorized, false);
+    assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultImportLock,
+      undefined);
+    assert.equal((await db.collection('vault_drafts').findOne({ ownerId, repoId, noteId }))
+      .encrypted.ciphertext, protectedBody);
+    const audit = await db.collection('vault_import_lock_recovery_audit').findOne({
+      ownerId, repoId, operationId,
+    });
+    assert.equal(audit.incidentId, incidentId);
+    assert.equal(audit.recoveryKind, 'pre-github-write-only');
+    assert.equal(audit.notesChanged, false);
+    assert.equal(audit.encryptedDraftsChanged, false);
+    await assert.rejects(releasePreWriteVaultImportLockInStaging(db, identity, args),
+      (err) => err.status === 409);
+    assert.equal(await db.collection('vault_import_lock_recovery_audit').countDocuments({}), 1);
+  });
+});
+
+test('real MongoDB D3b2b2c3 refuses attempted/legacy locks and cross-owner releases', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'prewrite-deny-' + randomUUID(), repoId = 808;
+    const sessionVersion = randomUUID(), operationId = randomUUID();
+    const startedAt = '2026-11-16T08:00:00.000Z';
+    const scope = { ownerId, repoId, sessionVersion, expectedOperationId: operationId };
+    const opt = { incidentId: randomUUID(), startedAt,
+      maintenanceConfirmed: true, independentReviewConfirmed: true,
+      now: new Date('2026-11-16T09:00:00.000Z') };
+    const users = db.collection('users');
+    await users.insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+      vaultImportLock: { operationId, repoId, startedAt: new Date(startedAt),
+        state: 'github-write-possible',
+        commitMarker: 'Restore OgeNotes backup ' + 'b'.repeat(64),
+        attemptedAt: new Date('2026-11-16T08:01:00.000Z') },
+    });
+    const denied = [
+      scope, { ...scope, sessionVersion: randomUUID() },
+      { ...scope, repoId: repoId + 1 },
+      { ...scope, expectedOperationId: randomUUID() },
+    ];
+    for (const identity of denied)
+      await assert.rejects(releasePreWriteVaultImportLockInStaging(db, identity, opt),
+        (err) => err.status === 409);
+    await users.updateOne({ googleSub: ownerId },
+      { $unset: { 'vaultImportLock.state': '', 'vaultImportLock.commitMarker': '',
+        'vaultImportLock.attemptedAt': '' } });
+    await assert.rejects(releasePreWriteVaultImportLockInStaging(db, scope, opt),
+      (err) => err.status === 409);
+    assert.equal(await db.collection('vault_import_lock_recovery_audit').countDocuments({}), 0);
+    assert.equal((await users.findOne({ googleSub: ownerId })).vaultImportLock.operationId, operationId);
+  });
+});
+
+test('real MongoDB D3b2b2c3 active subject writer rejects manual prewrite release', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'prewrite-subject-' + randomUUID(), repoId = 809;
+    const sessionVersion = randomUUID(), operationId = randomUUID();
+    const startedAt = '2026-11-16T08:00:00.000Z';
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+      vaultImportLock: { operationId, repoId,
+        startedAt: new Date(startedAt), state: 'acquired' },
+    });
+    await db.collection('subjects').insertOne({
+      ownerId, slug: randomUUID(), vaultActiveWriters: 1,
+    });
+    await assert.rejects(releasePreWriteVaultImportLockInStaging(db,
+      { ownerId, repoId, sessionVersion, expectedOperationId: operationId }, {
+        incidentId: randomUUID(), startedAt,
+        maintenanceConfirmed: true, independentReviewConfirmed: true,
+        now: new Date('2026-11-16T09:00:00.000Z'),
+      }), (err) => err.status === 409);
+    assert.equal((await db.collection('users').findOne({ googleSub: ownerId }))
+      .vaultImportLock.state, 'acquired');
+  });
+});
+
+test('real MongoDB D3b2b2c3 audit insertion failure rolls back exact lock release', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'prewrite-audit-failure-' + randomUUID(), repoId = 810;
+    const sessionVersion = randomUUID(), operationId = randomUUID();
+    const startedAt = '2026-11-16T08:00:00.000Z';
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+      vaultImportLock: { operationId, repoId,
+        startedAt: new Date(startedAt), state: 'acquired' },
+    });
+    const broken = { client: db.client, collection(name) {
+      if (name !== 'vault_import_lock_recovery_audit') return db.collection(name);
+      return { async insertOne() { throw new Error('synthetic-audit-insert-failure'); } };
+    } };
+    await assert.rejects(releasePreWriteVaultImportLockInStaging(broken,
+      { ownerId, repoId, sessionVersion, expectedOperationId: operationId }, {
+        incidentId: randomUUID(), startedAt,
+        maintenanceConfirmed: true, independentReviewConfirmed: true,
+        now: new Date('2026-11-16T09:00:00.000Z'),
+      }), /synthetic-audit-insert-failure/);
+    assert.equal((await db.collection('users').findOne({ googleSub: ownerId }))
+      .vaultImportLock.state, 'acquired');
+    assert.equal(await db.collection('vault_import_lock_recovery_audit').countDocuments({}), 0);
   });
 });

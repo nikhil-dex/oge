@@ -33,6 +33,12 @@ test('M48 operator GitHub App token requests contents=read; normal writers retai
   const observer = await getVaultNoteClient(db, id, { env, fetcher, readOnly: true });
   assert.equal(observer.vault.repoId, repoId);
   assert.equal(observer.branch, 'main');
+  await assert.rejects(observer.call('/contents/notes/whatever.json', {
+    method: 'PUT', body: { content: 'must not write' },
+  }), TypeError);
+  await assert.rejects(observer.call('/git/refs/heads/main', {
+    method: 'PATCH', body: { sha: 'f'.repeat(40) },
+  }), TypeError);
   assert.equal(captured[0].body.permissions.contents, 'read');
   assert.equal(captured[0].body.permissions.metadata, 'read');
   await getVaultNoteClient(db, id, { env, fetcher });

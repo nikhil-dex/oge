@@ -28,28 +28,28 @@ function fixture({ count = 130, answerSize = 70, moveHead = false,
     return { id, note, bytes, sha: blobSha(bytes) };
   });
   const bySha = new Map(files.map((file) => [file.sha, file]));
-  const calls = []; let heads = 0, ownerChecks = 0;
+  const calls = []; let heads = 0, ownerChecks = 0, faultActive = false;
   const client = { branch: 'main', vault: { repoId: 345 },
     async call(path, opts = {}) {
       assert.ok(!opts.method || opts.method === 'GET');
       calls.push(path);
       if (path === '/git/ref/heads/main') {
         heads++;
-        return { object: { sha: moveHead && heads > 1
+        return { object: { sha: moveHead && faultActive && heads > 1
           ? H('m55-new-head') : HEAD } };
       }
       if (path === '/git/commits/' + HEAD) return { tree: { sha: TREE } };
       if (path === '/git/trees/' + TREE + '?recursive=1')
         return { truncated: false, tree: files.map((file, n) => ({
           path: 'notes/' + file.id + '.json',
-          sha: mismatchedTree && n === 0 ? H('other-blob') : file.sha,
+          sha: mismatchedTree && faultActive && n === 0 ? H('other-blob') : file.sha,
           type: 'blob', mode: '100644', size: file.bytes.length,
         })) };
       if (path.startsWith('/git/blobs/')) {
-        if (rateLimited) throw new VaultGitHubError('github-rate-limited', 429);
+        if (rateLimited && faultActive) throw new VaultGitHubError('github-rate-limited', 429);
         const file = bySha.get(path.slice('/git/blobs/'.length));
         if (!file) throw new VaultGitHubError('github-api-error', 404);
-        const bytes = corruptBlob ?
+        const bytes = corruptBlob && faultActive ?
           Buffer.from(JSON.stringify({ ...file.note, answer: 'FAKE' })) : file.bytes;
         return { encoding: 'base64', content: bytes.toString('base64') };
       }
@@ -58,9 +58,10 @@ function fixture({ count = 130, answerSize = 70, moveHead = false,
   };
   const ownerVerifier = async () => {
     ownerChecks++;
-    return !(revokeOwner && ownerChecks > 1);
+    return !(revokeOwner && faultActive && ownerChecks > 1);
   };
   return { client, files, calls, ownerVerifier,
+    activateFault() { faultActive = true; heads = 0; },
     get ownerChecks() { return ownerChecks; } };
 }
 
@@ -162,6 +163,7 @@ test('M55 changed source HEAD, revoked session, corrupt blob and rate limit fail
   ]) {
     const f = fixture({ count: 3, ...options });
     const parts = await chunks(f);
+    f.activateFault();
     await assert.rejects(verifyVaultNotesChunkGitHubSourceReadOnly(
       f.client, parts, { ownerVerifier: f.ownerVerifier }));
   }

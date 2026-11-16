@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
+import { checkVaultStagingReadiness } from '../../../lib/oge-vault-staging-preflight.js';
 import SiteNavbar from '../../components/site-navbar.js';
 import VaultQuickCaptureClient from './vault-quick-capture-client.js';
 
@@ -20,7 +21,9 @@ function enabled(env = process.env) {
     /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(env.MONGODB_DB || '') &&
     env.OGE_VAULT_CUTOVER_GUARD_PREVIEW !== 'true' &&
     env.OGE_VAULT_DESTRUCTIVE_DELETE_INTERNAL !== 'true' &&
-    env.OGE_ACCOUNT_DELETION_ENABLED !== 'true';
+    env.OGE_ACCOUNT_DELETION_ENABLED !== 'true' &&
+    checkVaultStagingReadiness(env).ok &&
+    env.OGE_STAGING_URL === env.AUTH_URL;
 }
 
 /**

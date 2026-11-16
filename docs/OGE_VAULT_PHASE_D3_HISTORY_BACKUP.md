@@ -433,6 +433,42 @@ HEAD, moved owner lock, draft preservation, redacted results, unsafe local
 file permissions and symlink rejection. Live GitHub authenticated
 two-device acceptance and full recovery approval remain pending.
 
+## Phase D3b2b2c4c / Milestone #50: Deterministic two-device staging acceptance
+
+New `tests/mongodb-vault-two-device.test.js` runs in the isolated
+`localhost:27017` disposable Mongo replica-set CI gate with a
+`oge_ci_multidevice_*` auto-dropped database. The test harness combines
+**real MongoDB account/subject/draft synchronization**, signed owner-epoch
+checks, create-only approved import re-planning and exact immutable
+archive-content reconciliation with a **synthetic GitHub ref/commit/blob
+provider**. No real GitHub accounts or note bodies are touched.
+
+The three acceptance scenarios check:
+1. an in-flight encrypted draft autosave blocks a simultaneous selected-note
+   import; once the draft finishes, fresh import re-planning refuses to
+   overwrite its note ID;
+2. a signed import already holding `github-write-possible` blocks another
+   device's autosave (no draft mutation), then returns to normal encrypted
+   autosave after the import is confirmed and its lock released;
+3. an ambiguous GitHub acknowledgment after a simulated persisted commit
+   leaves durable owner quarantine. New autosave and import remain blocked
+   while read-only original-archive immutable-blob verification may still
+   confirm historical note contents without deleting drafts, retrying the
+   remote write or releasing the lock.
+
+The tests verify no private plaintext is inserted into permanent MongoDB
+owner records, preserve encrypted drafts, and use unique per-test databases
+with no network access to GitHub. See
+`docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md` for test commands and a
+separate acceptance matrix.
+
+**This is synthetic provider acceptance, not complete live authenticated
+two-browser/OAuth/GitHub-App staging signoff.** Subject deletion interactions,
+cross-subject edits, real GitHub throttling/conflicting refs, session
+revocation and browser sessionStorage recovery require further signed
+staging. Production flags are still disabled. No production migration or
+merge is authorized.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

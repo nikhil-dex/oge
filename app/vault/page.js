@@ -52,6 +52,20 @@ export default async function VaultPage({ searchParams }) {
     process.env.AUTH_URL === process.env.OGE_STAGING_URL &&
     /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(process.env.MONGODB_DB || '') &&
     checkVaultStagingReadiness(process.env).ok;
+  const currentResourceBackupVisible =
+    process.env.OGE_VAULT_CURRENT_RESOURCE_BACKUP_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_BACKUP_EXPORT_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_STANDALONE_PREVIEW === 'true' &&
+    mainPreviewEnabled &&
+    process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_CUTOVER_GUARD_PREVIEW !== 'true' &&
+    process.env.OGE_ACCOUNT_DELETION_ENABLED !== 'true' &&
+    process.env.OGE_VAULT_DESTRUCTIVE_DELETE_INTERNAL !== 'true' &&
+    process.env.OGE_VAULT_SUBJECT_RETIRE_INTERNAL !== 'true' &&
+    process.env.AUTH_URL === process.env.OGE_STAGING_URL &&
+    /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(process.env.MONGODB_DB || '') &&
+    checkVaultStagingReadiness(process.env).ok;
   const capturePreviewEnabled = mainPreviewEnabled &&
     process.env.OGE_VAULT_QUICK_CAPTURE_PREVIEW === 'true' &&
     process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
@@ -99,6 +113,10 @@ export default async function VaultPage({ searchParams }) {
             {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open familiar Notes interface (GitHub-only) →</Link>}
             {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Quick Capture to GitHub Vault (staging preview) →</Link>}
             {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}
+            {currentResourceBackupVisible && <>
+              <p className="oge-settings-note">Staging three-resource current snapshot backup includes private plaintext committed Notes, Quick Notes and AirNotes. Secure the downloaded JSON. Historical revisions, drafts and other account data are NOT included, and this file cannot be imported yet.</p>
+              <a className="oge-primary-link" href="/api/vault/backup-current-resources" download="oge-vault-current-resources.json">Download current committed Vault resources (staging only) ↓</a>
+            </>}
             {restoreStagingVisible && <Link className="oge-primary-link" href="/vault/restore-staging">Review staging-only backup restore →</Link>}
           </>
         ) : (

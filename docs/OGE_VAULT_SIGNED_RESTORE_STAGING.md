@@ -254,6 +254,77 @@ following were actually observed with *only* disposable test data:
 merely because unit tests, a GET-only probe or GitHub Actions passed.**
 No actual provider observation/signoff is currently recorded here.
 
+## Milestone #62 — Owner-facing staging-only restore review (no GitHub writes)
+
+A previously reviewed M57 source/target selection can now be entered
+through a responsive, retro-styled staging page:
+
+`/vault/restore-staging`
+
+The page is **404 outside the exact isolated staging environment**:
+it requires `OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW=true`, an
+`oge_vault_restore_staging_*` database, matching HTTPS
+`OGE_STAGING_URL` and `OGE_VAULT_BASE_URL`, successful Vault
+staging configuration preflight, and a signed Auth.js browser session.
+The link is only visible from the owner's connected `/vault` page
+when the same isolated gating checks pass. All flags are **OFF by
+default**; this is not a production restore feature.
+
+The staged reviewer first retrieves its own bounded signed-owner
+receipt history through the existing read-only endpoint. Missing,
+unparseable, incomplete or unknown history, a pending/claimed batch,
+an import quarantine, and invalid or truncated records **disable**
+approval in the browser. A previously confirmed batch or an expired
+pending receipt does **not** prove current GitHub HEAD; it only lets
+the owner start a *new independent review*. The server re-checks
+authoritative owner/session, source/target requirements and GitHub
+HEAD before issuing a receipt, so a stale browser cannot bypass the
+existing server-side gates.
+
+The form accepts **only exact metadata** from a separately verified
+M57 source and destination review:
+
+- The 40-hex Git source snapshot and target current HEAD.
+- The 64-hex backup inventory digest and M57 selection fingerprint.
+- Between 1 and 12 **distinct lowercase note UUIDs**.
+
+No note bodies, chunk files, GitHub credentials, permanent backups
+or original plaintext archives can be uploaded through this form.
+The user must select an explicit independent-review acknowledgment
+and type **APPROVE ONE BATCH** before its POST is enabled. The
+request still **only issues a ten-minute signed one-use receipt**;
+it never uploads a backup or writes a GitHub commit.
+
+The returned secret ticket is held in temporary React component
+memory, **not** shown by default, stored in localStorage,
+sessionStorage or added to the URL. The only transfer control is an
+explicit **Copy private ticket JSON to clipboard** user action.
+The owner should immediately save it to an owned 0600 file outside
+the chunks directory, pass it to the isolated M59 operator, and
+clear the clipboard. A failed or lost response is not automatically
+replayed, and the UI asks for manual read-only history review
+before any further request. The owner may separately query the
+individual receipt's pending/claimed/confirmed state, but can
+**never retry**, release an import quarantine or start another
+GitHub batch automatically through this page.
+
+**UX limits:** M62 does not fetch or verify the complete private
+backup inside the browser, display note contents, create a portable
+encrypted offline backup, or turn the UI into an authorized
+GitHub restore executor. The owner/operator must independently
+produce and review the M53–M57 source proof and exact target HEAD.
+This staging page is an accessible review-and-receipt bridge, **not
+the final consumer backup/restore experience**.
+
+Automated validation includes strict field and UUID selection tests,
+history-state fail-closed policy, signed and isolated server gate
+checks, no persistent browser ticket storage, no GitHub writes
+from the UI, Next.js production build, lint and existing
+Chromium desktop/mobile smoke. The standard browser smoke does not
+authenticate two real staging devices or exercise a real GitHub
+restore through the new page. **Actual GitHub App OAuth/two-device
+acceptance remains unsigned**.
+
 ## Remaining release blockers
 
 M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no finished owner-facing UI for managing private backup downloads. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.

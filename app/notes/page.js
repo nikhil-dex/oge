@@ -501,9 +501,21 @@ export default function NotesPage({
             }),
           }));
         } catch {
-          setDraftStatus('GitHub saved — draft cleanup pending');
-          setMessage('GitHub saved this version. Draft cleanup could not be confirmed. Your editor remains open so you can review it.');
-          return;
+          // DELETE might have committed its MongoDB transaction even if its
+          // HTTP acknowledgment was lost. Retry only the confirmed-cleanup
+          // coordinator, NOT the GitHub note Save.
+          try {
+            cleaned = await responseJson(await fetch('/api/vault/drafts', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              cache: 'no-store', body: JSON.stringify({
+                id: draftNoteId, revision: hybridRevisionRef.current, sha: note.sha,
+              }),
+            }));
+          } catch {
+            setDraftStatus('GitHub saved — draft cleanup pending');
+            setMessage('GitHub saved this version. Draft cleanup could not be confirmed. Your editor remains open so you can review it.');
+            return;
+          }
         }
         if (cleaned?.confirmed !== true || cleaned.cleared !== true) {
           setDraftStatus('GitHub saved — newer draft retained');

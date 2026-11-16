@@ -124,7 +124,7 @@ test('M48 identifies exact metadata-only GitHub import without downloading note 
 
 test('M48 refuses legacy/acquired or invalid import evidence before touching GitHub', async () => {
   for (const opt of [
-    { lockState: 'acquired' }, { lockState: undefined },
+    { lockState: 'acquired' }, { lockState: 'legacy-unknown' },
     { wrongOperation: true }, { invalidEvidence: true },
     { missingOwner: true },
   ]) {

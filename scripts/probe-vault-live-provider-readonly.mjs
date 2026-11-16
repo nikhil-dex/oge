@@ -53,6 +53,7 @@ if (!allowed) {
     const db = mongo.db(env.MONGODB_DB);
     if (!(await db.admin().command({ hello: 1 })).setName)
       throw new TypeError('Secure staging Mongo replica set required');
+    let pinnedVault = null;
     const ownerVerifier = async () => {
       const account = await db.collection('users').findOne({
         ...ownerMutationFilter(identity.ownerId, {
@@ -69,13 +70,20 @@ if (!allowed) {
         v.installationId === identity.installationId &&
         v.repoName === identity.repoName &&
         typeof v.githubAccountId === 'string' &&
-        typeof v.githubLogin === 'string';
+        typeof v.githubLogin === 'string' &&
+        (pinnedVault === null ||
+          (v.githubAccountId === pinnedVault.githubAccountId &&
+          v.githubLogin === pinnedVault.githubLogin &&
+          v.repoName === pinnedVault.repoName &&
+          v.installationId === pinnedVault.installationId &&
+          v.repoId === pinnedVault.repoId));
     };
     if (!await ownerVerifier())
       throw new TypeError('Owner staging scope unavailable');
     // Each call requests a separately scoped contents:read installation.
     // No contents:write token is obtained here.
     const first = await getVaultNoteClient(db, identity, { readOnly: true });
+    pinnedVault = first.vault;
     const second = await getVaultNoteClient(db, identity, { readOnly: true });
     if (first.vault.repoId !== identity.repoId ||
         second.vault.installationId !== identity.installationId)

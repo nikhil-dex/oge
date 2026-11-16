@@ -475,8 +475,51 @@ performed. The synthetic tests exercise complete 130-note and
 the existing trusted Node verifier; passing those tests is not a
 claim that an actual browser saved all files.
 
+## Milestone #65 — Offline AES-GCM encrypted Notes parts
+
+M64's owner download now saves **encrypted part-NNNN.oge.json files only**:
+browser Web Crypto derives a 256-bit AES-GCM key from a strong 16+
+character unique passphrase using PBKDF2-SHA-256 (600,000 iterations)
+and a fresh per-backup 128-bit random salt. Each verified 4-MiB-or-
+smaller source JSON part has its own random 96-bit IV, authenticated
+format/part/size metadata, and AES-GCM authentication tag. The
+downloadable Blob contains **only ciphertext plus bounded metadata**;
+the page does not save or offer plaintext source JSON.
+
+The owner must **confirm and securely retain the password**, since Oge
+has no escrow, reset or recovery key. Password guessing is possible
+offline for weak passphrases; device/browser compromise can reveal
+plaintext or the passphrase while in use. The original protected GitHub
+GET still delivers plaintext to the signed browser *over HTTPS*:
+this is client-side **offline file at-rest encryption**, not end-to-end
+encryption against an untrusted service.
+
+In the M63 restore review, choose every numbered encrypted file and
+enter the same password. The browser opens only transient decrypted
+file-like views and verifies all original Notes chunks and the exact
+M57 source inventory/selected-note fingerprint. The passphrase input
+is cleared after review. Wrong passwords, altered ciphertext/metadata,
+different backup salts and missing/mixed parts fail closed.
+Legacy plaintext part-NNNN.json files can still be selected for
+controlled historical staging review, but are no longer offered by
+the owner download button.
+
+**Operator workflow limitation:** the separate M58/M59 staging CLI still
+requires protected private plaintext 0600 chunk files. It CANNOT
+directly consume encrypted .oge.json files yet. A security-reviewed
+operator conversion with no exposed password, independent signed
+GitHub source verification and safe temporary-file cleanup is a
+future milestone. Do **not** bypass the owner import lock, assume
+an encrypted file authenticates GitHub, or treat a local green review
+as permission for a GitHub write.
+
+Full versioned format, password-loss and source-deletion caveats:
+docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md.
+No real OAuth/two-device provider staging or cryptographic audit
+has been completed.
+
 ## Remaining release blockers
 
-M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no completed, live-accepted production backup and restore experience. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.
+M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no completed, live-accepted production offline backup and restore experience. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.
 
 **Do not merge PR #35 or enable production restore flags.**

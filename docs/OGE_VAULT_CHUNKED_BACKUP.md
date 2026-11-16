@@ -144,6 +144,69 @@ HEAD, stale owner sessions, unauthorized subjects, local file
 permissions/symlinks and real disposable MongoDB encrypted draft
 preservation. No real production user content was accessed.
 
+## Milestone #55 — Independently checked GitHub current-source provenance
+
+The #54 read-only restore planner verifies downloaded SHA-256 checksums,
+ordering and destination conflicts but cannot tell whether an attacker
+created a **self-consistent forged backup**. SHA-256 fields included inside
+an untrusted file are not a source signature. Milestone #55 adds a separate
+read-only, owner-scoped source proof:
+
+```sh
+npm run vault:chunk:verify-source
+```
+
+Configure the same exact signed owner/session/private GitHub repo, explicit
+MongoDB database and 0700 private directory of contiguous 0600
+`part-0001.json` files from the #54 operator CLI. The **new, unset-by-default**
+opt-in is
+`OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY=YES_CURRENT_GITHUB_HEAD_ONLY`.
+The script checks the local files before any database connection or
+GitHub App credential mint. It requests **contents:read** access to only
+the connected private GitHub Vault. It never writes notes or exposes
+private note text or credentials in the output.
+
+The new `verifyVaultNotesChunkGitHubSourceReadOnly()` helper:
+
+1. Fully verifies each chunk in order and the final inventory hash before
+   contacting GitHub, with a limit of **1,024 current Notes across 16 parts**.
+   Only each note's UUID, blob SHA and normalized-content SHA-256 digest
+   are retained, not a combined archive of note contents.
+2. Rechecks the signed owner session/repo and requires the **downloaded
+   snapshot to equal the connected source GitHub branch's CURRENT HEAD**.
+   A stale, unrelated or unavailable source commit fails closed. The
+   complete Git tree must match all downloaded note IDs and blob SHAs.
+3. Independently downloads the source's immutable blobs named in that
+   verified Git tree, five at a time. For **every** blob it recalculates
+   Git's raw blob SHA-1 (`blob <length>\\0` plus raw bytes), strictly
+   validates the note JSON schema, and compares all canonical note fields
+   with the downloaded part's SHA-256 content digest.
+4. Rechecks HEAD and signed owner mapping, then returns only a redacted
+   count and nonauthorizing status. All GitHub operations are GETs.
+
+A positive check is stronger than untrusted page checksums: it
+confirms that these source note bytes actually appear in the **currently
+connected owner's Git tree**, as seen with the signed GitHub App.
+It is NOT a digital signature of a backup that would remain valid after
+GitHub access is lost, does NOT support verifying a historical source
+snapshot after HEAD moves, and does NOT prove the destination owner has
+approved a restore. Git uses SHA-1 for object IDs; source provider
+authentication and account authorization are separate requirements.
+
+If source content was deleted, the original branch moved, the source
+installation is revoked, the backup exceeds 1,024 notes, or GitHub
+rate limits interrupt verification, this narrow proof cannot approve
+anything. Preserve the backup privately and use the future historical
+provenance/restore design, not an unsafe override.
+
+The existing #54 destination conflict planner remains **read-only** and
+still reports `canCommit:false`. Even after positive #55 provenance,
+there is no authorized chunk restore write path, no automatic GitHub retry,
+and no encrypted MongoDB draft deletion. Tests cover >8 MiB/520 notes,
+forged JSON with recalculated local SHA-256, forged inventory/blob hashes,
+corrupted raw blobs, stale HEAD, revoked owner session, rate limits,
+missing pages and unsafe local files.
+
 ## Remaining release blockers
 
 An explicitly approved assembly and restore workflow (including

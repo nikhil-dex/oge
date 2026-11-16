@@ -213,3 +213,31 @@ test('B7 simulated two-device GitHub race preserves the winner and rejects stale
   assert.notEqual(JSON.parse(Buffer.from(note.content, 'base64').toString()).answer,
     'B stale update');
 });
+
+test('D3b2b1 approved import never writes after a stale expected GitHub HEAD', async () => {
+  const f = fixture();
+  const id = randomUUID(), subjectId = randomUUID();
+  const before = f.getHead();
+  await assert.rejects(commitVaultNoteBatch(f.client, [{
+    action: 'create', id, note: { subjectId, heading: 'From backup', answer: 'Private' },
+  }], { expectedHead: H('an-old-plan-head'), preserveImportTimestamps: true }),
+  (error) => error instanceof VaultGitHubError &&
+    error.message === 'vault-import-target-head-changed' && error.status === 409);
+  assert.equal(f.getHead(), before);
+  assert.equal(f.getFiles().size, 0);
+});
+
+test('D3b2b1 approved import preserves canonical archived creation and update times', async () => {
+  const f = fixture();
+  const id = randomUUID(), subjectId = randomUUID();
+  const createdAt = '2024-01-01T00:00:00.000Z';
+  const updatedAt = '2025-02-02T00:00:00.000Z';
+  const saved = await commitVaultNoteBatch(f.client, [{
+    action: 'create', id, note: {
+      subjectId, heading: 'Restored', answer: 'Archived content',
+      tags: [], favorite: false, createdAt, updatedAt,
+    },
+  }], { expectedHead: f.getHead(), preserveImportTimestamps: true });
+  assert.equal(saved.results[0].createdAt, createdAt);
+  assert.equal(saved.results[0].updatedAt, updatedAt);
+});

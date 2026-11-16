@@ -355,6 +355,43 @@ production unlock is provided.
 See `docs/OGE_VAULT_IMPORT_LOCK_OPERATOR_RUNBOOK.md` for the exact
 disposable staging procedure and remaining blockers.
 
+## Phase D3b2b2c4a / Milestone #48: Read-only GitHub import-attempt evidence
+
+A safe, **metadata-only** operator inspection supplements the previous
+owner-approved full-archive reconciliation. Before a selected create-only
+GitHub import can write, its durable owner-row lock now also stores the
+approved `expectedHead` as `approvedHead` and canonical `selectedIds`
+(up to 12) along with its SHA-256 commit message fingerprint. This is
+ownership-scoped UUID and commit metadata only: **no note bodies, headings,
+archive text or GitHub blobs are stored in MongoDB**.
+
+The independent opt-in operator CLI is
+`npm run vault:import-attempt:inspect`, requiring
+`OGE_VAULT_IMPORT_EVIDENCE_READ_ONLY=YES_METADATA_ONLY`, a specific
+MongoDB database, exact owner/session/repo/operation scope and the verified
+private GitHub App installation. It is **not a user-facing HTTP endpoint**
+and does not release locks, delete drafts, or write to GitHub.
+
+The read-only checker verifies the owner mapping and exact
+`github-write-possible` lock, takes a pinned GitHub HEAD, walks at most
+20 single-parent commits, and checks that the candidate commit is directly
+based on the approved target HEAD with the expected SHA-256 commit marker.
+The complete original/import Git tree leaf delta must consist solely of
+newly created selected Notes paths; HEAD and account lock are rechecked
+before reporting. Unexpected GitHub changes, nonlinear histories, missing
+or invalid metadata, stale sessions and unverified provider state fail
+closed. Results never include private owner IDs, note IDs, GitHub SHAs,
+credentials, ciphertext or note content.
+
+A result of `MATCHING_IMPORT_COMMIT_METADATA_ONLY` is **candidate
+evidence, not verification of the original archived note bytes**, and
+never establishes worker quiescence or permission to unlock or retry.
+The original owner-approved archive and separate signed read-only
+`POST /api/vault/backup-import/reconcile` still provide the stronger
+canonical content comparison. No production recovery for possible GitHub
+writes is enabled. This implementation remains subject to live signed
+two-device/staging acceptance and security review.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

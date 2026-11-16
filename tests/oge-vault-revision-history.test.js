@@ -110,6 +110,11 @@ test('D3 refuses changed GitHub HEAD, corrupted blobs and cross-subject reused U
   }
 });
 
+test('D3 missing GitHub commit list fails closed despite a present HEAD blob', async () => {
+  await assert.rejects(listVaultNoteRevisions(fixture({ commits: [] }).client, id),
+    /vault-history-list-invalid/);
+});
+
 test('D3 legitimate deleted historical revision is omitted rather than invented', async () => {
   const f = fixture({ deleted: [H('old-tree')] });
   const history = await listVaultNoteRevisions(f.client, id);
@@ -181,6 +186,13 @@ test('D3 stale or spoofed restore requests do not call the GitHub batch writer',
     currentReader: async () => ({ ...latestNote, sha: H('newer') }),
     batchWriter,
   }), /vault-note-conflict/);
+  await assert.rejects(restoreVaultNoteRevision({}, history, {
+    id, sha: latestBlob, commitSha: oldCommit, sourceSha: oldBlob,
+  }, {
+    currentReader: async () => ({ ...latestNote,
+      heading: oldNote.heading, answer: oldNote.answer }),
+    batchWriter,
+  }), /vault-history-content-unchanged/);
   assert.equal(called, 0);
 });
 

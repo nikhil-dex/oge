@@ -180,3 +180,33 @@ test('D3b2b1 commit route is independent default-off and uses signed owner/draft
   assert.doesNotMatch(route, /collection\(['"]notes['"]\)/);
   assert.doesNotMatch(route, /\.insertOne\(|\.deleteOne\(/);
 });
+
+test('D3b2b2c3 rejects GitHub mutation when the durable write marker cannot be recorded', async () => {
+  const input = archive(1), f = fixture();
+  let markerCalls = 0;
+  await assert.rejects(executeApprovedVaultNotesImport(f.client,
+    approval(input, [input.notes[0].id]), {
+      ...f.options,
+      beforeGitHubWrite: async (marker) => {
+        markerCalls++;
+        assert.match(marker, /^Restore OgeNotes backup [a-f0-9]{64}$/);
+        throw new Error('synthetic MongoDB marker acknowledgement lost');
+      },
+    }), /synthetic MongoDB marker acknowledgement lost/);
+  assert.equal(markerCalls, 1);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('D3b2b2c3 verified import hands its exact commit marker to the batch writer', async () => {
+  const input = archive(2), f = fixture();
+  let marked = null;
+  f.options.beforeGitHubWrite = async (marker) => { marked = marker; };
+  const original = f.options.batchWriter;
+  f.options.batchWriter = async (client, operations, options) => {
+    assert.equal(options.commitMessage, marked);
+    return original(client, operations, options);
+  };
+  const result = await executeApprovedVaultNotesImport(f.client, approval(input), f.options);
+  assert.equal(result.importedCount, 2);
+  assert.equal(f.getWrites(), 1);
+});

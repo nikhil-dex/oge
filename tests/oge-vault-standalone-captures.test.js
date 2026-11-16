@@ -310,7 +310,7 @@ test('M70 GitHub standalone storage never creates MongoDB content, calls extensi
   const lib = await readFile(new URL(
     '../lib/oge-vault-standalone-captures.js', import.meta.url), 'utf8');
   assert.match(lib, /force: false/);
-  assert.match(lib, /No MongoDB content writes/);
+  assert.match(lib, /Zero MongoDB content writes/);
   assert.match(lib, /'quick-notes\/'/);
   assert.match(lib, /'airnotes\/'/);
   assert.doesNotMatch(lib,

@@ -1,9 +1,10 @@
 # Oge Vault — Phase D3: GitHub revision history and backup architecture
 
-**Status: bounded GitHub revision read/restore, current-Notes-only export,
-and read-only import conflict planning previews implemented. GitHub import
-commits, multi-resource backup and live authenticated staging remain pending.
-No production cutover.**
+**Status: bounded GitHub revision read/restore, Notes-only export, read-only
+import planning and separate create-only, explicitly owner-approved import
+commit preview implemented. The import route is default-off and untested with
+live authenticated staging. Full backup, cross-request recovery and production
+cutover remain pending.**
 
 ## Staging-only revision preview
 
@@ -163,16 +164,75 @@ The test suite includes over 500 notes, malformed or tampered archives,
 unowned subjects, GitHub drift/429, duplicate files and protected drafts.
 No authenticated live staging import has been performed.
 
-## Next: Approved GitHub import commits and full backup coverage (not implemented)
+## Phase D3b2b1: Explicit owner-approved create-only Notes import
+
+**Isolated staging with disposable accounts only. Do not enable in production.**
+The optional write API has its own independent default-off flag and requires
+all four conditions below:
+
+```sh
+OGE_VAULT_MAIN_PREVIEW=true
+OGE_VAULT_NOTE_API_PREVIEW=true
+OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW=true
+OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW=true
+```
+
+After reviewing the **fresh read-only** `POST /api/vault/backup-import/plan`
+results, the authenticated owner can explicitly call
+`POST /api/vault/backup-import/commit` with an `application/json` body:
+
+```json
+{
+  "archive": "<the full, unmodified Notes-only backup JSON object>",
+  "expectedTargetHead": "<the exact targetHead from the latest plan>",
+  "selectedIds": ["<one to twelve create-candidate note UUIDs>"],
+  "confirmation": "IMPORT_SELECTED_NEW_NOTES"
+}
+```
+
+The `archive` field above is a nested JSON **object**, not a string.
+No UI currently provides this flow. This is a staging-only API capability,
+not a production-ready recovery experience.
+
+- A selected UUID must be in the validated archive and must remain a **new
+  create-candidate** after independent fresh target-tree, owner-scoped subject
+  and encrypted draft checks inside the selected subject-write fences. A
+  conflicting ID cannot be overwritten, even with the correct source SHA.
+- The exact owner-approved target HEAD is rechecked by both the planner
+  and the existing GitHub batch writer. A changed HEAD, deleted subject,
+  modified session/repository mapping, draft or GitHub 429 fails closed.
+  More than 12 selected notes, repeated IDs or absent approval are rejected.
+- The existing verified non-fast-forward **one Git commit** writer preserves
+  archive heading/body/tags/favorite and both original timestamps. It verifies
+  the GitHub ref, commit ancestry and saved blobs. An ambiguous response is
+  **never blindly replayed**. The API responds only with imported UUIDs,
+  counts and the verified commit SHA; it does not echo private note content.
+- The selected batch can be smaller than the archive. Additional batches
+  require a **new plan and new approval HEAD**, not automatic continuation.
+  Existing destination Notes and encrypted drafts are never deleted or
+  modified by the import path. MongoDB is used only for permitted owner,
+  subject and encrypted-draft metadata/fencing.
+- The tests are **synthetic**; real signed OAuth/GitHub-App staging,
+  simultaneous draft creation and cross-request uncertain-result recovery
+  still require review. In-flight draft writers are not an exclusive
+  multi-subject lock, so concurrent draft races need dedicated acceptance
+  testing before any deployment. This route must remain disabled elsewhere.
+
+This limited API **does not** import historical revisions, Quick Notes,
+AirNotes, progress, unsynced browser drafts or an archive larger than
+8 MiB. It does not resolve conflicting existing Notes. A successful
+Notes-only import must never be presented as a full Oge restoration.
+
+## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:
 
-1. Implement strict archive schema and content validation, ownership and
-   UUID checks, original blob provenance and all target-file conflicts.
-2. Preview the results before any write and obtain explicit owner approval.
-   Import must not rely on the source archive's owner metadata or GitHub SHA.
-3. Verify the target GitHub tree and exact note SHAs with bounded,
-   non-fast-forward commits; retain encrypted pending drafts in all cases.
+1. Extend the implemented strict archive and target validation with live
+   authenticated write-path, draft-race and stale-plan acceptance tests.
+2. Integrate accessible owner approval into the UI and safe recovery UX.
+   Never treat an uploaded source SHA or previous plan as write authority.
+3. Extend the bounded create-only commits with complete multi-batch
+   recovery and evidence that concurrent temporary drafts remain intact.
 4. Extend exports to complete, verifiable pagination for larger vaults,
    and separately cover revision history, Quick Notes, AirNotes, subject
    metadata, progress and explicit retention requirements.
@@ -193,8 +253,8 @@ No migration or cleanup of existing data is authorized by this document.
 - CI browser smoke remains anonymous; signed OAuth and live GitHub App history
   restoration have **not** been exercised.
 - The revision preview is capped to recent note history, the current-Notes
-  export is size bounded, and Notes-only import currently has a **read-only
-  conflict planner**. Full history, multi-resource export, large-vault
+  export is size bounded, and Notes-only import has a **read-only planner and
+  separately disabled create-only approved commit API**. Full history, multi-resource export, large-vault
   pagination and any approved GitHub import commit remain unimplemented.
 - PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
   isolated staging until security and explicit release approval.

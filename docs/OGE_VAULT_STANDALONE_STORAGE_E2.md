@@ -115,3 +115,16 @@ npm run build
 
 GitHub Actions also runs disposable replica-set tests, Chromium desktop
 and mobile smoke, and secret scanning. CI passing is not live acceptance.
+
+## E3 / M71 temporary encrypted standalone drafts
+
+The optional separate `vault_standalone_drafts` MongoDB store and
+`/api/vault/standalone-drafts` staging API now support versioned,
+owner/repo/kind/UUID/revision-bound AES-256-GCM **temporary drafts**. This
+is never a second permanent content backend: explicit Save still commits
+to the private GitHub repository via M70. Signed GET/PUT support recovery
+and CAS autosave; a read-only authenticated GitHub check on POST permits
+CAS removal of the exact committed draft while preserving newer remote
+autosaves. No silent retry, TTL, normal Quick Notes/AirNotes UI cutover,
+extension token grant, complete backups or live provider signoff exists.
+See `docs/OGE_VAULT_STANDALONE_ENCRYPTED_DRAFTS_E3.md`.

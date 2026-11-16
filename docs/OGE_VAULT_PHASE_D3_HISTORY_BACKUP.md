@@ -1122,6 +1122,68 @@ authenticated local-picker restore workflow.
 
 See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
 
+## Phase D3b2b2c4q / Milestone #64: Staged owner browser download of a complete pinned Notes chunk sequence
+
+The hidden, signed `/vault/restore-staging` page now exposes
+an explicit owner-initiated **Download private Notes chunks**
+control using the **existing** default-off `GET
+/api/vault/backup-export/chunk` handler. This only appears
+when the same isolated Auth.js, connected private owner
+Vault and `oge_vault_restore_staging_*` staging checks
+pass, **and** both read-only
+`OGE_VAULT_BACKUP_EXPORT_PREVIEW=true` and
+`OGE_VAULT_BACKUP_EXPORT_CHUNK_PREVIEW=true` are enabled
+in staging. No new route or GitHub write capability exists.
+
+The browser fetches the current signed Vault HEAD in
+the first GET, follows only each verified prior
+`snapshot` and `nextAfterId` thereafter, and
+rechecks the canonical Notes-only chunk format,
+strict size/64-Note pagination/part count bounds,
+per-chunk SHA-256 and **the entire ordered inventory
+SHA-256** using Web Crypto. Each response is limited
+to 4 MiB **during streaming**, not only by headers.
+Up to 16 checked parts / 1,024 current Notes are
+offered as local numbered files `part-0001.json`
+through the final part. A 520-Note backup exceeding
+the old 8-MiB archive limit can pass across multiple
+bounded files.
+
+The download is deliberately **not** an automatic
+background backup or robust cross-browser disk-save
+attestation. Browsers may block or require permission
+for multiple downloads. The UI reports only that
+HTTP response pages passed integrity verification
+and were offered as downloads;
+`savedToDiskVerified:false` remains the proof
+contract. The owner must confirm all files were
+actually saved and select them again in the
+M63 **independent local-file** verification step.
+Store all plaintext chunk files in encrypted,
+access-controlled private storage.
+
+Failures, rate limits, moving source HEAD, oversized
+or malformed pages, missing final parts and user
+cancellation stop the current review session.
+There is **no automatic retry, new-HEAD restart,
+blind snapshot mixing, GitHub write, MongoDB note
+persistence or import approval**. Browser checks
+are not independent signed GitHub blob proofs:
+the trusted M55–M58 operator still verifies raw
+Git object bytes, owner/session, subject/draft
+conflicts and Git CAS before any restore.
+
+Synthetic unit/CI tests validate a complete
+130-Note sequence and **520-Note >8 MiB**
+backup against the trusted Node verifier,
+with malformed/truncated/tampered source
+responses and strict no-network-write/no-storage
+UI tests. Actual signed GitHub provider OAuth,
+two physical devices, live multi-download browser
+permissions and production acceptance remain
+unperformed. No production flags have been enabled;
+PR #35 is still draft/unmerged.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

@@ -21,6 +21,30 @@ Google/GitHub OAuth, signed account ownership, or live private GitHub writes.
 - **Do not merge PR #35** until the remaining security, deletion, provider
   permissions, and release gates have been reviewed and approved.
 
+## Read-only configuration gate
+
+Before any live testing, an operator in the **isolated staging shell** runs:
+
+```sh
+npm run staging:preflight
+npm run vault:staging:preflight
+```
+
+The second command checks staging origin, separate OAuth credentials, GitHub App
+ID/slug and locally parseable RSA signing key, the 32-byte draft encryption
+key, both preview flags, and disabled destructive operations. It uses the
+existing environment variables without printing their values; it performs
+**no network or database writes**. A passing check only establishes that
+environment configuration is structurally plausible. It cannot prove that
+the GitHub App is installed on the intended test account, that the OAuth
+callback is registered with GitHub, that permissions are scoped correctly,
+or that separate staging and production secrets were actually issued.
+
+Do **not** add live GitHub App credentials to CI or commit an environment
+file. Keep results as sanitized pass/fail codes. Operators must separately
+verify that access is restricted to invited testers and no real user
+repository can be affected.
+
 ## Evidence matrix (all pending)
 
 | Scenario | Required observation |

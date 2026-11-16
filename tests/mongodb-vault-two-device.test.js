@@ -120,13 +120,16 @@ async function environment(db) {
     return row?.vault?.status === 'connected' &&
       row.vault.repoId === repoId && row.vault.installationId === vault.installationId;
   };
-  async function approvedImport(batchWriter) {
+  async function approvedImport(batchWriter, { afterMark } = {}) {
     return withVaultOwnerImportExclusive(db, identity,
       ({ markGitHubWriteAttempt }) => withVaultSubjectsWrite(
         db, ownerId, [subjectId], () => executeApprovedVaultNotesImport(
           client, request, {
             subjectVerifier, pendingDraftIds, ownerVerifier,
-            beforeGitHubWrite: markGitHubWriteAttempt,
+            beforeGitHubWrite: async (...args) => {
+              await markGitHubWriteAttempt(...args);
+              if (afterMark) await afterMark();
+            },
             batchWriter,
           })));
   }
@@ -253,5 +256,129 @@ test('M50 two devices: lost GitHub acknowledgment quarantines writes but full ar
     for (const privateText of ['PRIVATE_IMPORTED_HEADING',
       'PRIVATE_IMPORTED_ANSWER', f.identity.ownerId, f.noteId])
       assert.equal(serialized.includes(privateText), false);
+  });
+});
+
+test('M51 two devices: different-subject in-flight draft of same ID blocks approved import', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = await environment(db), otherSubject = randomUUID(), g = gate();
+    await db.collection('subjects').insertOne({
+      ownerId: f.identity.ownerId, slug: otherSubject,
+    });
+    const draftPromise = withVaultOwnerDraftWrite(db, f.identity, () =>
+      withVaultSubjectsWrite(db, f.identity.ownerId, [otherSubject], async () => {
+        await putHybridDraft(db.collection('vault_drafts'),
+          { ...f.identity, noteId: f.noteId }, 1,
+          draft(otherSubject, 'PRIVATE_CROSS_SUBJECT_UNSAVED'), { key });
+        g.notify();
+        await g.finish;
+      }));
+    try {
+      await g.entered;
+      await assert.rejects(f.approvedImport(async () => {
+        throw Error('GitHub must not write while other subject has draft');
+      }), (err) => err.status === 409);
+    } finally { g.release(); await draftPromise; }
+    await assert.rejects(f.approvedImport(async () => {
+      throw Error('GitHub must not overwrite cross-subject draft');
+    }), (err) => err.message === 'vault-import-selected-note-conflict');
+    const row = await db.collection('vault_drafts').findOne({
+      ownerId: f.identity.ownerId, repoId: f.identity.repoId, noteId: f.noteId,
+    });
+    assert.ok(row.encrypted.ciphertext);
+    assert.equal(JSON.stringify(row).includes('PRIVATE_CROSS_SUBJECT_UNSAVED'), false);
+    assert.equal(f.state.writes, 0);
+  });
+});
+
+test('M51 two devices: import in subject A blocks a new draft in unrelated subject B', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = await environment(db), otherSubject = randomUUID(), g = gate();
+    await db.collection('subjects').insertOne({
+      ownerId: f.identity.ownerId, slug: otherSubject,
+    });
+    const importing = f.approvedImport(async (_client, ops, options) => {
+      g.notify();
+      await g.finish;
+      return confirmedWrite(f, ops, options);
+    });
+    try {
+      await g.entered;
+      await assert.rejects(withVaultOwnerDraftWrite(db, f.identity, () =>
+        withVaultSubjectsWrite(db, f.identity.ownerId, [otherSubject], () =>
+          putHybridDraft(db.collection('vault_drafts'),
+            { ...f.identity, noteId: randomUUID() }, 1,
+            draft(otherSubject, 'PRIVATE_CROSS_SUBJECT_DEVICE_B'), { key }))),
+      (err) => err.status === 409);
+      assert.equal(await db.collection('vault_drafts').countDocuments({
+        ownerId: f.identity.ownerId, repoId: f.identity.repoId,
+      }), 0);
+    } finally { g.release(); }
+    assert.equal((await importing).importedCount, 1);
+    assert.equal(f.state.writes, 1);
+    const newId = randomUUID();
+    await withVaultOwnerDraftWrite(db, f.identity, () =>
+      withVaultSubjectsWrite(db, f.identity.ownerId, [otherSubject], () =>
+        putHybridDraft(db.collection('vault_drafts'),
+          { ...f.identity, noteId: newId }, 1,
+          draft(otherSubject, 'PRIVATE_CROSS_SUBJECT_NEW_DRAFT'), { key })));
+    assert.ok((await db.collection('vault_drafts').findOne({
+      noteId: newId,
+    })).encrypted.ciphertext);
+  });
+});
+
+test('M51 revoked GitHub installation after durable marker blocks import and retains lock', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = await environment(db);
+    const original = await db.collection('users').findOne({
+      googleSub: f.identity.ownerId,
+    });
+    await assert.rejects(f.approvedImport(async () => {
+      throw Error('No GitHub write permitted after installation revoked');
+    }, { afterMark: async () => {
+      await db.collection('users').updateOne({
+        googleSub: f.identity.ownerId, sessionVersion: f.identity.sessionVersion,
+      }, { $set: { 'vault.installationId': original.vault.installationId + 1 } });
+    } }), (err) => err.status === 503 &&
+      err.message === 'vault-import-write-outcome-unconfirmed-lock-retained');
+    const row = await db.collection('users').findOne({
+      googleSub: f.identity.ownerId,
+    });
+    assert.equal(row.vaultImportLock.state, 'github-write-possible');
+    assert.equal(f.state.writes, 0);
+    assert.equal(await db.collection('vault_drafts').countDocuments({
+      ownerId: f.identity.ownerId,
+    }), 0);
+    await assert.rejects(withVaultOwnerDraftWrite(db, f.identity, async () => {}),
+      (err) => err.status === 409);
+    await assert.rejects(f.approvedImport(async () => {
+      throw Error('No GitHub write while quarantine active');
+    }), (err) => err.status === 409);
+  });
+});
+
+test('M51 account session incarnation change after marker cannot publish or clear old lock', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = await environment(db), nextEpoch = randomUUID();
+    await assert.rejects(f.approvedImport(async () => {
+      throw Error('Stale signed session must not write');
+    }, { afterMark: async () => {
+      await db.collection('users').updateOne({
+        googleSub: f.identity.ownerId, sessionVersion: f.identity.sessionVersion,
+      }, { $set: { sessionVersion: nextEpoch } });
+    } }), (err) => err.status === 503 &&
+      err.message === 'vault-import-write-outcome-unconfirmed-lock-retained');
+    const row = await db.collection('users').findOne({
+      googleSub: f.identity.ownerId,
+    });
+    assert.equal(row.sessionVersion, nextEpoch);
+    assert.equal(row.vaultImportLock.state, 'github-write-possible');
+    assert.equal(f.state.writes, 0);
+    assert.equal(await db.collection('vault_drafts').countDocuments({
+      ownerId: f.identity.ownerId,
+    }), 0);
+    await assert.rejects(withVaultOwnerDraftWrite(db, f.identity, async () => {}),
+      (err) => err.status === 409);
   });
 });

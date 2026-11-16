@@ -131,3 +131,18 @@ and rejection by the **old Notes-only importer**.
 
 **All production flags default OFF. Do not merge PR #35 or treat
 automated CI as live provider or security acceptance.**
+
+## E6 / M74 independent read-only restore conflict plan
+
+The new `POST /api/vault/backup-current-resources/plan` accepts the
+in-memory untrusted M73 JSON archive **only** on protected disposable
+staging. It validates complete archive checksums/schema BEFORE fetching
+a fresh signed-owner private target HEAD/tree, verifies owner-scoped Note
+subject IDs and typed owner/repo/kind-specific encrypted **draft IDs
+only**, and returns metadata-only per-kind counts of existing-resource
+and draft conflicts or create-candidate IDs (first 18 shown). A new
+head/session change or malformed/partial inventory aborts. It does not
+return Note bodies, read/write permanent MongoDB Note content, mutate
+GitHub, import a resource or authorize future writes. The supplied
+archive's SHA-256 remains untrusted; a plan has `canRestore:false`.
+See `docs/OGE_VAULT_CURRENT_RESOURCE_RESTORE_PLAN_E6.md`.

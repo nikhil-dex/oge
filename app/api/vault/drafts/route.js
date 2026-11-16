@@ -7,7 +7,7 @@ import { withVaultSubjectWrite, VaultSubjectLockedError } from '../../../../lib/
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 import {
-  draftKey, validatedHybridDraft, putHybridDraft, getHybridDraft, clearConfirmedDraft, unsealDraft,
+  draftKey, validatedHybridDraft, putHybridDraft, getHybridDraft, unsealDraft,
 } from '../../../../lib/oge-vault-hybrid-drafts.js';
 import { inspectVaultDraftGitHubSave } from '../../../../lib/oge-vault-save-recovery.js';
 import { readConfirmedVaultSaveReceipt } from '../../../../lib/oge-vault-save-receipt.js';
@@ -173,37 +173,13 @@ export async function POST(request) {
 }
 
 /**
- * Delete only the exact saved revision, and only after reading its committed
- * contents from GitHub. A newer MongoDB autosave cannot be cleared by a slow
- * completion from an older Save request.
+ * Legacy hybrid editor cleanup method. Route through the SAME verified
+ * GitHub+MongoDB transactional reconciliation as POST. This preserves the
+ * API shape used by the browser while making lost DELETE acknowledgments
+ * idempotently recoverable through metadata-only receipts.
+ *
+ * Never clear temporary drafts based on the client-provided SHA alone.
  */
 export async function DELETE(request) {
-  try {
-    const { ctx, response } = await authorizedContext();
-    if (response) return response;
-    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
-    if (!throttle.allowed) return rateLimitResponse(throttle);
-    const input = JSON.parse(await readLimitedBody(request, 4096));
-    const scope = draftKey(ctx.ownerId, ctx.repoId, input?.id);
-    if (!Number.isSafeInteger(input?.revision) || input.revision < 1 ||
-        typeof input?.sha !== 'string' || !/^[a-f0-9]{40}$/i.test(input.sha))
-      return json({ error: 'Revision and confirmed GitHub SHA are required.' }, 400);
-    const current = await getHybridDraft(ctx.db.collection('vault_drafts'), scope);
-    if (!current || current.revision !== input.revision)
-      return json({ cleared: false, reason: 'newer-or-absent-draft' }, 409);
-    const client = await getVaultNoteClient(ctx.db, {
-      ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion,
-    });
-    const remote = await readVaultNote(client, scope.noteId);
-    const draft = current.draft;
-    if (remote.sha !== input.sha || remote.subjectId !== draft.subjectId ||
-        remote.heading !== draft.heading.trim() ||
-        remote.answer !== draft.answer.trim() ||
-        JSON.stringify(remote.tags) !== JSON.stringify(draft.tags) ||
-        remote.favorite !== draft.favorite)
-      return json({ cleared: false, reason: 'github-content-mismatch' }, 409);
-    return json({ cleared: await clearConfirmedDraft(
-      ctx.db.collection('vault_drafts'), scope, input.revision,
-    ) });
-  } catch (error) { return failure(error); }
+  return POST(request);
 }

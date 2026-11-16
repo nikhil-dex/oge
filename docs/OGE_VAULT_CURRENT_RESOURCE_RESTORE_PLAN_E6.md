@@ -141,3 +141,20 @@ echo or write APIs.
 
 **PR #35 stays draft and unmerged. Never run the preview on production
 or submit private user backups to shared issue trackers/CI.**
+
+## E7 / M75 optional owner-reviewed one-kind create-only restore
+
+Separate signed-owner/staging-only `/api/vault/backup-current-resources/intent`
+and independently write-acknowledged `/commit` endpoints are now
+implemented, using the entire M73 archive and the read-only M74 three-kind
+conflict planner. They select at most 12 **one-kind standalone** UUIDs and
+recheck the exact current GitHub target HEAD and typed encrypted draft
+IDs under an existing durable owner-exclusive import fence. Every GitHub
+CAS write is **create-only** with force:false, original timestamps and
+verified immutable blob readback; unknown outcomes leave an owner lock
+for manual reconciliation. No default-on restore, silent overwrite,
+bulk loop or legacy Notes import. The M74 advisory result is still
+`canRestore:false`; it is NOT a reusable approval. M75 adds a separate
+explicit operator-confirmed staging writer, **NOT** authenticated source
+provenance, a one-time signed human receipt, or production acceptance.
+See `docs/OGE_VAULT_STANDALONE_CREATE_ONLY_RESTORE_E7.md`.

@@ -157,3 +157,84 @@ failure matrix. **Live two-device staging remains outstanding:** real
 GitHub API rate limits, OAuth permissions, provider races, mobile
 sessionStorage recovery and independent signed operator signoff have
 not been executed by these synthetic tests.
+
+
+## Milestone #67 — Review-only external two-device acceptance evidence matrix
+
+The private offline tool `npm run vault:staging:two-device-evidence`
+validates a **redacted evidence index**, not the actual GitHub/App, OAuth,
+screenshots, secure browser or physical devices. This is deliberately
+NON-RELEASE-AUTHORIZING: even a complete manifest CANNOT sign off live
+acceptance, enable restore or production, retry a GitHub write, release
+an uncertain owner quarantine or merge PR #35. It cannot independently
+authenticate the underlying external evidence files, signatures or GitHub
+provider. A separate qualified operator must inspect genuine
+contemporaneous evidence and attest actual physical-device separation.
+
+The matrix requires all of these distinct observed scenarios (each with
+its **own** independently retained evidence artifact and SHA-256):
+
+1. `oauth-device-a`: real signed OAuth browser session on physical device A.
+2. `oauth-device-b`: a separately signed session on physical device B.
+3. `private-app-installation-read`: actual owned, private GitHub App installation mapping and GET-only read.
+4. `read-only-app-write-denial`: scoped read-only token provably cannot write.
+5. `create-only-git-cas`: explicitly authorized ONE disposable 1–12-note create-only CAS, matching remote tree and content.
+6. `stale-git-head-409-422`: real competing-head rejection and no blind replay.
+7. `provider-rate-limit-429`: observed real rate-limit/no dangerous retry.
+8. `installation-revocation-403`: real revoked/permission-denied behavior.
+9. `lost-write-response-quarantine`: verified ambiguous outcome remains fenced; no unsafe resend or manual unlock.
+10. `second-device-autosave-fence`: actual second-device encrypted draft remains safe during the owner import lock.
+11. `encrypted-backup-reopen`: password-protected file reopened and M63/M57 review passes from saved encrypted files on trusted device.
+12. `physical-file-download-check`: actual file sequence saved by browser, not just validated server responses.
+
+**Important:** never deliberately introduce destructive/uncertain writes
+in a production Vault. Exercise provider faults only in independently
+approved and isolated disposable staging environments with an explicit
+preplanned quarantine/reconciliation procedure. Real 429/network timeout
+reproduction can depend on external conditions; fabricated status codes
+or synthetic CI mocks do not qualify as actual provider observations.
+
+Create a `0700` private directory and a `0600` UTF-8 JSON file (at
+most 32 KiB) containing exactly these top-level keys:
+`format`, `version`, `runId`, `origin`, `startedAt`, `records`.
+Format is `oge-vault-two-device-external-evidence`, version 1.
+`runId` must be a fresh UUID. `origin` is the precise isolated
+HTTPS staging origin. `startedAt` must be a millisecond UTC ISO
+timestamp within 7 days of review. Each record has exactly
+`scenario`, `channel`, `observedAt`, `outcome`,
+`evidenceSha256` and `sessionMarker`.
+
+- `channel` is `device-a`, `device-b` or `operator` as the matrix dictates.
+- `outcome` is only `observed-pass` or `observed-fail`; an observed failure blocks completion.
+- `evidenceSha256` is a distinct 64-lowercase-hex reference to a privately retained redacted external artifact; **the CLI never opens that artifact or verifies its hash**. An independent reviewer must hash the original artifact and confirm it came from actual staging.
+- `sessionMarker` is the same randomly generated UUID for each record of one browser session, different between A and B. It is NOT an Auth.js token, cookie, device fingerprint, account ID or physical-device attestation. Operator records use `null`.
+- `observedAt` is the original millisecond UTC observation timestamp, no earlier than `startedAt` and never future-dated beyond five minutes.
+
+Set only the review variables on a trusted isolated operator host:
+
+```sh
+export OGE_STAGING_URL=https://staging.example.org
+export MONGODB_DB=oge_vault_restore_staging_disposable
+export OGE_VAULT_TWO_DEVICE_EVIDENCE_REVIEW=YES_REDACTED_EXTERNAL_EVIDENCE_ONLY
+export OGE_VAULT_TWO_DEVICE_EVIDENCE_FILE=/private/0700-directory/redacted-evidence.json
+npm run vault:staging:two-device-evidence
+```
+
+The tool uses no MongoDB URI or GitHub credentials and makes NO network
+requests. Exit code 1 means configuration denied before any file read,
+2 means invalid/unsafe metadata or file, 3 means incomplete/failed
+referenced scenarios, and **0 means only that the untrusted index is
+ready for independent human examination**, not live signed acceptance.
+
+For clarity, a full 12-row manifest may contain fabricated values;
+its completeness is NOT provider proof. Never include note text,
+GitHub SHA/repository IDs, provider tokens, passwords, Auth.js session
+cookies, real owner identities or screenshots in the JSON manifest.
+Retain any independently redacted genuine evidence separately under
+approved restrictive access and retention policies.
+
+**Unfinished live blockers:** real two-physical-device OAuth/App staging,
+independent immutable evidence validation and operator signoff, browser
+download permissions, real GitHub fault observations and scoped
+permissions, detached offline provenance after repo loss, security
+audit, complete multi-resource export and production release.

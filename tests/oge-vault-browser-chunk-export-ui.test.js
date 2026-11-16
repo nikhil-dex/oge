@@ -20,7 +20,7 @@ test('M64 private Notes chunk download is always explicit, one attempt and bound
   const ui = await readFile(new URL(
     '../app/vault/restore-staging/vault-backup-download-client.js', import.meta.url), 'utf8');
   assert.match(ui, /const \[attempted, setAttempted\] = useState\(false\)/);
-  assert.match(ui, /if \(!enabled \|\| attempted \|\| running\) return/);
+  assert.match(ui, /if \(!enabled \|\| attempted \|\| running \|\|/);
   assert.match(ui, /setAttempted\(true\)/);
   assert.match(ui, /for \(let index = 1; index <= 16; index\+\+\)/);
   assert.match(ui, /vaultBrowserChunkExportURL\(cursor\)/);
@@ -38,11 +38,11 @@ test('M64 private Notes chunk download is always explicit, one attempt and bound
 test('M64 browser never claims that a programmatic download proves actual local disk persistence', async () => {
   const ui = await readFile(new URL(
     '../app/vault/restore-staging/vault-backup-download-client.js', import.meta.url), 'utf8');
-  assert.match(ui, /new Blob\(\[text\], \{ type: 'application\/json' \}\)/);
+  assert.match(ui, /new Blob\(\[sealed.text\], \{ type: 'application\/json' \}\)/);
   assert.match(ui, /URL.createObjectURL\(blob\)/);
-  assert.match(ui, /link.download = 'part-'/);
+  assert.match(ui, /link.download = sealed.filename/);
   assert.match(ui, /URL.revokeObjectURL\(url\)/);
-  assert.match(ui, /saved every file/);
+  assert.match(ui, /every.*file.*actually saved|actually saved/);
   assert.match(ui, /No request was automatically retried/);
   assert.match(ui, /start a fresh reviewed session/);
   assert.match(ui, /This does not include revisions, Quick Notes, AirNotes/);
@@ -67,4 +67,37 @@ test('M64 all source content remains in browser and GitHub; no backup JSON or No
   assert.match(helper, /savedToDiskVerified: false/);
   assert.match(helper, /historicalRevisionsIncluded: false/);
   assert.doesNotMatch(ui + helper, /MongoClient|getDatabase|\.updateOne\(|\.insertOne\(|\.deleteOne\(/);
+});
+
+
+test('M65 encrypted backup export is the only default disk path; no plaintext Blob is ever offered', async () => {
+  const ui = await readFile(new URL(
+    '../app/vault/restore-staging/vault-backup-download-client.js',
+    import.meta.url), 'utf8');
+  assert.match(ui, /createVaultOfflineEncryptSession\(passphrase\)/);
+  assert.match(ui, /await encryptor\.seal\(text, accepted\.partNumber\)/);
+  assert.match(ui, /const blob = new Blob\(\[sealed\.text\]/);
+  assert.match(ui, /link\.download = sealed\.filename/);
+  assert.match(ui, /setPassphrase\(''\)/);
+  assert.match(ui, /setRepeatPassphrase\(''\)/);
+  assert.match(ui, /passphrase\.length < 16/);
+  assert.match(ui, /passphrase !== repeatPassphrase/);
+  assert.match(ui, /type="password"/);
+  assert.match(ui, /encrypted private Notes chunks/);
+  assert.doesNotMatch(ui, /new Blob\(\[text\]/);
+  assert.doesNotMatch(ui, /link\.download = 'part-'/);
+});
+
+test('M65 restore staging decrypts encrypted .oge.json pages only in transient memory before exact M63 verifier', async () => {
+  const review = await readFile(new URL(
+    '../app/vault/restore-staging/restore-review-client.js',
+    import.meta.url), 'utf8');
+  assert.match(review, /openVaultOfflineEncryptedFiles\(localFiles, offlinePassphrase\)/);
+  assert.match(review, /verifyVaultRestoreLocalChunkFiles\(\s*verifiedFiles, fields\)/);
+  assert.match(review, /localFiles\.every\(\(file\) => \/\^part-/);
+  assert.match(review, /setOfflinePassphrase\(''\)/);
+  assert.match(review, /type="password" name="offline-restore-passphrase"/);
+  assert.match(review, /Never mix the two formats/);
+  assert.match(review, /No note bodies,\s+passphrases or filenames will be sent to the server/);
+  assert.doesNotMatch(review, /new Blob\(|FormData|XMLHttpRequest|localStorage|sessionStorage|indexedDB/);
 });

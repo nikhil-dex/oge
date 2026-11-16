@@ -54,6 +54,11 @@ export async function POST(request) {
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const now = new Date();
       const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
       await ctx.db.collection('personalQuickNotes').insertOne(note, { session });
@@ -81,6 +86,11 @@ export async function PUT(request) {
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'airnotes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const now = new Date();
       const result = await ctx.db.collection('personalQuickNotes').findOneAndUpdate(
         { _id: id, ownerId: ctx.ownerId },
@@ -108,6 +118,11 @@ export async function DELETE(request) {
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid AirNote.' }, 400);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const result = await ctx.db.collection('personalQuickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
       if (!result.deletedCount) return json({ error: 'AirNote not found.' }, 404);
       return json({ deleted: id });

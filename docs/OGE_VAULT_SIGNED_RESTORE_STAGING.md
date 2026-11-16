@@ -533,3 +533,8 @@ See docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md for the new default-off signed M5
 ## M67 external physical-device evidence inventory (NOT signoff)
 
 The read-only `npm run vault:staging:two-device-evidence` command checks a complete strictly redacted external 12-scenario manifest in private 0700/0600 files without reaching MongoDB/GitHub. Distinct opaque UUID session markers and SHA-256 strings are **user supplied**, not independently verified credentials, physical-device evidence or provider attestations. Even a complete manifest ALWAYS denies signoff, production, restore, retry and lock release; an independent operator must inspect authentic retained artifacts and observe real two-device OAuth/App staging. Full procedure: `docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md`.
+
+
+## M68 actual local evidence SHA256 audit (not real-provider signoff)
+
+An optional offline reviewer now recomputes SHA-256 over the actual protected per-scenario `<scenario>.redacted.txt` files referenced by M67 and rejects mismatched, missing, symlinked, extra or over-permissioned files. No provider requests or note-content persistence are introduced. The hash match is only file-byte integrity against an **untrusted manifest**, not a signed GitHub/OAuth/physical-device attestation. It cannot authorize restore, release or production. See `docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md` for operator workflow and limits.

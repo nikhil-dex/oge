@@ -16,6 +16,7 @@
     "staging:preflight": "node scripts/check-staging-preflight.mjs",
     "vault:staging:preflight": "node scripts/check-vault-staging-preflight.mjs",
     "vault:inventory": "node scripts/check-vault-legacy-notes.mjs",
+    "vault:storage-path-audit": "node scripts/check-vault-storage-paths.mjs",
     "staging:http": "node scripts/verify-staging-http.mjs",
     "test:browser": "playwright test"
   },

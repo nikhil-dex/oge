@@ -23,7 +23,11 @@ export default async function VaultNotesPage() {
     ownerMutationFilter(session.user.id, { sessionVersion: session.user.sessionVersion }),
     { projection: { vault: 1 } },
   );
-  if (user?.vault?.status !== 'connected') redirect('/vault');
+  if (user?.vault?.status !== 'connected' ||
+      !Number.isSafeInteger(user.vault.repoId) || user.vault.repoId < 1 ||
+      !Number.isSafeInteger(user.vault.installationId) ||
+      user.vault.installationId < 1)
+    redirect('/vault');
   const hybridDrafts = process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
   return (
     <>

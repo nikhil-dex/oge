@@ -818,6 +818,72 @@ automatic resolution of uncertain locks, production readiness
 or complete Quick Notes/AirNotes backup/restore. See
 `docs/OGE_VAULT_CHUNKED_BACKUP.md` for the complete scope.
 
+## Phase D3b2b2c4l / Milestone #59: Signed staging receipt, one-use restore and batch status
+
+The M58 single-batch create-only executor now has a **separately
+default-off, isolated staging bridge** that avoids uploading large
+Notes chunk backups into an HTTP request.
+
+The signed Auth.js owner can send an exact, explicit
+`COMMIT_VERIFIED_CHUNK_BATCH_CREATE_ONLY` JSON selection to
+`POST /api/vault/backup-import/chunk/authorize` on the SAME secure
+isolated staging HTTPS origin. The route requires the full Vault
+staging preflight, dedicated `oge_vault_restore_staging_*` Atlas/
+secure MongoDB database, matching request URL/Origin, signed owner
+session, rate limit, private GitHub App `contents:read` installation
+and unchanged target Git branch HEAD. Its response contains only a
+**10-minute HMAC-SHA256 receipt**, opaque receipt ID, expiry and
+explicit `immediatelyExecutesRestore:false`. No private Notes,
+chunk files, titles or answers are sent to this endpoint.
+
+The new metadata-only `vault_restore_approvals` MongoDB collection
+stores exact signed owner/session/repo/installation, unique hashed
+nonce `_id`, approval SHA-256, creation/expiry and pending/claimed/
+confirmed timestamps and optional verified Git commit SHA. A
+seven-day-after-expiry TTL index bounds ordinary incident retention.
+An atomic `pending -> claimed` compare-and-set enforces **ONE
+claim only**, even under concurrent requests or across devices.
+Expired, revoked or replayed authorization fails closed.
+
+A separate local
+`npm run vault:chunk:restore-staging` operator command requires
+exclusive staging-only flags, exact owner/session/repo/installation,
+a PRIVATE owner-only 0700 directory with up to 16 sequential 0600
+chunk parts, a separate 0600 HMAC receipt file and the **same
+dedicated secure staging DB as the Auth.js route**. It verifies
+local permissions, receipt HMAC/expiry/owner and preflight
+before any network. It consumes the MongoDB receipt atomically
+before minting a `contents:write` GitHub token. It then invokes
+the existing M58 owner/subject-fenced source-verified create-only
+GitHub CAS executor **once**, confirming only on a fully verified
+remote commit. An unknown outcome never triggers retry, draft
+deletion or owner quarantine release.
+
+An authenticated, read-only
+`GET /api/vault/backup-import/chunk/status?receiptId=...`
+reports only owner-scoped **pending, claimed/needs review, or
+GitHub batch confirmed** state. A `claimed` status might mean
+work in progress or an unknown GitHub mutation; it is NOT proof
+of failure and never authorizes a retry, unlock or next batch.
+Every new batch needs an independently reviewed, current-head
+M57 fingerprint and a NEW signed one-time receipt.
+
+Unit tests cover forged/expired HMAC receipt, owner/session/repo
+revocation, status privacy and private file safeguards; real
+disposable MongoDB tests prove unique receipt ID, concurrent CAS
+claims, metadata TTL, and replay denial. Combined disposable
+MongoDB + synthetic GitHub tests run a signed receipt through
+the actual M58 Git commit writer, including lost GitHub
+acknowledgment with one commit attempt and preserved owner
+quarantine. No note bodies enter MongoDB.
+
+**M59 is staging-only implementation, not live signed GitHub
+two-device acceptance, a polished owner-facing restore UI or
+a production restore route.** No multi-batch automatic resume,
+historical source-deletion recovery, uncertain lock unlock,
+Quick Notes/AirNotes cutover or production gate is enabled.
+See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

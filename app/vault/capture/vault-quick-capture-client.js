@@ -215,6 +215,9 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
     catch { return undefined; }
     if (savedSnapshotRef.current === content) return undefined;
     const timer = window.setTimeout(() => {
+      // Subject switching or explicit Save may have begun while this
+      // timeout was waiting. Only the explicit Save may flush during busy.
+      if (busyRef.current) return;
       void persist(noteId, subjectId, content).catch((e) =>
         setError(e.message));
     }, 900);

@@ -392,6 +392,47 @@ canonical content comparison. No production recovery for possible GitHub
 writes is enabled. This implementation remains subject to live signed
 two-device/staging acceptance and security review.
 
+## Phase D3b2b2c4b / Milestone #49: Archive-bound content proof for a quarantined import
+
+The read-only #48 operator checker can identify a GitHub commit matching
+stored metadata; it cannot independently verify what note text the owner
+approved. Milestone #49 implements a **separate, opt-in, read-only**
+`npm run vault:import-archive:prove` CLI and a signed,
+`github-write-possible` lock-bound proof engine.
+
+The CLI requires the exact original four-field owner-approved request in
+a local, operator-owned regular JSON file with `0600` permissions,
+no symlink following, a verified stable file size and the existing strict
+8MiB+request-overhead limit. It requires a specific MongoDB database, exact
+owner/session/repository/operation identity, verified private GitHub App,
+and `OGE_VAULT_IMPORT_ARCHIVE_PROOF_READ_ONLY=YES_EXACT_ARCHIVE_ONLY`.
+The private note text is loaded only into the process for canonical proof;
+it is never logged, returned, or stored in MongoDB.
+
+Before accessing GitHub blobs, the helper verifies the durable lock's
+approved GitHub HEAD, exact selected IDs and SHA-256 commit fingerprint
+match the canonical approval. It then reuses the existing 20-commit,
+single-parent, immutable-blob reconciliation including original note
+contents, complete tree delta, owned subjects and branch-head stability.
+The exact signed owner and lock are checked again after reconciliation.
+Only redacted historical-confirmation status and counts are reported.
+Selected encrypted draft **existence only** is observed; drafts and
+confirmed GitHub files are never modified.
+
+This **can prove historical content equality** when all evidence remains
+available, unlike #48's candidate-only metadata inspection. It still
+cannot prove the old worker has stopped, cannot authorize a production
+unlock, cannot claim notes are unchanged today if later commits modified
+them, and cannot allow automatic retries or draft deletion. The operator
+CLI has no HTTP route and uses GitHub `contents:read` permissions; the
+read-only client now also rejects non-GET content calls.
+
+Synthetic and disposable MongoDB replica-set tests cover altered archive,
+wrong owner/session/operation, corrupt immutable blobs, changed GitHub
+HEAD, moved owner lock, draft preservation, redacted results, unsafe local
+file permissions and symlink rejection. Live GitHub authenticated
+two-device acceptance and full recovery approval remain pending.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

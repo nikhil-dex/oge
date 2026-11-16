@@ -255,6 +255,6 @@ No migration or cleanup of existing data is authorized by this document.
 - The revision preview is capped to recent note history, the current-Notes
   export is size bounded, and Notes-only import has a **read-only planner and
   separately disabled create-only approved commit API**. Full history, multi-resource export, large-vault
-  pagination and any approved GitHub import commit remain unimplemented.
+  pagination, conflict resolution and cross-request import recovery remain unimplemented.
 - PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
   isolated staging until security and explicit release approval.

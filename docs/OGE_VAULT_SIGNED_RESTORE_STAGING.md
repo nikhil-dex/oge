@@ -409,8 +409,74 @@ The existing Chromium desktop/mobile smoke is a general
 app check; it is **not** a live authenticated test of this
 file-picker workflow or any real restoration.
 
+## Milestone #64 — Owner-initiated, bounded private Notes chunk download
+
+The hidden, authenticated `/vault/restore-staging` page now has a
+**Download private Notes chunks** action above the M63 local-file
+review. The download button is independently **disabled** unless the
+existing **read-only** export gates
+`OGE_VAULT_BACKUP_EXPORT_PREVIEW=true` and
+`OGE_VAULT_BACKUP_EXPORT_CHUNK_PREVIEW=true` are both set on an
+authorized isolated staging deployment. The page itself continues
+to require its stricter signed connected-owner, private Vault,
+MongoDB staging and restore-approval gates. **No production flags
+were enabled.**
+
+After a deliberate owner click, the browser fetches the existing
+signed, private `GET /api/vault/backup-export/chunk` endpoint with
+`credentials:'same-origin'`, `cache:'no-store'`, and no custom
+repository or arbitrary revision selectors. Subsequent GETs use
+**only** the previous verified response's `snapshot` and
+`nextAfterId` parameters. The server rechecks the signed owner,
+selected subjects and connected GitHub HEAD on every part; a changed
+HEAD causes the download sequence to stop rather than mixing revisions.
+
+The new browser verifier checks each response **while it streams**,
+with a strict maximum of **4 MiB per response**, then validates
+UTF-8/JSON, complete strict Notes-only schema, 64-note pagination,
+ascending canonical UUIDs, continuous offset/cursor, stable HEAD,
+per-part SHA-256, and the **complete** id/blob-SHA inventory digest.
+It accepts **at most 16 parts / 1,024 current Notes**. Only a page
+that has passed these checks is offered as a temporary
+`Blob` download named `part-0001.json`, `part-0002.json`, etc.
+Temporary object URLs are revoked. No Note text, chunks or receipts
+are sent to another HTTP endpoint, saved in MongoDB, or persisted to
+browser local/session storage. No GitHub write API is involved.
+
+A completed sequence only means **all server responses passed the
+browser-side integrity check**; it does **not** mean every file has
+actually been written to the user's device. Mobile/desktop browsers
+can block or require permission for repeated automatic downloads.
+The user must **confirm the full numbered set exists on disk**, then
+choose those actual files in the **separate M63 local File picker**
+below. The local M63 verifier independently repeats whole-sequence
+and reviewed selection-fingerprint checks against the selected files.
+
+An HTTP 429, malformed page, oversized response, moved HEAD, missing
+part, cancelled request or browser download error **stops** the
+attempt. The UI never retries automatically, never mixes existing
+partial files with a new snapshot, and disables a second attempt
+for the same review session. Discard any partial files, begin a
+fresh review of the live source and store complete backups in
+**private encrypted storage**. The downloaded JSON parts are
+**plaintext**; they are not themselves encrypted, and browser
+integrity hashes are NOT digital signatures or durable independent
+GitHub provenance evidence. The signed M55–M58 operator must still
+independently authenticate original raw Git blobs before restoration.
+
+**Coverage limits:** this export contains current Notes only. It
+does not include historical revisions, Quick Notes, AirNotes,
+temporary encrypted drafts, or learning progress. Its read-only
+URL does not make it a production backup service, durable retention
+solution or permission to restore. No live GitHub OAuth/two-device
+staging drill or authenticated browser permission acceptance was
+performed. The synthetic tests exercise complete 130-note and
+520-note (>8 MiB) sequences and interrupted/corrupt cases against
+the existing trusted Node verifier; passing those tests is not a
+claim that an actual browser saved all files.
+
 ## Remaining release blockers
 
-M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no finished owner-facing UI for managing private backup downloads. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.
+M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no completed, live-accepted production backup and restore experience. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.
 
 **Do not merge PR #35 or enable production restore flags.**

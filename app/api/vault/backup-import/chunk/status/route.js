@@ -2,6 +2,7 @@ import { auth } from '../../../../../../auth.js';
 import { getDatabase } from '../../../../../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../../../../../lib/active-owner-mutation.js';
 import { checkVaultStagingReadiness } from '../../../../../../lib/oge-vault-staging-preflight.js';
+import { describeVaultRestoreApprovalStatus } from '../../../../../../lib/oge-vault-restore-progress.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,22 +60,7 @@ export async function GET(request) {
     } });
     if (!record || !['pending', 'claimed', 'confirmed'].includes(record.state))
       return json({ error: 'Restore batch receipt unavailable.' }, 404);
-    return json({
-      format: 'oge-vault-staging-single-batch-status',
-      version: 1,
-      status: record.state === 'pending' ? 'PENDING_APPROVAL_CLAIM'
-        : record.state === 'confirmed' ? 'GITHUB_BATCH_CONFIRMED'
-          : 'CLAIMED_OUTCOME_REQUIRES_REVIEW_IF_INTERRUPTED',
-      expiresAt: record.expiresAt?.toISOString() || null,
-      ...(record.state === 'confirmed' && /^[a-f0-9]{40}$/.test(
-        record.commitSha || '') ? { confirmedCommitSha: record.commitSha } : {}),
-      signedOwnerSessionBound: true,
-      sourceNoteContentReturned: false,
-      nextBatchAutomaticallyStarted: false,
-      canRetryAutomatically: false,
-      canUnlockImport: false,
-      operatorReviewRequiredIfInterrupted: record.state === 'claimed',
-    });
+    return json(describeVaultRestoreApprovalStatus(record));
   } catch (error) {
     console.error('Vault staging restore status failed:', error?.name);
     return json({ error: 'Unable to verify restore batch status.' }, 503);

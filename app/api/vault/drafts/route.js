@@ -10,6 +10,7 @@ import {
   draftKey, validatedHybridDraft, putHybridDraft, getHybridDraft, clearConfirmedDraft, unsealDraft,
 } from '../../../../lib/oge-vault-hybrid-drafts.js';
 import { inspectVaultDraftGitHubSave } from '../../../../lib/oge-vault-save-recovery.js';
+import { readConfirmedVaultSaveReceipt } from '../../../../lib/oge-vault-save-receipt.js';
 import { reconcileConfirmedVaultDraft } from '../../../../lib/oge-vault-save-finalize.js';
 
 export const runtime = 'nodejs';
@@ -94,6 +95,10 @@ export async function GET(request) {
       const client = await getVaultNoteClient(ctx.db, {
         ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion,
       });
+      const current = await getHybridDraft(ctx.db.collection('vault_drafts'), scope);
+      if (!current) {
+        return json(await readConfirmedVaultSaveReceipt(ctx.db, client, scope, revision));
+      }
       return json(await inspectVaultDraftGitHubSave(
         ctx.db.collection('vault_drafts'), client, scope, revision));
     }
@@ -140,15 +145,29 @@ export async function POST(request) {
         typeof input?.sha !== 'string' || !/^[a-f0-9]{40}$/i.test(input.sha))
       return json({ error: 'Draft revision and confirmed GitHub SHA required.' }, 400);
     const current = await getHybridDraft(ctx.db.collection('vault_drafts'), scope);
-    if (!current || current.revision !== input.revision)
-      return json({ confirmed: false, cleared: false, reason: 'newer-or-absent-draft' }, 409);
+    if (current && current.revision !== input.revision)
+      return json({ confirmed: false, cleared: false, reason: 'newer-draft-present' }, 409);
     const client = await getVaultNoteClient(ctx.db, {
       ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion,
     });
+    if (!current) {
+      // The original CAS cleanup may have committed even when its HTTP
+      // response was lost. Read GitHub again; an old receipt by itself is
+      // never proof that the note is still saved.
+      const note = await readVaultNote(client, scope.noteId);
+      const result = await withVaultSubjectWrite(
+        ctx.db, ctx.ownerId, note.subjectId,
+        () => readConfirmedVaultSaveReceipt(ctx.db, client, scope, input.revision));
+      if (result.confirmed && result.sha !== input.sha.toLowerCase())
+        return json({ confirmed: false, cleared: false, reason: 'receipt-sha-mismatch' }, 409);
+      return json(result, result.confirmed ? 200 : 409);
+    }
     const result = await withVaultSubjectWrite(
       ctx.db, ctx.ownerId, current.draft.subjectId,
       () => reconcileConfirmedVaultDraft(
-        ctx.db.collection('vault_drafts'), client, scope, input.revision, input.sha));
+        ctx.db.collection('vault_drafts'), client, scope, input.revision, input.sha, {
+          db: ctx.db, credential: { sessionVersion: ctx.sessionVersion },
+        }));
     return json(result, result.confirmed ? 200 : 409);
   } catch (error) { return failure(error); }
 }

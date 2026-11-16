@@ -65,7 +65,9 @@ export default function NotesPage({
   // Track the latest rendered editor content, not a stale async Save closure.
   // Edits made while a GitHub request is in flight must never be discarded.
   const liveEditorRef = useRef(null);
-  liveEditorRef.current = { heading, answer, tagsText, activeSubject, editingId, newDraftId };
+  useEffect(() => {
+    liveEditorRef.current = { heading, answer, tagsText, activeSubject, editingId, newDraftId };
+  }, [heading, answer, tagsText, activeSubject, editingId, newDraftId]);
 
   // Browser connection events are hints, not proof that the server is up.
   // Retry only the latest editor snapshot; conflict errors require explicit

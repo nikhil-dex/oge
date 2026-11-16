@@ -996,6 +996,70 @@ and production restore flags remain OFF.
 For detailed operator checklist see
 `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
 
+## Phase D3b2b2c4o / Milestone #62: Owner-facing staging-only restore review
+
+The previously CLI-oriented signed M57–M61 one-batch restore
+workflow now has a **hidden, responsive browser review surface**
+at `/vault/restore-staging`. It is linked from `/vault`
+**only for a connected owner in isolated staging**, with
+`OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW=true`, the matching
+Notes/import preview flags, a dedicated
+`oge_vault_restore_staging_*` MongoDB and the existing
+Vault HTTPS staging readiness checks. The server rejects all
+other environments with 404, requires a signed Auth.js
+session and an owned connected private GitHub Vault,
+and marks the page noindex/nofollow.
+
+The UI loads the owner's bounded **read-only** multi-batch
+receipt history before permitting a new approval. Unknown
+or missing history, claimed/uncertain writes, a present import
+quarantine, pending approvals, invalid records and truncated
+history all **block issuance** in the browser. Even a
+previous confirmed batch does NOT verify that source/target
+GitHub revisions are current: every new batch must be
+independently reviewed. The M59 server route remains
+authoritative for signed owner, target HEAD and receipt
+issuance, while the M58 operator executor separately
+rechecks source note bytes, drafts and Git CAS state.
+
+For one batch the owner enters only reviewed metadata:
+the exact source/target 40-hex Git revisions, source
+inventory/selection 64-hex SHA-256 digests and 1–12
+unique lowercase note UUIDs. The user must confirm
+independent create-only conflict review and type
+`APPROVE ONE BATCH`; a successful request creates
+only a **10-minute single-use signed receipt**.
+Nothing is written to GitHub, no note bodies or private
+backup chunks are uploaded, and no draft or import lock
+is modified by the UI.
+
+The private HMAC receipt is kept in **in-memory React
+state only** and transferred by the user's explicit
+`Copy private ticket JSON` action for an authorized
+0600-file operator handoff. The token is not
+automatically rendered, placed in a URL, logged or
+persisted to localStorage/sessionStorage. If a POST
+response is interrupted, the browser does **not**
+retry; it instructs the owner to check the read-only
+history first. The owner can independently check
+a receipt's pending/claimed/confirmed status but
+cannot force a Git retry, unlock the quarantine,
+or trigger subsequent batches automatically.
+
+M62 automated tests verify strict payload and
+history-state handling, conditional staging visibility,
+signed owner access, no content uploads/browser
+storage, React lint and Next.js production build.
+Existing Chromium desktop/mobile smoke checks
+remain part of CI. **No real OAuth browser staging
+test, two-device signed provider acceptance, or
+complete consumer restore UX has been performed.**
+Production preview flags remain OFF, PR #35
+is still draft/unmerged, and no real notes were touched.
+
+See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`
+for human-reviewed operator instructions.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

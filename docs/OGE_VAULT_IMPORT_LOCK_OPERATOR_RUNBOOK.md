@@ -189,7 +189,7 @@ commit message has the stored fingerprint, then compares complete immutable
 base/import trees: only the approved selected note files may be created.
 It rechecks GitHub HEAD and owner lock after inspection.
 
-The CLI prints redacted, non-authorizing status flags only. The status
+The CLI mints a **contents:read**, metadata:read, repository-restricted GitHub App token (rather than write-capable note permissions) and prints redacted, non-authorizing status flags only. The status
 `MATCHING_IMPORT_COMMIT_METADATA_ONLY` is **not** full verification that
 the immutable note file bytes equal the original backup. GitHub commit
 metadata, even when apparently matching, cannot prove an old worker has

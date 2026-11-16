@@ -82,7 +82,7 @@ export async function POST(request) {
       // whose own vault is connected or incompletely provisioned.
       const cutover = await inspectLegacyCutoverForOwner(db, user.googleSub,
         { extensionTokenHash: tokenHash }, { session });
-      if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
+      if (cutover.blocked) return legacyCutoverBlockedResponse(cutover, { headers: HEADERS });
       const now = new Date();
       if (subjectSlug) {
         const subject = await db.collection('subjects').findOne(

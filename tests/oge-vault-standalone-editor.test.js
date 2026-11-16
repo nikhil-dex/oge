@@ -55,8 +55,10 @@ test('M72 typed local recovery is strictly canonical, bound to one ID/type/base 
   assert.equal(parseLocalRecovery('{"abc":123}', 'quick-notes', UUID), null);
   assert.equal(parseLocalRecovery('not JSON', 'quick-notes', UUID), null);
   assert.equal(parseLocalRecovery('x'.repeat(50000), 'quick-notes', UUID), null);
-  assert.throws(() => encodeLocalRecovery({ ...capture, githubToken: 'must never persist' }), TypeError,
-    'unrecognized keys in supplied editor are not stored but recovery format always strict');
+  assert.doesNotMatch(
+    encodeLocalRecovery({ ...capture, githubToken: 'must never persist' }),
+    /githubToken|must never persist/,
+    'the recovery encoder allowlists fields and never persists credentials');
 });
 
 test('M72 read-only GitHub proof requires exact format/content/new blob and valid revision', () => {

@@ -6,6 +6,7 @@ import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 import { checkVaultStagingReadiness } from '../../../lib/oge-vault-staging-preflight.js';
 import SiteNavbar from '../../components/site-navbar.js';
 import RestoreReviewClient from './restore-review-client.js';
+import VaultBackupDownloadClient from './vault-backup-download-client.js';
 import styles from './restore-staging.module.css';
 
 export const metadata = { title: 'Staging restore review',
@@ -46,6 +47,9 @@ export default async function RestoreStagingPage() {
     { projection: { _id: 1 } },
   );
   if (!owner) notFound();
+  const chunkExportEnabled =
+    process.env.OGE_VAULT_BACKUP_EXPORT_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_BACKUP_EXPORT_CHUNK_PREVIEW === 'true';
   return (
     <main className={'shell oge-shell oge-retro-workspace ' + styles.page}>
       <SiteNavbar actions={<Link className="oge-signin" href="/vault">
@@ -61,6 +65,9 @@ export default async function RestoreStagingPage() {
         <p>Review the exact GitHub backup selection and request one short-lived
           operator receipt. This page never uploads notes or restores anything.</p>
       </section>
+      <div className={styles.layout}>
+        <VaultBackupDownloadClient enabled={chunkExportEnabled} />
+      </div>
       <RestoreReviewClient />
     </main>
   );

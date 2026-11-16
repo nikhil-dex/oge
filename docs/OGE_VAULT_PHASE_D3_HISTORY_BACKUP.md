@@ -370,7 +370,7 @@ The independent opt-in operator CLI is
 `OGE_VAULT_IMPORT_EVIDENCE_READ_ONLY=YES_METADATA_ONLY`, a specific
 MongoDB database, exact owner/session/repo/operation scope and the verified
 private GitHub App installation. It is **not a user-facing HTTP endpoint**
-and does not release locks, delete drafts, or write to GitHub.
+and does not release locks, delete drafts, or write to GitHub. Both private operator-inspection commands request GitHub installation tokens scoped to **contents:read** and metadata:read; the ordinary Save/import writer retains its separate write-capable token.
 
 The read-only checker verifies the owner mapping and exact
 `github-write-possible` lock, takes a pinned GitHub HEAD, walks at most

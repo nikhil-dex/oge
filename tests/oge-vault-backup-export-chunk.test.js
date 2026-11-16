@@ -192,7 +192,7 @@ test('M53 stale snapshot or invalid cursor never exposes a chunk from a differen
     { afterId: first.nextAfterId },
     { snapshot: first.snapshot },
     { snapshot: first.snapshot, afterId: randomUUID() },
-    { snapshot: first.snapshot, afterId: first.nextAfterId.toUpperCase() },
+    { snapshot: first.snapshot, afterId: 'AAAAAAAA-0000-4000-8000-000000000040' },
   ]) {
     if (values.afterId && values.snapshot && values.afterId !== first.nextAfterId) {
       // Some random UUIDs are well-shaped but absent: rejected after index scan.

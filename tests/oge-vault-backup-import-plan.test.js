@@ -86,6 +86,17 @@ test('D3b2 canonical Notes export is validated, but source SHA never grants writ
   assert.equal(JSON.stringify(result).includes('Private content'), false);
 });
 
+test('D3b2 accepts semantically canonical backups when note JSON keys are reordered', () => {
+  const uploaded = archive(1);
+  const [raw] = uploaded.notes;
+  uploaded.notes[0] = Object.fromEntries(
+    Object.entries(raw).reverse(),
+  );
+  const checked = validateVaultNotesImportArchive(uploaded);
+  assert.equal(checked.notes[0].id, raw.id);
+  assert.equal(checked.notes[0].answer, raw.answer);
+});
+
 test('D3b2 existing GitHub IDs always require conflict review, even with plausible source SHAs', async () => {
   const input = archive(3);
   const f = githubFixture({ existing: [input.notes[0], input.notes[1]] });

@@ -424,6 +424,7 @@ export default function NotesPage({
     if (hybridDrafts) await hybridPendingRef.current.catch(() => {});
     setError('');
     setMessage('');
+    let attemptedGitHubSave = null;
     try {
       const tags = [...new Set(tagsText.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10);
       const payload = { subjectSlug: activeSubject, heading: heading.trim(), answer: answer.trim(), tags };
@@ -451,6 +452,10 @@ export default function NotesPage({
         }
       }
       if (vaultMode && editingId && !current?.sha) throw new Error('GitHub revision is missing. Refresh notes and try again.');
+      // Only this submitted, immutable draft revision may be confirmed after a
+      // lost Save response. Never use the potentially newer revision later.
+      if (hybridDrafts && vaultMode && draftNoteId && hybridRevisionRef.current >= 1)
+        attemptedGitHubSave = { noteId: draftNoteId, revision: hybridRevisionRef.current };
       const note = await responseJson(await fetch(notesApi, {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -486,7 +491,26 @@ export default function NotesPage({
       setMessage('Note saved successfully.');
       await load(activeSubject);
     } catch (err) {
-      setError(err.message || 'Could not save this note.');
+      if (attemptedGitHubSave && hybridDrafts && vaultMode) {
+        // An HTTP error does NOT prove GitHub rejected the commit. Read the
+        // exact encrypted draft revision back and verify an immutable GitHub
+        // blob before showing a success message. Do not delete any browser or
+        // MongoDB drafts here; later edits may still be unsynced.
+        try {
+          const checked = await responseJson(await fetch(
+            '/api/vault/drafts?id=' + encodeURIComponent(attemptedGitHubSave.noteId) +
+            '&confirm=true&revision=' + attemptedGitHubSave.revision,
+            { cache: 'no-store' },
+          ));
+          if (checked.confirmed === true) {
+            setDraftStatus('GitHub Save confirmed — temporary draft retained');
+            setMessage('GitHub confirmed the submitted Save. Close and reopen this note to review any remaining draft edits.');
+            return;
+          }
+        } catch { /* GitHub/offline failures never become a Saved state. */ }
+        setDraftStatus('Draft pending — GitHub confirmation needed');
+      }
+      setError(err.message || 'Could not confirm this GitHub Save. Your draft is retained.');
     } finally {
       setSaving(false);
     }

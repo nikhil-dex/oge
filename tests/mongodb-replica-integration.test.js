@@ -6,6 +6,8 @@ import { withAtomicBackupImport } from '../lib/atomic-backup-import.js';
 import { withActiveOwnerMutation } from '../lib/active-owner-mutation.js';
 import { deleteSubjectAtomically } from '../lib/atomic-subject-deletion.js';
 import { deleteAccountDataAtomically, ACCOUNT_OWNER_COLLECTIONS } from '../lib/account-deletion-transaction.js';
+import { promoteStagedVaultFileIndex } from '../lib/oge-vault-file-index-promotion.js';
+import { reconcileVaultFileIndexVerification } from '../lib/oge-vault-file-index-recovery.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -241,5 +243,150 @@ test('real overlapping note insert and deletion cannot commit orphaned data', re
       assert.deepEqual(await deleteAccountDataAtomically(db, 'owner-A', epochA), { deleted: true });
       assert.equal(await db.collection('notes').countDocuments({ ownerId: 'owner-A' }), 0);
     }
+  });
+});
+
+/**
+ * Real replica-set B6 tests: exercise the SAME MongoDB transaction that
+ * publishes staged metadata, not mocked collection semantics.
+ * GitHub is stubbed, so these do not claim live GitHub verification.
+ */
+function fileIndexPromotionFixture(count = 501) {
+  const ownerId = 'vault-index-' + randomUUID();
+  const repoId = 881;
+  const operationId = randomUUID();
+  const sessionVersion = randomUUID();
+  const subjectId = randomUUID();
+  const snapshot = 'a'.repeat(40);
+  const notes = Array.from({ length: count }, () => {
+    const noteId = randomUUID();
+    return { noteId, subjectId, path: 'notes/' + noteId + '.json',
+      blobSha: 'b'.repeat(40) };
+  }).sort((a, b) => a.noteId.localeCompare(b.noteId));
+  const scope = { ownerId, repoId };
+  const identity = { ownerId, repoId };
+  const client = { branch: 'main', vault: { repoId } };
+  const credential = { sessionVersion };
+  const treeReader = async () => ({ snapshot, notes });
+  const headReader = async () => snapshot;
+  const promote = (db, extra = {}) => promoteStagedVaultFileIndex(
+    db, client, identity,
+    { operationId, credential, treeReader, headReader, ...extra });
+  const seed = async (db) => {
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+    });
+    await db.collection('vault_file_index_state').insertOne({
+      ...scope, state: 'bootstrap-staged', operationId, snapshot,
+      totalNotes: notes.length, nextOffset: notes.length,
+    });
+    await db.collection('vault_file_index_bootstrap').insertMany(notes.map((note, ordinal) => ({
+      ...scope, operationId, ordinal, ...note,
+    })));
+    const oldNoteId = randomUUID();
+    await db.collection('vault_files').insertOne({
+      ...scope, noteId: oldNoteId, subjectId, status: 'present',
+      path: 'notes/' + oldNoteId + '.json', blobSha: 'c'.repeat(40),
+      lastSeenSnapshot: snapshot,
+    });
+    return oldNoteId;
+  };
+  return { scope, identity, client, credential, operationId, snapshot,
+    notes, seed, promote };
+}
+
+test('real MongoDB commits 501 GitHub-derived metadata rows and tombstone together', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = fileIndexPromotionFixture();
+    await db.collection('vault_files').createIndex({ ownerId: 1, repoId: 1, noteId: 1 },
+      { unique: true });
+    const oldNoteId = await f.seed(db);
+    const status = await f.promote(db);
+    assert.equal(status.status, 'ready');
+    assert.equal(status.indexed, 501);
+    assert.equal(await db.collection('vault_files').countDocuments({
+      ...f.scope, status: 'present' }), 501);
+    const old = await db.collection('vault_files').findOne({
+      ...f.scope, noteId: oldNoteId });
+    assert.equal(old.status, 'missing');
+    assert.equal((await db.collection('vault_file_index_state').findOne(f.scope)).state,
+      'ready');
+    const documents = await db.collection('vault_files').find(f.scope).toArray();
+    assert.ok(documents.every((row) =>
+      !Object.hasOwn(row, 'answer') && !Object.hasOwn(row, 'heading') &&
+      !Object.hasOwn(row, 'tags') && !Object.hasOwn(row, 'content')));
+  });
+});
+
+test('real MongoDB aborts all publication rows and state on failure after first 250', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = fileIndexPromotionFixture();
+    const oldNoteId = await f.seed(db);
+    let bulks = 0;
+    const faultDb = {
+      client: db.client,
+      collection(name) {
+        const collection = db.collection(name);
+        if (name !== 'vault_files') return collection;
+        return new Proxy(collection, {
+          get(target, property) {
+            if (property === 'bulkWrite') {
+              return async (...args) => {
+                bulks++;
+                if (bulks === 2) throw new Error('synthetic-batch-2-failure');
+                return target.bulkWrite(...args);
+              };
+            }
+            const value = Reflect.get(target, property, target);
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        });
+      },
+    };
+    await assert.rejects(f.promote(faultDb), /synthetic-batch-2-failure/);
+    assert.equal(bulks, 2);
+    assert.equal(await db.collection('vault_files').countDocuments(f.scope), 1);
+    assert.equal((await db.collection('vault_files').findOne({
+      ...f.scope, noteId: oldNoteId })).status, 'present');
+    const state = await db.collection('vault_file_index_state').findOne(f.scope);
+    assert.equal(state.state, 'bootstrap-staged');
+    assert.equal(state.nextOffset, 501);
+    // Staged metadata remains so a verified operator retry is possible.
+    assert.equal(await db.collection('vault_file_index_bootstrap').countDocuments({
+      ...f.scope, operationId: f.operationId }), 501);
+  });
+});
+
+test('real MongoDB resolves interrupted post-commit verification without rewriting notes', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const f = fileIndexPromotionFixture(51);
+    await f.seed(db);
+    let reads = 0;
+    const result = await f.promote(db, {
+      headReader: async () => {
+        if (++reads === 1) return f.snapshot;
+        throw new Error('synthetic lost GitHub response');
+      },
+    });
+    assert.equal(result.status, 'verifying');
+    assert.equal((await db.collection('vault_file_index_state').findOne(f.scope)).state,
+      'verifying');
+
+    const scan = async (_client, scope, { existingRows }) => {
+      assert.equal(existingRows.length, 51);
+      return { ...scope, snapshot: f.snapshot, totalNotes: 51,
+        files: f.notes.map((note) => ({ ...scope,
+          noteId: note.noteId, subjectId: note.subjectId,
+          path: note.path, blobSha: note.blobSha })),
+        advisoryOnly: true };
+    };
+    const recovery = await reconcileVaultFileIndexVerification(db, f.client,
+      f.identity, { credential: f.credential, scanner: scan,
+        headReader: async () => f.snapshot });
+    assert.equal(recovery.status, 'ready');
+    assert.equal((await db.collection('vault_file_index_state').findOne(f.scope)).state,
+      'ready');
+    assert.equal(await db.collection('vault_files').countDocuments({
+      ...f.scope, status: 'present' }), 51);
   });
 });

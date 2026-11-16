@@ -11,6 +11,7 @@ import { reconcileVaultFileIndexVerification } from '../lib/oge-vault-file-index
 import { reconcileConfirmedVaultDraft } from '../lib/oge-vault-save-finalize.js';
 import { retireConfirmedVaultDraftWithReceipt, readConfirmedVaultSaveReceipt } from '../lib/oge-vault-save-receipt.js';
 import { inspectVaultLegacyData } from '../lib/oge-vault-legacy-inventory.js';
+import { inspectLegacyCutoverForOwner } from '../lib/oge-vault-cutover-guard.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -579,5 +580,46 @@ test('real MongoDB Phase C inventory is count-only and preserves notes, drafts a
     assert.equal((await db.collection('notes').findOne({ ownerId })).answer, privateBody);
     assert.equal((await db.collection('vault_drafts').findOne({ ownerId })).encrypted.ciphertext,
       privateBody);
+  });
+});
+
+test('real MongoDB Phase D preview blocks a legacy write when Vault connects after initial check', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'cutover-preview-' + randomUUID();
+    const sessionVersion = randomUUID();
+    const env = {
+      OGE_VAULT_CUTOVER_GUARD_PREVIEW: 'true',
+      OGE_VAULT_MAIN_PREVIEW: 'true',
+      OGE_VAULT_HYBRID_DRAFT_PREVIEW: 'true',
+    };
+    const credential = { sessionVersion };
+    await db.collection('users').insertOne({ googleSub: ownerId, sessionVersion });
+
+    const before = await inspectLegacyCutoverForOwner(
+      db, ownerId, credential, { env });
+    assert.equal(before.blocked, false);
+
+    // The user connects a valid GitHub Vault after a browser preflight but
+    // before its old MongoDB note request begins a transaction.
+    await db.collection('users').updateOne({ googleSub: ownerId },
+      { $set: { vault: { status: 'connected',
+        repoId: 704, installationId: 29 } } });
+
+    const result = await withActiveOwnerMutation(db, ownerId, async (session) => {
+      const inside = await inspectLegacyCutoverForOwner(
+        db, ownerId, credential, { env, session });
+      if (inside.blocked) return inside.status;
+      await db.collection('notes').insertOne({
+        ownerId, heading: 'MUST NOT WRITE', answer: 'synthetic legacy note',
+      }, { session });
+      return 201;
+    }, credential);
+    assert.equal(result, 409);
+    assert.equal(await db.collection('notes').countDocuments({ ownerId }), 0);
+
+    // Disabled guard preserves old production semantics until a deliberate
+    // staging/production rollout is authorized.
+    assert.equal((await inspectLegacyCutoverForOwner(
+      db, ownerId, credential, { env: {} })).blocked, false);
   });
 });

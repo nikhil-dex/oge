@@ -134,3 +134,26 @@ signed browser identities have been verified by the command.
 actual disposable private GitHub App installation, real 429/409/422 and
 late-revocation behavior, sessionStorage recovery on mobile, subject
 deletion and save concurrency, operator-reviewed quarantine recovery.
+
+## Milestone #52 — Real batch writer, simulated GitHub provider error matrix
+
+The separate `tests/mongodb-vault-github-fault-matrix.test.js` runner
+exercises the actual `commitVaultNoteBatch` Git object/ref writer, not an
+injected success stub. It combines exact owner-scoped MongoDB fencing and
+the create-only approval with a deterministic synthetic GitHub object
+store. Fault cases now cover 429 before marking, 429 during Git tree
+creation, non-fast-forward 422 from a competing writer, a 503/422 response
+lost **after** a successful Git ref update, and 429 during final HEAD
+or imported-note verification.
+
+Verified remote commits are accepted once after exact HEAD, ancestry and
+content checks; unknown outcomes retain owner quarantine and are eligible
+only for a separate read-only historical proof, never automatic replay.
+Tests verify one Git ref PATCH per attempt, preserve external edits and do
+not store permanent note bodies in MongoDB.
+
+See `docs/OGE_VAULT_GITHUB_FAILURE_ACCEPTANCE.md` for the complete
+failure matrix. **Live two-device staging remains outstanding:** real
+GitHub API rate limits, OAuth permissions, provider races, mobile
+sessionStorage recovery and independent signed operator signoff have
+not been executed by these synthetic tests.

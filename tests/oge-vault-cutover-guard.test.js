@@ -39,6 +39,12 @@ test('Phase D connected Vault owners never fall back to permanent MongoDB storag
   const payload = await response.json();
   assert.equal(payload.code, decision.code);
   assert.equal(JSON.stringify(payload).includes(ownerId), false);
+  const corsResponse = legacyCutoverBlockedResponse(decision, {
+    headers: { 'Access-Control-Allow-Origin': '*', Vary: 'Origin' },
+  });
+  assert.equal(corsResponse.headers.get('access-control-allow-origin'), '*');
+  assert.equal(corsResponse.headers.get('vary'), 'Origin');
+  assert.equal(corsResponse.headers.get('cache-control'), 'no-store');
 });
 
 test('Phase D incomplete GitHub preview flags block requests before owner lookup', async () => {
@@ -157,6 +163,6 @@ test('Phase D transactional legacy writers have a second owner-scoped preflight 
     assert.match(source, /lockedCutover\.blocked/);
   }
   const extension = await readFile(new URL('../app/api/extension/quick-note/route.js', import.meta.url), 'utf8');
-  assert.match(extension, /if \(cutover\.blocked\) return legacyCutoverBlockedResponse\(cutover\)/);
+  assert.match(extension, /if \(cutover\.blocked\) return legacyCutoverBlockedResponse\(cutover, \{ headers: HEADERS \}\)/);
   assert.match(extension, /\{ extensionTokenHash: tokenHash \}, \{ session \}/);
 });

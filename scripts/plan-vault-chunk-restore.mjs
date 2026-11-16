@@ -32,7 +32,7 @@ const allowed = env.OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY ===
     (typeof identity.sessionVersion === 'string' && !!identity.sessionVersion)) &&
   Number.isSafeInteger(identity.repoId) && identity.repoId > 0;
 
-async function* readPrivateChunkDirectory(folder) {
+async function checkPrivateChunkDirectory(folder) {
   const dir = await lstat(folder);
   if (!dir.isDirectory() || dir.isSymbolicLink() ||
       (dir.mode & 0o077) !== 0 ||
@@ -48,6 +48,22 @@ async function* readPrivateChunkDirectory(folder) {
     if (names[i] !== 'part-' + String(i + 1).padStart(4, '0') + '.json')
       throw new TypeError('Missing or unnumbered private chunk part');
   }
+  for (const name of names) {
+    const file = await open(join(folder, name), constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const stat = await file.stat();
+      if (!stat.isFile() || stat.size < 2 ||
+          stat.size > MAX_VAULT_BACKUP_CHUNK_BYTES ||
+          (stat.mode & 0o077) !== 0 ||
+          (typeof process.getuid === 'function' && stat.uid !== process.getuid()))
+        throw new TypeError('Unsafe private chunk file');
+    } finally { await file.close(); }
+  }
+  return names;
+}
+
+async function* readPrivateChunkDirectory(folder) {
+  const names = await checkPrivateChunkDirectory(folder);
   for (const name of names) {
     const file = await open(join(folder, name), constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
@@ -67,8 +83,17 @@ async function* readPrivateChunkDirectory(folder) {
   }
 }
 
-if (!allowed) {
-  console.error('BLOCKED: exact signed owner/repo/database, private chunk directory and explicit read-only acknowledgment required.');
+let privateFilesReady = false;
+if (allowed) {
+  try {
+    // Reject world-readable, symlinked or missing parts before creating
+    // GitHub credentials or opening the MongoDB connection.
+    await checkPrivateChunkDirectory(directory);
+    privateFilesReady = true;
+  } catch { /* sanitized failure below; never print paths or note text */ }
+}
+if (!allowed || !privateFilesReady) {
+  console.error('BLOCKED: exact owner/database scope and an owned 0700 chunk directory with contiguous 0600 regular files are required.');
   process.exitCode = 1;
 } else {
   const mongo = new MongoClient(env.MONGODB_URI, {

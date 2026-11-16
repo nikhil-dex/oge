@@ -53,6 +53,9 @@ export async function GET() {
         accountFilter, { session, projection: { newsInterests: 1 } },
       );
       if (!user) return null;
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return { cutoverBlocked: lockedCutover };
       // Do not parallelize commands on the same MongoDB transaction session.
       const subjects = await ctx.db.collection('subjects').find({ ownerId: ctx.ownerId }, { session }).sort({ createdAt: 1 }).limit(5001).toArray();
       const notes = await ctx.db.collection('notes').find({ ownerId: ctx.ownerId }, { session }).sort({ createdAt: 1 }).limit(5001).toArray();
@@ -62,6 +65,8 @@ export async function GET() {
       return { user, subjects, notes, savedLinks, quickNotes, personalQuickNotes };
     });
     if (!snapshot) return json({ error: 'Your account session has changed. Sign in again before exporting.' }, 401);
+    if (snapshot.cutoverBlocked)
+      return legacyCutoverBlockedResponse(snapshot.cutoverBlocked);
     const { user, subjects, notes, savedLinks, quickNotes, personalQuickNotes } = snapshot;
     if ([subjects, notes, savedLinks, quickNotes, personalQuickNotes].some((records) => records.length > 5000)) {
       return json({ error: 'Your data exceeds the single-export record limit. Contact support for a paginated export.' }, 413);

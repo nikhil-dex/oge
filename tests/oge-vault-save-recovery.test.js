@@ -11,7 +11,7 @@ const head = sha('a'), treeSha = sha('b'), noteSha = sha('c'), oldSha = sha('d')
 const expected = { subjectId, heading: 'Study heading ', answer: 'Content body ',
   tags: ['web', 'security'], favorite: false, baseSha: oldSha };
 
-function fixture({ draft = expected, revision = 7, blob = {}, deleted = false,
+function fixture({ draft = expected, revision = 7, blob = {},
   trunk = head, truncated = false, advanced = false, missing = false,
   duplicate = false } = {}) {
   let reads = 0;

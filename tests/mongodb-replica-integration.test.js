@@ -16,6 +16,9 @@ import { withVaultOwnerDraftWrite, withVaultOwnerImportExclusive } from '../lib/
 import { inspectVaultImportLockReadOnly } from '../lib/oge-vault-import-lock-inspection.js';
 import { releasePreWriteVaultImportLockInStaging } from '../lib/oge-vault-import-lock-prewrite-release.js';
 import { inspectVaultImportAttemptEvidenceReadOnly } from '../lib/oge-vault-import-attempt-evidence.js';
+import { inspectVaultImportArchiveContentReadOnly } from '../lib/oge-vault-import-archive-proof.js';
+import { approvedVaultImportCommitMessage, validateVaultNotesImportApproval } from '../lib/oge-vault-backup-import-commit.js';
+import { validatedNote } from '../lib/oge-vault-notes.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -1007,5 +1010,81 @@ test('real MongoDB M48 evidence inspection reads only signed metadata and preser
       ownerId, sessionVersion: randomUUID(), repoId, expectedOperationId: operationId,
     }, client);
     assert.equal(differentOwner.status, 'OWNER_OR_REPOSITORY_NOT_VERIFIED');
+  });
+});
+
+test('real MongoDB M49 verifies signed import lock and owner subjects without touching drafts', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'archive-proof-' + randomUUID(), sessionVersion = randomUUID();
+    const repoId = 904, subjectId = randomUUID(), noteId = randomUUID();
+    const operationId = randomUUID(), sha = 'b'.repeat(40);
+    const vault = { status: 'connected', repoId, installationId: 54,
+      githubAccountId: '77', githubLogin: 'synthetic-owner', repoName: 'ogenotes-vault' };
+    const note = validatedNote({ subjectId, heading: 'PRIVATE HEADING', answer: 'PRIVATE ANSWER' },
+      { id: noteId, now: '2026-10-09T00:00:00.000Z' });
+    const request = {
+      archive: {
+        format: 'oge-vault-notes-backup', version: 1,
+        scope: 'current-github-notes-only', snapshot: 'a'.repeat(40),
+        totalNotes: 1,
+        coverage: {
+          notes: 'complete-at-snapshot', historicalRevisions: 'not-included',
+          quickNotes: 'not-included', airNotes: 'not-included',
+          encryptedDrafts: 'not-included', learningProgress: 'not-included',
+        },
+        notes: [{ ...note, sha: 'c'.repeat(40) }],
+      },
+      expectedTargetHead: sha, selectedIds: [noteId],
+      confirmation: 'IMPORT_SELECTED_NEW_NOTES',
+    };
+    const commitMarker = approvedVaultImportCommitMessage(
+      validateVaultNotesImportApproval(request));
+    const lock = {
+      operationId, repoId, state: 'github-write-possible',
+      approvedHead: sha, commitMarker, selectedIds: [noteId],
+      startedAt: new Date('2026-11-16T07:00:00.000Z'),
+      attemptedAt: new Date('2026-11-16T07:01:00.000Z'),
+    };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault, vaultImportLock: lock,
+    });
+    await db.collection('subjects').insertOne({ ownerId, slug: subjectId });
+    const draftNoteId = randomUUID(), ciphertext = 'MUST_NOT_BE_EXPOSED';
+    await db.collection('vault_drafts').insertOne({
+      ownerId, repoId, noteId: draftNoteId,
+      encrypted: { ciphertext }, revision: 1,
+    });
+    const userBefore = await db.collection('users').findOne({ googleSub: ownerId });
+    const draftBefore = await db.collection('vault_drafts').findOne({ ownerId });
+    const client = { vault: { ...vault }, branch: 'main',
+      async call() { throw Error('Injected proven archive reconciler should not call provider'); } };
+    const identity = { ownerId, repoId, sessionVersion, expectedOperationId: operationId };
+    const evidence = await inspectVaultImportArchiveContentReadOnly(
+      db, identity, client, request, { archiveReconciler: async (_c, _r, opts) => {
+        assert.equal(await opts.subjectVerifier([subjectId]), true);
+        assert.equal(await opts.ownerVerifier(), true);
+        return { confirmed: true, importedCount: 1, commitsAfterImport: 0,
+          currentNotesUnchanged: 1, currentNotesChanged: 0 };
+      } });
+    assert.equal(evidence.status, 'ARCHIVE_IMPORT_CONFIRMED_HISTORICALLY');
+    assert.equal(evidence.importedContentVerified, true);
+    assert.equal(evidence.operatorUnlockAuthorized, false);
+    assert.deepEqual(await db.collection('users').findOne({ googleSub: ownerId }), userBefore);
+    assert.deepEqual(await db.collection('vault_drafts').findOne({ ownerId }), draftBefore);
+    assert.equal(evidence.matchingSelectedDraftPresent, false);
+    const serialized = JSON.stringify(evidence);
+    for (const secret of [ownerId, operationId, sessionVersion, sha,
+      commitMarker, 'PRIVATE ANSWER', ciphertext, noteId])
+      assert.equal(serialized.includes(secret), false);
+    const wrongSession = await inspectVaultImportArchiveContentReadOnly(
+      db, { ...identity, sessionVersion: randomUUID() }, client, request, {
+        archiveReconciler: async () => { throw Error('MUST NOT RUN'); },
+      });
+    assert.equal(wrongSession.status, 'OWNER_OR_REPOSITORY_NOT_VERIFIED');
+    const wrongLock = await inspectVaultImportArchiveContentReadOnly(
+      db, { ...identity, expectedOperationId: randomUUID() }, client, request, {
+        archiveReconciler: async () => { throw Error('MUST NOT RUN'); },
+      });
+    assert.equal(wrongLock.status, 'ARCHIVE_APPROVAL_OR_IMPORT_LOCK_MISMATCH');
   });
 });

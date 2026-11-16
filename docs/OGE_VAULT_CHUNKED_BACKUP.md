@@ -352,6 +352,89 @@ session revocation, stable fingerprint binding and refusal to mutate
 GitHub. Private CLI tests check invalid opt-ins, unsafe permissions,
 directory extras and symlinked approval files.
 
+## Milestone #58 — One verified restore batch with real Git CAS (internal only)
+
+Milestone #57 prepared a fully source-verified, create-only single-batch
+**intent** but could not write. Milestone #58 introduces a separate
+`executeApprovedVaultChunkRestoreBatch` internal backend that can
+execute exactly **one 1–12 Note GitHub commit**, guarded by the existing
+signed owner's import-exclusive and subject-specific fences.
+
+**No HTTP route, operator CLI, background job, or production user UI
+invokes this executor.** The module refuses to operate unless all
+existing Vault Notes/import preview flags and independent
+`OGE_VAULT_CHUNK_RESTORE_COMMIT_PREVIEW=true` and
+`OGE_VAULT_CHUNK_RESTORE_WRITE_ACK=YES_DISPOSABLE_SIGNED_STAGING_ONLY`
+are supplied by a trusted application caller. They remain **OFF** and
+must not be configured in production. A staging browser/owner-approval
+entrypoint remains future work.
+
+The distinct, exact six-key application approval is:
+
+```json
+{
+  "confirmation": "COMMIT_VERIFIED_CHUNK_BATCH_CREATE_ONLY",
+  "expectedSourceSnapshot": "<40 lowercase Git commit SHA>",
+  "expectedSourceInventorySha256": "<64 lowercase SHA-256>",
+  "expectedTargetHead": "<40 lowercase current Git branch HEAD>",
+  "selectedIds": ["<1–12 unique lower-case UUIDs>"],
+  "expectedSelectionFingerprint": "<64 lowercase M57 intent digest>"
+}
+```
+
+The M57 preview digest is a review fingerprint, **not** a signature or
+bearer credential. The M58 backend requires this **separate explicit
+commit confirmation** and re-computes it with all current trusted
+context before any GitHub write. It is not interchangeable with the
+M57 read-only confirmation or the original 8-MiB one-shot import.
+
+Within the existing durable owner-exclusive import lock (which
+blocks all concurrent draft writes), it validates the **whole**
+downloaded Notes sequence (up to 1,024 current Notes, 16 chunks),
+pins the same signed private source GitHub Vault at current HEAD or
+within 20 linear ancestors, independently verifies every raw
+historical Git blob SHA-1 and canonical note body, and checks the
+exact selected fingerprint, destination HEAD, target subject
+ownership, and MongoDB encrypted-draft conflicts. The selected
+1–12 note blobs are reread by immutable Git SHA and canonical
+content SHA-256 after proof.
+
+The backend then acquires the selected subject locks and reuses
+the **existing** `executeApprovedVaultNotesImport` path with a
+temporary <=12-note, <=8-MiB source-verified miniarchive in
+process memory. The existing executor performs **fresh** owner,
+subject, draft, target HEAD and Git tree create-only checks, then
+durably marks the exact metadata-only
+`vaultImportLock.state='github-write-possible'` before invoking
+`commitVaultNoteBatch`. This real writer uses GitHub's non-force
+branch-ref CAS and verifies the resulting commit, ancestry, HEAD
+and note contents. No permanent note text is stored in MongoDB.
+
+A verified single-batch success releases the exact matching
+owner lock and returns only selected UUIDs, commit SHA and
+counts. If a provider response is lost after a Git mutation
+**might have started**, the owner lock is deliberately retained,
+other device autosaves/imports remain blocked, and the system
+does **not** retry, automatically resume, clear the lock, or
+delete any encrypted draft. Real operator reconciliation and
+maintenance quiescence are still a separate release gate.
+
+M58 integration tests use a **disposable real MongoDB replica set**
+with a **synthetic GitHub object store and actual production Git batch
+writer**. Tests verify one successful create-only commit, no
+replay after an ambiguous post-commit HEAD response, retained owner
+quarantine, selected draft conflicts, wrong target SHA/fingerprint,
+unchanged owner records and default-off refusal. These are NOT
+authenticated live GitHub staging tests or authorization to activate
+this executor for actual user accounts.
+
+**Still pending:** a separately signed browser/CLI restore entrypoint,
+independently confirmed user consent, multiple-batch resume
+and partial-progress ledger, exact historical recovery from
+disconnected/deleted repositories, safe operator resolution of
+uncertain locks, Quick Notes/AirNotes/full-resource backup and
+production cutover.
+
 ## Remaining release blockers
 
 An explicitly approved assembly and restore workflow (including

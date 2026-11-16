@@ -435,6 +435,70 @@ disconnected/deleted repositories, safe operator resolution of
 uncertain locks, Quick Notes/AirNotes/full-resource backup and
 production cutover.
 
+## Milestone #64 — Authenticated, owner-initiated browser chunk download
+
+The existing signed, default-OFF `GET /api/vault/backup-export/chunk`
+route can now be used through the isolated staging owner UI,
+`/vault/restore-staging`, without manually writing a download
+client. Enable the existing `OGE_VAULT_BACKUP_EXPORT_PREVIEW=true` and
+`OGE_VAULT_BACKUP_EXPORT_CHUNK_PREVIEW=true` flags **only in a
+dedicated synthetic staging instance**; no additional GitHub write
+API or production flag is introduced. The hidden page must also pass
+the independent Auth.js signed owner, private Vault, staging HTTPS,
+MongoDB and receipt-preview gates.
+
+The owner explicitly selects **Download private Notes chunks**.
+The browser requests the first signed page with no query parameters
+and then follows only each validated `snapshot`/ `nextAfterId`
+pair. An owner/session or GitHub HEAD change causes the existing
+server to reject the request; the browser does not silently start
+a new snapshot or retry a failed response.
+
+A new reusable `createVaultBrowserChunkDownloadVerifier` checks
+every part against canonical Notes-only schema, serialized page
+SHA-256, total Notes, source HEAD, contiguous 64-note page bounds,
+cursor continuity and ascending UUIDs. It maintains a bounded
+full-inventory hash input and verifies the final inventory SHA-256
+**before claiming that all responses were complete**. Response
+bodies are capped at **4 MiB while streaming**, even if a server
+omits Content-Length. The browser supports at most **16 parts /
+1,024 current Notes**, with exact numbered JSON filenames
+`part-0001.json` etc. Only independently checked chunks are
+offered to the user as temporary Blob downloads.
+
+These downloads contain **plaintext private note bodies** and
+must be stored in protected offline encrypted storage. No
+application-level autosave, MongoDB note text cache, browser storage
+persistence, GitHub write, private chunk upload, or background
+retry is introduced. **Actual disk persistence cannot be verified
+by a web page:** Chrome/Safari/Firefox and mobile browsers may
+block multiple downloads or require additional user permission.
+The UI reports only verified HTTP responses offered for download,
+not proof that files were saved. The user must manually confirm
+all numbered files exist and then select the files in the
+M63 local integrity review before requesting a separate restore
+receipt.
+
+A changed source HEAD, HTTP provider error (including 429),
+truncated or oversized payload, missing page, cancellation or
+browser download failure permanently stops the attempt for
+that browser review session. Previously downloaded partial
+parts are not a verified backup and must never be mixed with
+a fresh snapshot. An arbitrary historical source commit or
+cross-repository selection remains unsupported on the export
+endpoint.
+
+The completed browser sequence is **current Notes only**, not
+history, Quick Notes, AirNotes or unsaved drafts. Local checksums
+are integrity evidence, not a detached digital signature of
+GitHub source content; only the M55–M58 independently signed
+App operator can approve original Git blob provenance.
+Synthetic tests include complete **130-note** and **520-note,
+over-8-MiB** snapshots, strict cursor/HEAD controls and
+truncated/malicious-response conditions. Real live GitHub
+provider and authenticated browser multi-download testing
+remain outstanding.
+
 ## Remaining release blockers
 
 An explicitly approved assembly and restore workflow (including

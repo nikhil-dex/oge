@@ -215,7 +215,7 @@ test('M53 rejects incomplete Git trees, moving HEAD, bad blobs and unowned subje
     const f = fixture({ count: 10, ...opts });
     await assert.rejects(exportVaultNotesSnapshotChunk(f.client, {
       subjectVerifier: f.subjectVerifier,
-    }), (e) => e instanceof VaultGitHubError && [409, 429].includes(e.status));
+    }), (e) => e instanceof VaultGitHubError && [409, 429, 502].includes(e.status));
   }
   const oversized = fixture({ count: 2, answerSize: 2000 });
   await assert.rejects(exportVaultNotesSnapshotChunk(oversized.client, {

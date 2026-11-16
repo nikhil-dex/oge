@@ -266,6 +266,92 @@ body with recomputed local checksums, shifted branch HEAD, revoked
 signed account and a 520-Note, over-8-MiB historical backup.
 **Real authenticated GitHub App/two-device staging is not signed off.**
 
+## Milestone #57 — Authenticated, create-only single-batch intent (NO RESTORE WRITE)
+
+The #56 historical source proof can show that downloaded Notes chunks match
+the signed owner's own private GitHub Vault, even after up to 20 *linear*
+newer commits. #54's destination planner can report existing note/draft
+conflicts. Milestone #57 **connects these checks** to a deliberately
+non-authorizing, bounded selection for preparing a future restore.
+
+An operator with exact signed owner/repo context can run:
+
+```sh
+npm run vault:chunk:batch-intent
+```
+
+This uses the existing private chunk planning script in a **separate,
+explicitly opt-in** mode:
+`OGE_VAULT_CHUNK_BATCH_INTENT_READ_ONLY=YES_EXACT_VERIFIED_SELECTION_ONLY`.
+Leave `OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY` **unset**. Both flags or
+missing consent are refused. The source and destination must be the
+**same signed owner-connected GitHub Vault**. Cross-account, disconnected
+source, arbitrary detached revision and source deletion are unsupported.
+
+Point `OGE_VAULT_CHUNK_PLAN_DIRECTORY` at the existing operator-owned
+0700 directory containing sequential 0600 `part-0001.json`, etc.
+Provide `OGE_VAULT_CHUNK_BATCH_SELECTION_FILE` as an **absolute path** to
+a separate owner-only 0600 regular, non-symlink JSON file, no more than
+4 KiB, with exactly these fields:
+
+```json
+{
+  "confirmation": "PREPARE_CREATE_ONLY_RESTORE_BATCH",
+  "expectedSourceSnapshot": "<40 lowercase hex Git commit SHA>",
+  "expectedSourceInventorySha256": "<64 lowercase hex inventory digest>",
+  "expectedTargetHead": "<40 lowercase hex current destination HEAD>",
+  "selectedIds": ["<one to twelve unique lowercase note UUIDs>"]
+}
+```
+
+The values must be explicitly selected from an earlier **read-only**
+plan, and the destination HEAD must be the owner-reviewed current Git
+revision. The command checks private permissions, file structure and
+scope **before MongoDB or GitHub access**. For this phase the signed
+GitHub installation is read-only (`contents:read`), and the process
+never calls a GitHub mutation or changes a MongoDB draft or owner lock.
+
+The `prepareVaultChunkRestoreBatchIntentReadOnly()` engine first validates
+the entire source chunk sequence and **all** immutable raw GitHub note
+blobs (up to 1,024 notes) against the signed current or bounded historical
+source tree. It binds the selected 1–12 note IDs to their exact source
+blob SHAs and canonical note-content SHA-256 digests without retaining
+note plaintext. Then it checks the selected subjects belong to the
+signed owner, the **entire** current destination Git tree is canonical,
+the destination HEAD has not changed, and none of the selected IDs would
+overwrite an existing GitHub note or collide with an unsaved encrypted
+MongoDB draft. An encrypted draft conflict takes precedence over an
+existing GitHub note conflict.
+
+The result contains only the selected note UUIDs and their
+`create-candidate`, `existing-note-conflict`, or `draft-conflict`
+statuses, the bounded counts and a deterministic **SHA-256 intent
+fingerprint**. That fingerprint binds the checked *source content
+metadata, selection order and destination HEAD*. It is a review aid,
+**not a signature, approval token, bearer capability or authorization
+to write**. `eligibleForIndependentApproval:true` means only that
+no known conflict was present at inspection time; it never means a
+write was authorized. Every response explicitly says
+`canCommit:false`, `commitAuthorized:false`,
+`requiresFreshUserApproval:true`, and
+`requiresIndependentWriteRecovery:true`.
+
+**There is NO large-vault create-only commit or multi-batch restore
+executor in M57.** Do not pass the returned fingerprint to the ordinary
+import route, bypass the existing 12-note approval, automatically retry
+a lost GitHub acknowledgment, release an uncertain import lock, or
+delete drafts. Actual safe writes require a new signed owner approval,
+reverification inside an exclusive MongoDB owner/subject fence, an
+atomic Git non-force ref CAS, durable metadata-only recovery evidence,
+and a verified post-write reconciliation for each bounded batch.
+
+Synthetic tests cover 130- and 520-note downloaded source backups,
+forged SHA/inventory/selection, current target HEAD drift,
+same-ID GitHub and encrypted draft conflicts, selected-subject and
+session revocation, stable fingerprint binding and refusal to mutate
+GitHub. Private CLI tests check invalid opt-ins, unsafe permissions,
+directory extras and symlinked approval files.
+
 ## Remaining release blockers
 
 An explicitly approved assembly and restore workflow (including

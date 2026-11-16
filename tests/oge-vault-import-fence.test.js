@@ -39,10 +39,18 @@ function database() {
       if (!eligible(filter)) return { matchedCount: 0 };
       for (const [name, delta] of Object.entries(update.$inc || {}))
         user[name] = (user[name] || 0) + delta;
-      for (const [name, value] of Object.entries(update.$set || {}))
-        user[name] = value;
-      for (const name of Object.keys(update.$unset || {}))
-        delete user[name];
+      for (const [name, value] of Object.entries(update.$set || {})) {
+        const steps = name.split('.'), last = steps.pop();
+        let obj = user;
+        for (const field of steps) obj = obj[field] ||= {};
+        obj[last] = value;
+      }
+      for (const name of Object.keys(update.$unset || {})) {
+        const steps = name.split('.'), last = steps.pop();
+        let obj = user;
+        for (const field of steps) obj = obj?.[field];
+        if (obj) delete obj[last];
+      }
       return { matchedCount: 1 };
     } };
   } };
@@ -137,4 +145,73 @@ test('D3b2b2a draft and approved import routes use owner import fencing', async 
   assert.match(commit, /withVaultOwnerImportExclusive\(db/);
   assert.match(commit, /withVaultSubjectsWrite\(db, ownerId, subjectIds/);
   assert.doesNotMatch(drafts, /\.collection\(['"]notes['"]\)/);
+});
+
+test('D3b2b2c3 preserves durable quarantine for a failed GitHub write of unknown outcome', async () => {
+  const f = database();
+  const marker = 'Restore OgeNotes backup ' + 'a'.repeat(64);
+  let initiated = false;
+  await assert.rejects(withVaultOwnerImportExclusive(f.db, owner,
+    async ({ markGitHubWriteAttempt }) => {
+      await markGitHubWriteAttempt(marker);
+      initiated = true;
+      throw new Error('lost GitHub acknowledgment even if GitHub persisted');
+    }), (err) => err.message === 'vault-import-write-outcome-unconfirmed-lock-retained' &&
+      err.status === 503);
+  assert.equal(initiated, true);
+  assert.equal(f.user.vaultImportLock.state, 'github-write-possible');
+  assert.equal(f.user.vaultImportLock.commitMarker, marker);
+  assert.ok(f.user.vaultImportLock.attemptedAt instanceof Date);
+  await assert.rejects(withVaultOwnerDraftWrite(f.db, owner, async () => {}),
+    (err) => err.status === 409);
+  await assert.rejects(withVaultOwnerImportExclusive(f.db, owner, async () => {}),
+    (err) => err.status === 409);
+});
+
+test('D3b2b2c3 verified GitHub success releases lock after durable write marker', async () => {
+  const f = database();
+  const value = await withVaultOwnerImportExclusive(f.db, owner,
+    async ({ markGitHubWriteAttempt }) => {
+      await markGitHubWriteAttempt('Restore OgeNotes backup ' + 'b'.repeat(64));
+      return 'verified-commit';
+    });
+  assert.equal(value, 'verified-commit');
+  assert.equal(f.user.vaultImportLock, undefined);
+  assert.equal(f.user.vaultActiveDraftWriters, 0);
+});
+
+test('D3b2b2c3 marker refusal happens before any GitHub write', async () => {
+  for (const malformed of ['', 'bad-digest', 'Restore OgeNotes backup ' + 'f'.repeat(63)]) {
+    const f = database();
+    let writes = 0;
+    await assert.rejects(withVaultOwnerImportExclusive(f.db, owner,
+      async ({ markGitHubWriteAttempt }) => {
+        await markGitHubWriteAttempt(malformed);
+        writes++;
+      }), TypeError);
+    assert.equal(writes, 0);
+    assert.equal(f.user.vaultImportLock, undefined);
+  }
+});
+
+test('D3b2b2c3 repeated markers cannot turn a second import into a write', async () => {
+  const f = database();
+  const marker = 'Restore OgeNotes backup ' + 'c'.repeat(64);
+  await assert.rejects(withVaultOwnerImportExclusive(f.db, owner,
+    async ({ markGitHubWriteAttempt }) => {
+      await markGitHubWriteAttempt(marker);
+      await markGitHubWriteAttempt(marker);
+    }), (err) => err.status === 503);
+  assert.equal(f.user.vaultImportLock.state, 'github-write-possible');
+});
+
+test('D3b2b2c3 GitHub adapter invokes owner write marker before the batch writer', async () => {
+  const route = await readFile(new URL(
+    '../app/api/vault/backup-import/commit/route.js', import.meta.url), 'utf8');
+  const adapter = await readFile(new URL(
+    '../lib/oge-vault-backup-import-commit.js', import.meta.url), 'utf8');
+  assert.match(route, /beforeGitHubWrite: markGitHubWriteAttempt/);
+  assert.match(adapter, /if \(beforeGitHubWrite\) await beforeGitHubWrite\(commitMessage\)/);
+  assert.ok(adapter.indexOf('await beforeGitHubWrite(commitMessage)') <
+    adapter.indexOf('await batchWriter(client, operations'));
 });

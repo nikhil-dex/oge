@@ -316,10 +316,44 @@ window; a missing proof is an unknown outcome, never permission to replay.
 `docs/OGE_VAULT_IMPORT_LOCK_OPERATOR_RUNBOOK.md`.
 
 The tool includes synthetic redaction, scope, provider-failure and race tests
-plus disposable MongoDB replica-set inspection tests. Safe administrative
-lock release, owner-facing recovery and live signed staging are still
-**not implemented**; PR #35 stays draft and all preview gates remain disabled
-outside isolated staging.
+plus disposable MongoDB replica-set inspection tests. Milestone #47 adds a
+strictly disposable-local pre-GitHub-write lock release tool and preserves
+uncertain GitHub writes under a durable quarantine marker. **No production
+release of a possibly-started GitHub write, owner-facing recovery, or live
+signed staging is implemented.** PR #35 stays draft and all import preview
+gates remain disabled outside isolated staging.
+
+## Phase D3b2b2c3 / Milestone #47: Durable write quarantine and narrow recovery
+
+The approved import route now persists a scoped, metadata-only
+`vaultImportLock.state='github-write-possible'`, approved SHA-256 commit
+marker and timestamp **before** the first GitHub batch write can occur. The
+marker is written with an exact signed owner/session/repo/operation compare
+and swap. If it is not acknowledged, GitHub is never called. Any exception
+after a successful marker retains the lock, even if the commit might already
+have succeeded; later autosaves/imports receive 409 until independently
+investigated. No blind retry and no TTL exists. On verified success the
+original request still releases its own matching lock.
+
+For safely controlled synthetic recovery **only**, the standalone
+`npm run vault:import-lock:release-prewrite-staging` command can clear
+`state='acquired'` (no GitHub write begun) using an exact-operation,
+exact-start-time CAS and a metadata-only audit receipt in a **single MongoDB
+majority-committed transaction**. The CLI hard-refuses production/Atlas/remote
+databases and accepts only localhost:27017 replica sets with the explicitly
+disposable `oge_vault_recovery_staging_*` database name. It additionally
+requires full owner/session/repo/operation IDs and separate maintenance and
+review attestations, none of which are cryptographically verified. It does
+not touch encrypted drafts, subject records, GitHub files or note content.
+
+A legacy lock without the explicit state, or any
+`state='github-write-possible'`, is **never eligible** for this command,
+regardless of GitHub HEAD stability or age. Such incidents require a future
+operator-reviewed, verified-quiescence process. No HTTP release route or
+production unlock is provided.
+
+See `docs/OGE_VAULT_IMPORT_LOCK_OPERATOR_RUNBOOK.md` for the exact
+disposable staging procedure and remaining blockers.
 
 ## Next: Full import recovery and backup coverage (not implemented)
 
@@ -354,6 +388,6 @@ No migration or cleanup of existing data is authorized by this document.
   export is size bounded, and Notes-only import has a **read-only planner and
   separately disabled create-only approved commit API**. Full history, multi-resource export, large-vault
   pagination, conflict resolution, merge-aware/deep-history recovery and
-  owner-facing import recovery and safe lock release remain unimplemented.
+  owner-facing import recovery and production release of uncertain GitHub write locks remain unimplemented.
 - PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
   isolated staging until security and explicit release approval.

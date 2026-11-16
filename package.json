@@ -23,7 +23,8 @@
     "vault:import-lock:release-prewrite-staging": "node scripts/release-vault-import-lock-staging.mjs",
     "vault:import-attempt:inspect": "node scripts/inspect-vault-import-attempt.mjs",
     "vault:import-archive:prove": "node scripts/inspect-vault-import-archive-proof.mjs",
-    "vault:import:staging-preflight": "node scripts/check-vault-import-staging-preflight.mjs"
+    "vault:import:staging-preflight": "node scripts/check-vault-import-staging-preflight.mjs",
+    "vault:chunk:restore-plan": "node scripts/plan-vault-chunk-restore.mjs"
   },
   "dependencies": {
     "mongodb": "^6.21.0",

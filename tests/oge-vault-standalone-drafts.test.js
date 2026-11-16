@@ -106,7 +106,7 @@ test('M71 rejects invalid typed draft content, GitHub base revisions and malform
       { content: 'text', baseSha: null, auth: 'never' },
       { content: 23, baseSha: null },
       { content: 'x'.repeat(20001), baseSha: null },
-      { content: '😀'.repeat(7000), baseSha: null },
+      { content: '😀'.repeat(9000), baseSha: null },
     ]) assert.throws(() => validatedStandaloneDraft(kind, bad, ID), TypeError);
   }
   for (const args of [

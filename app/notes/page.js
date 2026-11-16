@@ -488,34 +488,56 @@ export default function NotesPage({
         return;
       }
       if (hybridDrafts && draftNoteId) {
-        // Only delete the matching revision, after GitHub confirms the save.
-        // Cleanup errors preserve the draft for later reconciliation.
+        // Normal Save and recovered Save share the same GitHub-verified,
+        // transactional, revision-CAS draft cleanup and metadata receipt.
+        // A GitHub-confirmed note is NOT permission to discard an uncertain
+        // or newer temporary draft.
+        let cleaned;
         try {
-          const cleaned = await responseJson(await fetch('/api/vault/drafts', {
+          cleaned = await responseJson(await fetch('/api/vault/drafts', {
             method: 'DELETE', headers: { 'Content-Type': 'application/json' },
             cache: 'no-store', body: JSON.stringify({
               id: draftNoteId, revision: hybridRevisionRef.current, sha: note.sha,
             }),
           }));
-          if (cleaned.cleared && JSON.stringify(liveEditorRef.current) === submittedEditor) {
-            // A browser draft written after the submitted Save must survive.
-            // The server's revision-CAS cleanup is not proof of browser freshness.
-            const draftKeyName = hybridKey(draftNoteId);
-            let local;
-            try { local = JSON.parse(window.sessionStorage.getItem(draftKeyName) || 'null')?.draft; }
-            catch { local = null; }
-            const confirmedDraft = {
-              subjectId: current?.subjectSlug || activeSubject, heading, answer,
-              tags, favorite: Boolean(current?.favorite), baseSha: current?.sha || null,
-            };
-            if (local && JSON.stringify(local) === JSON.stringify(confirmedDraft)) {
-              window.sessionStorage.removeItem(draftKeyName);
-              if (!editingId &&
-                  window.sessionStorage.getItem(newDraftPointerKey(activeSubject)) === draftNoteId)
-                window.sessionStorage.removeItem(newDraftPointerKey(activeSubject));
-            }
+        } catch {
+          setDraftStatus('GitHub saved — draft cleanup pending');
+          setMessage('GitHub saved this version. Draft cleanup could not be confirmed. Your editor remains open so you can review it.');
+          return;
+        }
+        if (cleaned?.confirmed !== true || cleaned.cleared !== true) {
+          setDraftStatus('GitHub saved — newer draft retained');
+          setMessage('GitHub saved the submitted version, but a temporary draft remains. Review it before closing.');
+          return;
+        }
+        // Do not clear a browser recovery copy that differs from the
+        // submitted version, even if the server CAS cleanup succeeded.
+        const draftKeyName = hybridKey(draftNoteId);
+        const confirmedDraft = {
+          subjectId: current?.subjectSlug || activeSubject, heading, answer,
+          tags, favorite: Boolean(current?.favorite), baseSha: current?.sha || null,
+        };
+        let safeLocalCopy = true;
+        let hasLocalCopy = false;
+        try {
+          const raw = window.sessionStorage.getItem(draftKeyName);
+          if (raw) {
+            hasLocalCopy = true;
+            const local = JSON.parse(raw)?.draft;
+            safeLocalCopy = Boolean(local) &&
+              JSON.stringify(local) === JSON.stringify(confirmedDraft);
           }
-        } catch { /* Retain draft; next editor visit will reconcile. */ }
+        } catch { safeLocalCopy = false; }
+        if (!safeLocalCopy ||
+            JSON.stringify(liveEditorRef.current) !== submittedEditor) {
+          setDraftStatus('GitHub saved — newer browser draft retained');
+          setMessage('GitHub saved the submitted version. The browser draft differs; review it before closing.');
+          return;
+        }
+        if (hasLocalCopy) window.sessionStorage.removeItem(draftKeyName);
+        if (!editingId &&
+            window.sessionStorage.getItem(newDraftPointerKey(activeSubject)) === draftNoteId)
+          window.sessionStorage.removeItem(newDraftPointerKey(activeSubject));
       }
       // An edit that raced with confirmed cleanup must remain in the open
       // editor. Never close over new text just because an older Save worked.

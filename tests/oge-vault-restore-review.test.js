@@ -117,7 +117,12 @@ test('M62 browser page is server-side hidden behind full isolated staging prefli
   assert.match(page, /if \(!stagingAllowed\(process\.env\)\) notFound\(\)/);
   assert.match(page, /const session = await auth\(\)/);
   assert.match(page, /if \(!session\?\.user\?\.id\) redirect/);
-  assert.doesNotMatch(page, /getVaultNoteClient|commitVaultNoteBatch|mongodb/);
+  assert.match(page, /ownerMutationFilter\(session\.user\.id/);
+  assert.match(page, /'vault.status': 'connected'/);
+  assert.match(page, /robots: \{ index: false, follow: false \}/);
+  assert.match(page, /OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW !== 'true'/);
+  assert.doesNotMatch(page,
+    /getVaultNoteClient|commitVaultNoteBatch|\.insertOne\(|\.updateOne\(|\.deleteOne\(/);
 });
 
 test('M62 accessible staged owner client never auto-issues a ticket, uploads archives or persists credentials', async () => {
@@ -136,4 +141,18 @@ test('M62 accessible staged owner client never auto-issues a ticket, uploads arc
   assert.match(client, /Do not automatically retry/);
   assert.doesNotMatch(client,
     /localStorage|sessionStorage|IndexedDB|FileReader|readAsText|fetch\(.*blobs|fetch\(.*contents|dangerouslySetInnerHTML/);
+});
+
+test('M62 link to restore review remains invisible outside isolated approved staging', async () => {
+  const page = await readFile(new URL(
+    '../app/vault/page.js', import.meta.url), 'utf8');
+  assert.match(page, /restoreStagingVisible && <Link/);
+  assert.match(page, /href="\/vault\/restore-staging"/);
+  for (const flag of [
+    'OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW',
+    'OGE_VAULT_NOTE_API_PREVIEW',
+    'OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW',
+    'OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW',
+  ]) assert.ok(page.includes('process.env.' + flag + " === 'true'"));
+  assert.match(page, /checkVaultStagingReadiness\(process\.env\)\.ok/);
 });

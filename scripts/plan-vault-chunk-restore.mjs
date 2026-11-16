@@ -12,6 +12,10 @@ import { getVaultNoteClient } from '../lib/oge-vault-notes.js';
 import { ownerMutationFilter } from '../lib/active-owner-mutation.js';
 import { MAX_VAULT_BACKUP_CHUNK_BYTES } from '../lib/oge-vault-backup-export-chunk.js';
 import { planVaultNotesChunkRestoreReadOnly } from '../lib/oge-vault-backup-chunk-restore-plan.js';
+import {
+  prepareVaultChunkRestoreBatchIntentReadOnly,
+  validateVaultChunkRestoreBatchSelection,
+} from '../lib/oge-vault-backup-chunk-restore-batch-intent.js';
 
 const env = process.env;
 const identity = {
@@ -21,8 +25,16 @@ const identity = {
   repoId: Number(env.OGE_VAULT_INSPECT_REPO_ID),
 };
 const directory = env.OGE_VAULT_CHUNK_PLAN_DIRECTORY;
-const allowed = env.OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY ===
-    'YES_VERIFIED_NOTES_CHUNKS_ONLY' &&
+const ordinaryPlanMode = env.OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY ===
+  'YES_VERIFIED_NOTES_CHUNKS_ONLY';
+const batchIntentMode = env.OGE_VAULT_CHUNK_BATCH_INTENT_READ_ONLY ===
+  'YES_EXACT_VERIFIED_SELECTION_ONLY';
+const selectionFile = env.OGE_VAULT_CHUNK_BATCH_SELECTION_FILE;
+const allowed = ordinaryPlanMode !== batchIntentMode &&
+  (!env.OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY || ordinaryPlanMode) &&
+  (!env.OGE_VAULT_CHUNK_BATCH_INTENT_READ_ONLY || batchIntentMode) &&
+  (!batchIntentMode ||
+    (typeof selectionFile === 'string' && isAbsolute(selectionFile))) &&
   typeof directory === 'string' && isAbsolute(directory) &&
   typeof env.MONGODB_URI === 'string' && !!env.MONGODB_URI &&
   typeof env.MONGODB_DB === 'string' &&
@@ -88,12 +100,38 @@ if (allowed) {
   try {
     // Reject world-readable, symlinked or missing parts before creating
     // GitHub credentials or opening the MongoDB connection.
-    await checkPrivateChunkDirectory(directory);
+    const paths = await checkPrivateChunkDirectory(directory);
+    if (batchIntentMode && paths.length > 16)
+      throw new TypeError('Batch intent supports a maximum of 16 private chunks');
     privateFilesReady = true;
   } catch { /* sanitized failure below; never print paths or note text */ }
 }
+async function readPrivateSelectionFile(path) {
+  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const before = await handle.stat();
+    if (!before.isFile() || before.size < 2 || before.size > 4096 ||
+        (before.mode & 0o077) !== 0 ||
+        (typeof process.getuid === 'function' && before.uid !== process.getuid()))
+      throw new TypeError('Invalid private selection');
+    const bytes = await handle.readFile();
+    const after = await handle.stat();
+    if (bytes.length !== before.size || before.ino !== after.ino ||
+        before.size !== after.size || before.mtimeMs !== after.mtimeMs)
+      throw new TypeError('Private selection changed');
+    return validateVaultChunkRestoreBatchSelection(
+      JSON.parse(bytes.toString('utf8')));
+  } finally { await handle.close(); }
+}
+
+let privateSelection = null;
+if (allowed && privateFilesReady && batchIntentMode) {
+  try {
+    privateSelection = await readPrivateSelectionFile(selectionFile);
+  } catch { privateFilesReady = false; }
+}
 if (!allowed || !privateFilesReady) {
-  console.error('BLOCKED: exact owner/database scope and an owned 0700 chunk directory with contiguous 0600 regular files are required.');
+  console.error('BLOCKED: exact owner/database scope, private chunk files, and exclusive read-only operator consent (with private selection file when required) are needed.');
   process.exitCode = 1;
 } else {
   const mongo = new MongoClient(env.MONGODB_URI, {
@@ -123,8 +161,7 @@ if (!allowed || !privateFilesReady) {
         v.githubLogin === expected.githubLogin &&
         v.repoName === expected.repoName;
     };
-    const plan = await planVaultNotesChunkRestoreReadOnly(
-      github, readPrivateChunkDirectory(directory), {
+    const checks = {
         ownerVerifier,
         subjectVerifier: async (ids) => {
           const rows = await db.collection('subjects').find({
@@ -140,9 +177,14 @@ if (!allowed || !privateFilesReady) {
           }, { projection: { _id: 0, noteId: 1 } }).toArray();
           return rows.map(({ noteId }) => noteId);
         },
-      });
+      };
+    const plan = batchIntentMode
+      ? await prepareVaultChunkRestoreBatchIntentReadOnly(
+        github, readPrivateChunkDirectory(directory), privateSelection, checks)
+      : await planVaultNotesChunkRestoreReadOnly(
+        github, readPrivateChunkDirectory(directory), checks);
     console.log(JSON.stringify(plan, null, 2));
-    // Even a complete source and zero conflicts is NOT import approval.
+    // Even a verified, conflict-free selection is NEVER import approval.
     process.exitCode = 2;
   } catch (error) {
     console.error('BLOCKED: private chunk restore planning failed (' +

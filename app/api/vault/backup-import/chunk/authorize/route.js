@@ -100,6 +100,7 @@ export async function POST(request) {
     return json({
       format: 'oge-vault-staging-one-time-restore-receipt',
       version: 1, ticket: receipt.ticket,
+      receiptId: receipt.nonceHash,
       expiresAt: receipt.expiresAt.toISOString(),
       selectedCount: approval.selectedIds.length,
       hasUploadedBackup: false,

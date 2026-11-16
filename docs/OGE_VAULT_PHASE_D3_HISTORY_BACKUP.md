@@ -1184,6 +1184,37 @@ permissions and production acceptance remain
 unperformed. No production flags have been enabled;
 PR #35 is still draft/unmerged.
 
+## Phase D3b2b2c4r / Milestone #65: Encrypted offline Notes-only backup files
+
+Milestone #65 changes the hidden owner staging browser downloader
+from offering plaintext source parts to **only offering encrypted
+part-NNNN.oge.json chunks**, with AES-256-GCM, a fresh random
+per-backup salt, unique per-part IVs and PBKDF2-SHA-256 derived
+from a user-provided strong password (600,000 iterations).
+The authenticated GitHub read-only server still returns original
+Note content to the browser over HTTPS. Once each source part
+passes the existing M64 chunk SHA-256 and cursor/complete-inventory
+checks, it is encrypted **locally before a downloadable Blob exists**.
+
+The M63 local restore reviewer now reads encrypted parts, derives
+the password key, authenticates/decrypts the pages into ephemeral
+browser memory and uses the unchanged complete Notes + M57
+reviewed selected-content verifier. Wrong password, tampered
+ciphertext/header and mixed/incomplete file sets fail closed.
+No Notes are uploaded to MongoDB, no GitHub writes are introduced,
+and no password is transmitted, logged or persisted by the app.
+
+**Outstanding:** the signed M58/M59 restricted operator cannot yet
+read .oge.json ciphertext files directly, so complete encrypted
+operator restore needs a separately reviewed and secured local
+conversion procedure; no source-GitHub-independent archived
+authenticity after repo deletion is available. Browser password
+strength, lost-password recovery, real two-device staging,
+operator signed proof and independent crypto audit are not complete.
+The source-repo GitHub evidence and durable owner import lock
+requirements remain unchanged; no production release is authorized.
+See docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

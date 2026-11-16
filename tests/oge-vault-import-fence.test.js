@@ -211,7 +211,7 @@ test('D3b2b2c3 GitHub adapter invokes owner write marker before the batch writer
   const adapter = await readFile(new URL(
     '../lib/oge-vault-backup-import-commit.js', import.meta.url), 'utf8');
   assert.match(route, /beforeGitHubWrite: markGitHubWriteAttempt/);
-  assert.match(adapter, /if \(beforeGitHubWrite\) await beforeGitHubWrite\(commitMessage\)/);
+  assert.match(adapter, /await beforeGitHubWrite\(commitMessage\)/);
   assert.ok(adapter.indexOf('await beforeGitHubWrite(commitMessage)') <
     adapter.indexOf('await batchWriter(client, operations'));
 });

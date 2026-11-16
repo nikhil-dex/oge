@@ -10,6 +10,7 @@ import {
   draftKey, validatedHybridDraft, putHybridDraft, getHybridDraft, clearConfirmedDraft, unsealDraft,
 } from '../../../../lib/oge-vault-hybrid-drafts.js';
 import { inspectVaultDraftGitHubSave } from '../../../../lib/oge-vault-save-recovery.js';
+import { reconcileConfirmedVaultDraft } from '../../../../lib/oge-vault-save-finalize.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -119,6 +120,36 @@ export async function PUT(request) {
       () => putHybridDraft(ctx.db.collection('vault_drafts'),
         scope, input.revision, draft));
     return json({ ...result, savedTo: 'temporary-draft' });
+  } catch (error) { return failure(error); }
+}
+
+/**
+ * Explicit B7 reconciliation for a Save whose original response was lost.
+ * This never attempts another GitHub write; it checks the immutable blob,
+ * scopes the CAS draft cleanup to one revision and respects subject fences.
+ */
+export async function POST(request) {
+  try {
+    const { ctx, response } = await authorizedContext();
+    if (response) return response;
+    const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
+    if (!throttle.allowed) return rateLimitResponse(throttle);
+    const input = JSON.parse(await readLimitedBody(request, 4096));
+    const scope = draftKey(ctx.ownerId, ctx.repoId, input?.id);
+    if (!Number.isSafeInteger(input?.revision) || input.revision < 1 ||
+        typeof input?.sha !== 'string' || !/^[a-f0-9]{40}$/i.test(input.sha))
+      return json({ error: 'Draft revision and confirmed GitHub SHA required.' }, 400);
+    const current = await getHybridDraft(ctx.db.collection('vault_drafts'), scope);
+    if (!current || current.revision !== input.revision)
+      return json({ confirmed: false, cleared: false, reason: 'newer-or-absent-draft' }, 409);
+    const client = await getVaultNoteClient(ctx.db, {
+      ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion,
+    });
+    const result = await withVaultSubjectWrite(
+      ctx.db, ctx.ownerId, current.draft.subjectId,
+      () => reconcileConfirmedVaultDraft(
+        ctx.db.collection('vault_drafts'), client, scope, input.revision, input.sha));
+    return json(result, result.confirmed ? 200 : 409);
   } catch (error) { return failure(error); }
 }
 

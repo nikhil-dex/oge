@@ -47,7 +47,8 @@ if (!allowed) {
     }, {
       githubHeadReader: async () => {
         if (!vaultClient) {
-          vaultClient = await getVaultNoteClient(db, { ownerId, sessionVersion });
+          vaultClient = await getVaultNoteClient(db, { ownerId, sessionVersion },
+            { readOnly: true });
           if (vaultClient.vault.repoId !== repoId)
             throw new Error('Vault repo mismatch');
         }

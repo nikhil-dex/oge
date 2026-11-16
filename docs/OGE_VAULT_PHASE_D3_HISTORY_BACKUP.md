@@ -277,10 +277,49 @@ merged/nonlinear, or the approved commit is not proven, the result is
 cycles and provider limits fail closed. Every result includes
 `safeToRetryAutomatically: false`; this remains true even when import was
 historically confirmed. Do not replay an uncertain import, overwrite newer
-edits or retire encrypted drafts. Owner-facing UI, operator lock recovery,
+edits or retire encrypted drafts. Owner-facing UI, safe operator lock release,
 signed live two-device/staging tests, merge-aware/deep history and local-only
 browser draft protection remain unimplemented. This is not full Oge backup
 restoration.
+
+## Phase D3b2b2c2 / Milestone #46: Redacted operator import-lock inspection
+
+For a Vault import that may have crashed or lost its response, an authorized
+operator can run an explicit, **read-only** inspection in a private terminal:
+
+`npm run vault:import-lock:inspect`
+
+This is **not an HTTP endpoint** and provides no regular user-facing unlock.
+A separate `OGE_VAULT_IMPORT_LOCK_INSPECT_READ_ONLY=YES_REDACTED_ONLY`
+acknowledgment and exact existing owner/session/repository/lock UUID scope
+must be supplied together with an explicit database and verified GitHub App
+configuration. The CLI uses direct `MongoClient` reads rather than
+`getDatabase()`, which would initialize indexes.
+
+Inspection compares two projected account-row lock snapshots, bounded
+`vault_drafts`/subject-active-writer **existence** counts, and two private
+GitHub HEAD readings. The only output is a redacted result status,
+boolean safety observations and a broad age band. The CLI does **not**
+download, decrypt or store any note body, read draft ciphertext, write MongoDB
+or write GitHub notes, include owner IDs/GitHub SHAs in the report, set TTLs
+or unlock a fenced operation.
+
+This metadata is **not a transactionally consistent snapshot** and cannot
+prove quiescence: a seemingly idle/old lock might still belong to a delayed
+GitHub writer. `automaticUnlockAuthorized` and
+`operatorUnlockAuthorized` always remain `false`. Existing imported-note
+reconciliation should be performed separately with the signed owner's own
+archive and the read-only API, acknowledging its 20-commit linear-history
+window; a missing proof is an unknown outcome, never permission to replay.
+
+**Detailed incident steps and blockers:**
+`docs/OGE_VAULT_IMPORT_LOCK_OPERATOR_RUNBOOK.md`.
+
+The tool includes synthetic redaction, scope, provider-failure and race tests
+plus disposable MongoDB replica-set inspection tests. Safe administrative
+lock release, owner-facing recovery and live signed staging are still
+**not implemented**; PR #35 stays draft and all preview gates remain disabled
+outside isolated staging.
 
 ## Next: Full import recovery and backup coverage (not implemented)
 
@@ -315,6 +354,6 @@ No migration or cleanup of existing data is authorized by this document.
   export is size bounded, and Notes-only import has a **read-only planner and
   separately disabled create-only approved commit API**. Full history, multi-resource export, large-vault
   pagination, conflict resolution, merge-aware/deep-history recovery and
-  owner-facing import recovery remain unimplemented.
+  owner-facing import recovery and safe lock release remain unimplemented.
 - PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
   isolated staging until security and explicit release approval.

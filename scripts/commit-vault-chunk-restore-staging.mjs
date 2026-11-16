@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * M59: ISOLATED, DISPOSABLE staging only — one signed browser approval
+ * M59: ISOLATED STAGING ONLY — one signed browser approval
  * and one local <=12-note create-only GitHub restore batch. NEVER production.
  * The private backup stays in local 0700/0600 files, not a web upload.
  * No multi-batch loop, automatic retry, lock release or draft cleanup.
@@ -35,6 +35,8 @@ const identity = {
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const allowed =
   env.OGE_VAULT_CHUNK_RESTORE_STAGING_OPERATOR === 'YES_ONE_SIGNED_BATCH_ONLY' &&
+  env.OGE_VAULT_CHUNK_RESTORE_STAGING_ACK ===
+    'YES_SEPARATE_SYNTHETIC_STAGING_DATABASE' &&
   env.OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW === 'true' &&
   env.OGE_VAULT_CHUNK_RESTORE_COMMIT_PREVIEW === 'true' &&
   env.OGE_VAULT_CHUNK_RESTORE_WRITE_ACK ===
@@ -46,7 +48,6 @@ const allowed =
   !env.OGE_VAULT_CHUNK_BATCH_INTENT_READ_ONLY &&
   !env.OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY &&
   typeof uri === 'string' &&
-  /^mongodb:\/\/(?:localhost|127\.0\.0\.1):27017\/(?:\?|$)/.test(uri) &&
   /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(dbName || '') &&
   typeof directory === 'string' && isAbsolute(directory) &&
   typeof ticketFile === 'string' && isAbsolute(ticketFile) &&
@@ -131,7 +132,7 @@ if (allowed) {
   }
 }
 if (!allowed || !privateFilesReady) {
-  console.error('BLOCKED: isolated localhost staging, exact signed owner scope, one private approved ticket and owner-only chunk files required.');
+  console.error('BLOCKED: shared isolated staging database, exact signed owner scope, private one-time receipt and owner-only chunk files required.');
   process.exitCode = 1;
 } else {
   const mongo = new MongoClient(uri, {
@@ -145,7 +146,7 @@ if (!allowed || !privateFilesReady) {
     await mongo.connect();
     const db = mongo.db(dbName);
     if (!(await db.admin().command({ hello: 1 })).setName)
-      throw new TypeError('Disposable MongoDB replica set required');
+      throw new TypeError('Staging MongoDB replica set required');
     const user = await db.collection('users').findOne({
       ...ownerMutationFilter(identity.ownerId, {
         sessionVersion: identity.sessionVersion,

@@ -4,6 +4,7 @@ import { getDatabase } from '../../../../lib/mongodb.js';
 import { getVaultNoteClient, readVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { ownerMutationFilter } from '../../../../lib/active-owner-mutation.js';
 import { withVaultSubjectWrite, VaultSubjectLockedError } from '../../../../lib/oge-vault-subject-fence.js';
+import { withVaultOwnerDraftWrite } from '../../../../lib/oge-vault-import-fence.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 import {
@@ -122,9 +123,11 @@ export async function PUT(request) {
     if (!subject) return json({ error: 'Subject not found.' }, 404);
     // The subject row fences autosaves against a deletion lock.
     // A draft never claims to have been written to GitHub.
-    const result = await withVaultSubjectWrite(ctx.db, ctx.ownerId, draft.subjectId,
+    const result = await withVaultOwnerDraftWrite(ctx.db, {
+      ownerId: ctx.ownerId, repoId: ctx.repoId, sessionVersion: ctx.sessionVersion,
+    }, () => withVaultSubjectWrite(ctx.db, ctx.ownerId, draft.subjectId,
       () => putHybridDraft(ctx.db.collection('vault_drafts'),
-        scope, input.revision, draft));
+        scope, input.revision, draft)));
     return json({ ...result, savedTo: 'temporary-draft' });
   } catch (error) { return failure(error); }
 }
@@ -163,12 +166,14 @@ export async function POST(request) {
         return json({ confirmed: false, cleared: false, reason: 'receipt-sha-mismatch' }, 409);
       return json(result, result.confirmed ? 200 : 409);
     }
-    const result = await withVaultSubjectWrite(
+    const result = await withVaultOwnerDraftWrite(ctx.db, {
+      ownerId: ctx.ownerId, repoId: ctx.repoId, sessionVersion: ctx.sessionVersion,
+    }, () => withVaultSubjectWrite(
       ctx.db, ctx.ownerId, current.draft.subjectId,
       () => reconcileConfirmedVaultDraft(
         ctx.db.collection('vault_drafts'), client, scope, input.revision, input.sha, {
           db: ctx.db, credential: { sessionVersion: ctx.sessionVersion },
-        }));
+        })));
     return json(result, result.confirmed ? 200 : 409);
   } catch (error) { return failure(error); }
 }

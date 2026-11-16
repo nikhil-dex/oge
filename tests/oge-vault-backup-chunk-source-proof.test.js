@@ -29,6 +29,8 @@ function fixture({ count = 130, answerSize = 70, moveHead = false,
   });
   const bySha = new Map(files.map((file) => [file.sha, file]));
   const calls = []; let heads = 0, ownerChecks = 0, faultActive = false;
+  let currentHead = HEAD;
+  const historicalCommits = new Map();
   const client = { branch: 'main', vault: { repoId: 345 },
     async call(path, opts = {}) {
       assert.ok(!opts.method || opts.method === 'GET');
@@ -36,9 +38,14 @@ function fixture({ count = 130, answerSize = 70, moveHead = false,
       if (path === '/git/ref/heads/main') {
         heads++;
         return { object: { sha: moveHead && faultActive && heads > 1
-          ? H('m55-new-head') : HEAD } };
+          ? H('m55-new-head') : currentHead } };
       }
-      if (path === '/git/commits/' + HEAD) return { tree: { sha: TREE } };
+      if (path === '/git/commits/' + HEAD) return {
+        tree: { sha: TREE }, parents: [],
+      };
+      if (path.startsWith('/git/commits/') &&
+          historicalCommits.has(path.slice('/git/commits/'.length)))
+        return historicalCommits.get(path.slice('/git/commits/'.length));
       if (path === '/git/trees/' + TREE + '?recursive=1')
         return { truncated: false, tree: files.map((file, n) => ({
           path: 'notes/' + file.id + '.json',
@@ -61,6 +68,24 @@ function fixture({ count = 130, answerSize = 70, moveHead = false,
     return !(revokeOwner && faultActive && ownerChecks > 1);
   };
   return { client, files, calls, ownerVerifier,
+    advanceHistory(count, { merge = false, cycle = false,
+      unrelated = false } = {}) {
+      let parent = unrelated ? H('detached-parent') : HEAD;
+      for (let i = 0; i < count; i++) {
+        const sha = H('historical-newer-' + i);
+        historicalCommits.set(sha, {
+          tree: { sha: TREE },
+          message: 'Later GitHub note edit',
+          parents: cycle && i === count - 1
+            ? [{ sha }] : merge && i === count - 1
+              ? [{ sha: parent }, { sha: H('second-parent') }]
+              : [{ sha: parent }],
+        });
+        parent = sha;
+      }
+      currentHead = parent;
+      heads = 0; calls.length = 0;
+    },
     activateFault() { faultActive = true; heads = 0; },
     get ownerChecks() { return ownerChecks; } };
 }
@@ -178,4 +203,110 @@ test('M55 no owner verifier, no notes source and unverified source cannot grant 
     f.client, parts, { ownerVerifier: f.ownerVerifier });
   assert.equal(proof.verifiedNoteCount, 0);
   assert.equal(proof.authorizesRestore, false);
+});
+
+for (const later of [0, 1, 3, 19, 20]) {
+  test('M56 historical source accepts exactly ' + later +
+    ' newer linear Git commits with raw blob content proof', async () => {
+    const f = fixture({ count: 70 });
+    const parts = await chunks(f);
+    f.advanceHistory(later);
+    const report = await verifyVaultNotesChunkGitHubSourceReadOnly(
+      f.client, parts, {
+        ownerVerifier: f.ownerVerifier, allowBoundedHistory: true,
+      });
+    assert.equal(report.commitsAfterSnapshot, later);
+    assert.equal(report.historicalSourceSnapshotsSupported, true);
+    assert.equal(report.sourceGitHubCommitAndAllBlobBytesVerified, true);
+    assert.equal(report.sourceHistoricalSnapshotVerified, later !== 0);
+    assert.equal(report.currentSourceGitHubCommitAndAllBlobBytesVerified,
+      later === 0);
+    assert.equal(report.verifiedNoteCount, 70);
+    assert.equal(report.canCommit, false);
+    assert.equal(report.authorizesRestore, false);
+    assert.equal(report.canUnlockImport, false);
+    assert.equal(report.canRetryAutomatically, false);
+    assert.equal(f.calls.filter((path) => path.startsWith('/git/blobs/')).length, 70);
+    assert.equal(f.ownerChecks, 2);
+    const serialized = JSON.stringify(report);
+    for (const privateData of ['PRIVATE ANSWER', 'PRIVATE TITLE', HEAD,
+      SUBJECT, f.files[0].id])
+      assert.equal(serialized.includes(privateData), false);
+  });
+}
+
+test('M56 >20 newer commits fails before reading any private Git blobs', async () => {
+  const f = fixture({ count: 70 });
+  const parts = await chunks(f);
+  f.advanceHistory(21);
+  await assert.rejects(verifyVaultNotesChunkGitHubSourceReadOnly(
+    f.client, parts, {
+      ownerVerifier: f.ownerVerifier, allowBoundedHistory: true,
+    }), /vault-chunk-source-history-beyond-bound/);
+  assert.equal(f.calls.some((path) =>
+    path.startsWith('/git/blobs/') || path.startsWith('/git/trees/')), false);
+});
+
+test('M56 existing current-only M55 proof rejects historic source without explicit opt-in', async () => {
+  const f = fixture({ count: 70 });
+  const parts = await chunks(f);
+  f.advanceHistory(1);
+  await assert.rejects(verifyVaultNotesChunkGitHubSourceReadOnly(
+    f.client, parts, { ownerVerifier: f.ownerVerifier }),
+  /vault-backup-chunk-snapshot-stale/);
+  assert.equal(f.calls.some((path) => path.startsWith('/git/blobs/')), false);
+});
+
+for (const option of [{ merge: true }, { cycle: true }, { unrelated: true }]) {
+  test('M56 rejects untrusted non-linear/cyclic/detached Git history ' +
+    JSON.stringify(option), async () => {
+    const f = fixture({ count: 8 });
+    const parts = await chunks(f);
+    f.advanceHistory(3, option);
+    await assert.rejects(verifyVaultNotesChunkGitHubSourceReadOnly(
+      f.client, parts, {
+        ownerVerifier: f.ownerVerifier, allowBoundedHistory: true,
+      }));
+    assert.equal(f.calls.some((path) =>
+      path.startsWith('/git/blobs/') || path.startsWith('/git/trees/')), false);
+  });
+}
+
+test('M56 forged chunk SHA-256 is rejected against the ancestor Git tree', async () => {
+  const f = fixture({ count: 70 });
+  const parts = await chunks(f);
+  const changed = structuredClone(parts);
+  changed[0].notes[0].answer = 'FORGED PRIVATE ARCHIVED CONTENT';
+  changed[0].chunkSha256 = DIGEST(JSON.stringify(changed[0].notes));
+  f.advanceHistory(3);
+  await assert.rejects(verifyVaultNotesChunkGitHubSourceReadOnly(
+    f.client, changed, {
+      ownerVerifier: f.ownerVerifier, allowBoundedHistory: true,
+    }), /vault-chunk-source-content-mismatch/);
+});
+
+test('M56 changed current branch HEAD or revoked signed owner during historical blob proof fails closed', async () => {
+  for (const opt of [{ moveHead: true }, { revokeOwner: true }]) {
+    const f = fixture({ count: 6, ...opt });
+    const parts = await chunks(f);
+    f.advanceHistory(2);
+    f.activateFault();
+    await assert.rejects(verifyVaultNotesChunkGitHubSourceReadOnly(
+      f.client, parts, {
+        ownerVerifier: f.ownerVerifier, allowBoundedHistory: true,
+      }));
+  }
+});
+
+test('M56 520 notes >8 MiB verify historical source after later Git commits', async () => {
+  const f = fixture({ count: 520, answerSize: 16500 });
+  const parts = await chunks(f);
+  f.advanceHistory(3);
+  const proof = await verifyVaultNotesChunkGitHubSourceReadOnly(
+    f.client, parts, {
+      ownerVerifier: f.ownerVerifier, allowBoundedHistory: true,
+    });
+  assert.equal(proof.verifiedNoteCount, 520);
+  assert.equal(proof.commitsAfterSnapshot, 3);
+  assert.equal(proof.canCommit, false);
 });

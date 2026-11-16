@@ -1251,3 +1251,8 @@ No migration or cleanup of existing data is authorized by this document.
   owner-facing import recovery and production release of uncertain GitHub write locks remain unimplemented.
 - PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
   isolated staging until security and explicit release approval.
+
+
+## D3b2b2c4s / Milestone #66 — In-memory operator encrypted part adapter
+
+The signed staging-only M59 operator can now opt into .oge.json encrypted-only private file input, with a bounded FD3 pipe secret and original M65+M63 source/fingerprint preflight before DB connection and HMAC ticket claim. Decrypted plaintext never goes into temporary files. M58 independently reauthenticates all private GitHub source blobs and owner/draft/subject/CAS fences. External security and live two-device staging acceptance remain pending; see docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md.

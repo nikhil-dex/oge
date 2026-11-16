@@ -88,6 +88,16 @@ export default function StandaloneVaultEditor({ ownerId, repoId }) {
   useEffect(() => {
     if (!editor) return;
     try {
+      // A confirmed GitHub version without an active temporary revision
+      // is not a pending draft. Never recreate a browser recovery copy
+      // immediately after the verified-cleanup path removes it.
+      if (editor.baseSha !== null &&
+          editor.content === editor.baseContent && revision === 0) {
+        sessionStorage.removeItem(
+          captureEditorScope(ownerId, repoId, editor.kind, editor.id),
+        );
+        return;
+      }
       sessionStorage.setItem(
         captureEditorScope(ownerId, repoId, editor.kind, editor.id),
         encodeLocalRecovery(editor),
@@ -97,7 +107,7 @@ export default function StandaloneVaultEditor({ ownerId, repoId }) {
           captureEditorScope(ownerId, repoId, editor.kind), editor.id,
         );
     } catch { /* Keep the visible editor content even if storage is denied. */ }
-  }, [editor, ownerId, repoId]);
+  }, [editor, revision, ownerId, repoId]);
 
   const persist = useCallback(async (snapshot) => {
     if (blockedRef.current || pendingGitHubRef.current)
@@ -257,6 +267,19 @@ export default function StandaloneVaultEditor({ ownerId, repoId }) {
     } finally {
       busyRef.current = false; setBusy(false);
     }
+  }
+
+  async function refreshList() {
+    if (!kind || !await safeToSwitch()) return;
+    busyRef.current = true; setBusy(true); setError('');
+    try {
+      const values = await readJson(await fetch(
+        API + '?kind=' + encodeURIComponent(kind), { cache: 'no-store' },
+      ));
+      setItems(typedItems(values, kind));
+      setStatus('Current private GitHub capture list reloaded.');
+    } catch (failure) { setError(failure.message || 'Could not refresh GitHub list.'); }
+    finally { busyRef.current = false; setBusy(false); }
   }
 
   async function newEntry() {
@@ -503,6 +526,9 @@ export default function StandaloneVaultEditor({ ownerId, repoId }) {
             onClick={() => { void loadKind(kind === 'airnotes' ?
               'quick-notes' : 'airnotes'); }}
             disabled={busy || blocked || uncertain}>Switch type</button>
+          <button type="button" className="oge-signin"
+            onClick={() => { void refreshList(); }}
+            disabled={busy || blocked || uncertain}>Refresh GitHub list</button>
         </div>
         <div className="oge-subject-list">
           {items.map((item) => <button type="button" key={item.id}

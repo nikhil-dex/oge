@@ -238,3 +238,67 @@ independent immutable evidence validation and operator signoff, browser
 download permissions, real GitHub fault observations and scoped
 permissions, detached offline provenance after repo loss, security
 audit, complete multi-resource export and production release.
+
+
+## Milestone #68 — Independently recompute local evidence file hashes
+
+M67 validates a submitted list of per-scenario SHA-256 strings but does not
+read or hash the corresponding evidence files. M68 adds an explicit separate,
+read-only **disk artifact integrity** check.
+
+Use `npm run vault:staging:verify-evidence-files` to hash the actual
+**already-redacted** private evidence artifacts. Supply:
+
+- the same strict M67 `OGE_VAULT_TWO_DEVICE_EVIDENCE_FILE` JSON in a private
+  owner-only `0700` directory, itself a regular owner-only `0600` file;
+- a **different** owner-only `0700` directory designated by
+  `OGE_VAULT_TWO_DEVICE_ARTIFACT_DIRECTORY`, containing exactly one
+  regular owner-only `0600` file per manifest record, named
+  `<scenario>.redacted.txt` (for example
+  `oauth-device-a.redacted.txt`), no extra/missing files or symlinks;
+- each artifact is 16 bytes through **128 KiB**; the manifest is no larger
+  than **32 KiB**; the file SHA-256 must match the manifest's
+  `evidenceSha256` field exactly.
+
+The verifier streams bounded file bytes locally with `O_NOFOLLOW` and
+re-checks file identity/size/mtime/ctime before returning. It never
+sends the bytes to GitHub, MongoDB, a browser or any network destination
+and never prints artifact text, hashed values, paths, owner IDs or secrets.
+It denies unrequested files, wrong modes, changed contents, stale/malformed
+manifest metadata, mismatched hashes, broken sequences and denied
+staging scope.
+
+The tool requires a **separate**, default-OFF opt-in:
+
+```sh
+export OGE_STAGING_URL=https://staging.example.org
+export MONGODB_DB=oge_vault_restore_staging_disposable
+export OGE_VAULT_TWO_DEVICE_EVIDENCE_FILE=/private/manifest/redacted-evidence.json
+export OGE_VAULT_TWO_DEVICE_ARTIFACT_DIRECTORY=/private/artifacts
+export OGE_VAULT_TWO_DEVICE_EVIDENCE_HASH_REVIEW=YES_PRIVATE_REDACTED_ARTIFACTS_READ_ONLY
+npm run vault:staging:verify-evidence-files
+```
+
+This example describes an approved disposable staging workspace, **not**
+a request to enable any production feature. Exit 1 means pre-read scope
+denied; exit 2 means invalid/insecure/mismatched evidence bytes; exit 3
+means local hashes match but the evidence index remains incomplete;
+exit 0 means only **every referenced on-disk artifact matches its
+corresponding manifest SHA-256, and the index is syntactically complete**.
+Even exit 0 MUST NOT be interpreted as live acceptance or independent
+operator signoff.
+
+**Critical trust boundary:** A malicious submitter can forge both a file
+and its SHA-256. The verifier cannot determine whether the file is a real
+GitHub response, whether its content is true or adequately redacted,
+whether two physical devices were used, or whether a qualified reviewer
+has accepted it. The output therefore ALWAYS reports
+`artifactContentsTruthVerified:false`,
+`sourceCaptureProvenanceVerified:false`,
+`physicalDevicesIndependentlyVerified:false`,
+`realGitHubProviderIndependentlyVerified:false`,
+`completeStagingAcceptanceSignedOff:false` and denies GitHub writes,
+production activation, unknown-write retries and import-lock release.
+Store redacted captures only; remove tokens, cookies, private Notes and
+identifiers **before** saving the files. External review and real two-device
+OAuth/App staging remain pending.

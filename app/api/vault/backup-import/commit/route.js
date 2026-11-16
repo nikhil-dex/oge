@@ -9,6 +9,7 @@ import { MAX_VAULT_BACKUP_EXPORT_BYTES } from '../../../../../lib/oge-vault-back
 import { readLimitedBody } from '../../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../../lib/rate-limit.js';
 import { VaultGitHubError } from '../../../../../lib/oge-vault-github.js';
+import { withVaultOwnerImportExclusive } from '../../../../../lib/oge-vault-import-fence.js';
 import {
   withVaultSubjectsWrite, VaultSubjectLockedError,
 } from '../../../../../lib/oge-vault-subject-fence.js';
@@ -65,7 +66,8 @@ export async function POST(request) {
     const subjectIds = [...new Set(approval.selected.map((note) => note.subjectId))];
     const client = await getVaultNoteClient(db, { ownerId, sessionVersion });
 
-    return await withVaultSubjectsWrite(db, ownerId, subjectIds, async () => {
+    return await withVaultOwnerImportExclusive(db, { ownerId, repoId: client.vault.repoId,
+      sessionVersion }, () => withVaultSubjectsWrite(db, ownerId, subjectIds, async () => {
       const result = await executeApprovedVaultNotesImport(client, body, {
         subjectVerifier: async (subjects) => {
           for (let offset = 0; offset < subjects.length; offset += 100) {
@@ -104,6 +106,6 @@ export async function POST(request) {
         },
       });
       return json(result, 200);
-    });
+    }));
   } catch (error) { return failure(error); }
 }

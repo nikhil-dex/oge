@@ -763,6 +763,61 @@ uncertainty marker and a proven read-only reconciliation mechanism before
 any uncertain lock can be released. Live authenticated GitHub staging,
 Quick Notes, AirNotes, extension and full cutover are also pending.
 
+## Phase D3b2b2c4k / Milestone #58: Internal, single-batch create-only GitHub restore
+
+The new internal, explicitly disabled
+`executeApprovedVaultChunkRestoreBatch` accepts a **separate,
+exact six-field** `COMMIT_VERIFIED_CHUNK_BATCH_CREATE_ONLY`
+owner confirmation, including a previously reviewed M57 selected
+source/target content fingerprint. It is not exposed through
+HTTP routes, the user interface, operator scripts or cron.
+
+Before writing, the executor acquires the **existing durable
+owner import-exclusive lock** (preventing all competing encrypted
+draft writes), independently verifies every selected Note against
+the complete signed same-owner source GitHub backup (<=1,024
+Notes and <=20 newer linear Git commits), rechecks the selected
+1–12 immutable raw blobs and requires the original approved
+GitHub target HEAD and conflict-free draft/subject inventory.
+
+It then acquires the selected subject fences and uses the proven
+ordinary `executeApprovedVaultNotesImport` for a temporary,
+in-memory <=12-note archive. That executor repeats the live
+create-only Git tree, encrypted draft and owner/session checks,
+marks the **metadata-only possible-write boundary** durably
+before the first GitHub mutation, and delegates to the real
+`commitVaultNoteBatch`. GitHub's non-force ref CAS and
+post-write content/ancestry validation must succeed before
+releasing the owner fence or reporting a successful import.
+An unknown GitHub write result **retains** the quarantine;
+neither retries nor unlocks are automatic. Only GitHub holds
+permanent Note content.
+
+A separate `OGE_VAULT_CHUNK_RESTORE_COMMIT_PREVIEW=true`
+gate and explicit
+`OGE_VAULT_CHUNK_RESTORE_WRITE_ACK=
+YES_DISPOSABLE_SIGNED_STAGING_ONLY` are mandatory in addition
+to the existing import and Notes preview flags. Both are
+**default-off**, with no route wired to expose this internal
+executor to signed users. The code remains restricted to
+synthetic acceptance until a separate owner approval and
+isolated live GitHub staging route/CLI pass a security review.
+
+The M58 suite exercises the **real MongoDB replica-set**
+and actual Git batch-writer algorithms through a synthetic
+provider, including verified create-only commit, retained
+quarantine after a successful provider ref update followed
+by lost acknowledgment, fresh conflict detection and wrong
+fingerprint/target refusal. No real user notes or GitHub
+credentials are included.
+
+M58 does **not** implement cross-repository restoration,
+multi-batch execution/resume or a durable multi-batch
+progress ledger, independent user-facing signed approvals,
+automatic resolution of uncertain locks, production readiness
+or complete Quick Notes/AirNotes backup/restore. See
+`docs/OGE_VAULT_CHUNKED_BACKUP.md` for the complete scope.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

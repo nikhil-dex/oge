@@ -1,4 +1,4 @@
-# Oge Vault — Milestones #46–47: import-lock triage and prewrite-only staging release
+# Oge Vault — Milestones #46–48: import-lock triage and GitHub evidence
 
 **Status:** #46 read-only operator inspection and #47 disposable-local-only
 prewrite lock recovery are implemented in code. **No production release of an
@@ -159,6 +159,51 @@ production-ready or automatic unlock workflow is shipped.
 The `vault_import_lock_recovery_audit` collection is protected by the
 account-deletion retention guard. It contains only incident/account/operation
 metadata and the recovery type; no note bodies or draft ciphertext.
+
+## 5. Milestone #48 — Independent GitHub import-attempt evidence (read-only)
+
+After an import with `vaultImportLock.state='github-write-possible'`
+reports an uncertain response, an authorized operator may inspect whether
+GitHub contains an **import-shaped candidate commit** without reading the
+owner's archived note bodies. New imports durably save only
+`approvedHead`, `selectedIds` (one to twelve UUIDs), the approved SHA-256
+commit marker, operation ID and timestamp in the owner-row lock. This is
+**non-content incident metadata**, not an independent proof of archived bytes.
+
+Use a private terminal with the same exact `MONGODB_DB`, `MONGODB_URI`,
+`OGE_VAULT_INSPECT_OWNER_ID`, `OGE_VAULT_INSPECT_SESSION_VERSION`,
+`OGE_VAULT_INSPECT_REPO_ID` and `OGE_VAULT_INSPECT_OPERATION_ID`
+from the signed incident; also require the repo-scoped GitHub App credentials.
+
+Opt in with `OGE_VAULT_IMPORT_EVIDENCE_READ_ONLY=YES_METADATA_ONLY`, then:
+
+```sh
+npm run vault:import-attempt:inspect
+```
+
+This **operator-only**, read-only command checks the signed owner/connected
+repository and exact lock. It reads Git commit/tree **metadata only**. It
+walks no more than 20 single-parent commits from the current GitHub HEAD,
+checks that a candidate import's parent is the owner-approved HEAD and its
+commit message has the stored fingerprint, then compares complete immutable
+base/import trees: only the approved selected note files may be created.
+It rechecks GitHub HEAD and owner lock after inspection.
+
+The CLI prints redacted, non-authorizing status flags only. The status
+`MATCHING_IMPORT_COMMIT_METADATA_ONLY` is **not** full verification that
+the immutable note file bytes equal the original backup. GitHub commit
+metadata, even when apparently matching, cannot prove an old worker has
+stopped. It does not write to GitHub, decrypt drafts, remove locks, or
+authorize retry. The command always returns nonzero exit status for
+an inspected incident; errors are sanitized and a 429 must fail closed.
+
+The original owner-approved archive and signed read-only
+`POST /api/vault/backup-import/reconcile` remain necessary for full
+canonical note-content reconciliation. Do not automatically retry or
+release any `github-write-possible` or legacy lock, even after a positive
+candidate metadata check. Deep histories, merges and ambiguous results
+require human investigation. Live signed staging, verified operator
+quiescence and production recovery remain incomplete.
 
 ## Release gates
 

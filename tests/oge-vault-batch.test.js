@@ -46,7 +46,7 @@ function fixture() {
       if (path === '/git/commits' && options.method === 'POST') {
         const next = H('commit' + commits.size);
         commits.set(next, { sha: next, tree: { sha: options.body.tree },
-          parents: options.body.parents });
+          parents: options.body.parents, message: options.body.message });
         return { sha: next };
       }
       if (path.startsWith('/contents/')) {

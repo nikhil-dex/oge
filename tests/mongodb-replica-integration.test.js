@@ -12,6 +12,7 @@ import { reconcileConfirmedVaultDraft } from '../lib/oge-vault-save-finalize.js'
 import { retireConfirmedVaultDraftWithReceipt, readConfirmedVaultSaveReceipt } from '../lib/oge-vault-save-receipt.js';
 import { inspectVaultLegacyData } from '../lib/oge-vault-legacy-inventory.js';
 import { inspectLegacyCutoverForOwner } from '../lib/oge-vault-cutover-guard.js';
+import { withVaultOwnerDraftWrite, withVaultOwnerImportExclusive } from '../lib/oge-vault-import-fence.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -621,5 +622,75 @@ test('real MongoDB Phase D preview blocks a legacy write when Vault connects aft
     // staging/production rollout is authorized.
     assert.equal((await inspectLegacyCutoverForOwner(
       db, ownerId, credential, { env: {} })).blocked, false);
+  });
+});
+
+test('real MongoDB D3b2b2 import fence waits for an active encrypted draft writer', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'import-race-' + randomUUID(), repoId = 515;
+    const sessionVersion = randomUUID(), noteId = randomUUID();
+    const owner = { ownerId, repoId, sessionVersion };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+    });
+    let insideWriter, releaseWriter;
+    const entered = new Promise((resolve) => { insideWriter = resolve; });
+    const hold = new Promise((resolve) => { releaseWriter = resolve; });
+    const writing = withVaultOwnerDraftWrite(db, owner, async () => {
+      await db.collection('vault_drafts').insertOne({
+        ownerId, repoId, noteId, revision: 1,
+        encrypted: { ciphertext: 'encrypted synthetic draft' },
+      });
+      insideWriter();
+      await hold;
+    });
+    try {
+      await entered;
+      await assert.rejects(withVaultOwnerImportExclusive(db, owner, async () => {
+        throw new Error('import should never execute during draft write');
+      }), (error) => error.status === 409);
+    } finally {
+      releaseWriter();
+      await writing;
+    }
+    assert.equal(await db.collection('vault_drafts').countDocuments({ ownerId, repoId, noteId }), 1);
+    assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultActiveDraftWriters, 0);
+    assert.equal(await withVaultOwnerImportExclusive(db, owner, async () => 'approved'), 'approved');
+  });
+});
+
+test('real MongoDB D3b2b2 import fence rejects cross-subject draft writes until release', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'import-exclusive-' + randomUUID(), repoId = 516;
+    const sessionVersion = randomUUID(), noteId = randomUUID();
+    const owner = { ownerId, repoId, sessionVersion };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+    });
+    let started, done;
+    const entered = new Promise((resolve) => { started = resolve; });
+    const hold = new Promise((resolve) => { done = resolve; });
+    const importing = withVaultOwnerImportExclusive(db, owner, async () => {
+      started();
+      await hold;
+    });
+    try {
+      await entered;
+      await assert.rejects(withVaultOwnerDraftWrite(db, owner, async () => {
+        await db.collection('vault_drafts').insertOne({
+          ownerId, repoId, noteId,
+          encrypted: { ciphertext: 'must never write during import' },
+        });
+      }), (error) => error.status === 409);
+      assert.equal(await db.collection('vault_drafts').countDocuments({ ownerId }), 0);
+      const locked = await db.collection('users').findOne({ googleSub: ownerId });
+      assert.equal(locked.vaultImportLock.repoId, repoId);
+      assert.equal(locked.vaultActiveDraftWriters ?? 0, 0);
+    } finally {
+      done();
+      await importing;
+    }
+    assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultImportLock,
+      undefined);
   });
 });

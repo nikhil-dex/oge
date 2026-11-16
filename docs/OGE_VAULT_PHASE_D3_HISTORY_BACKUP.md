@@ -944,6 +944,58 @@ staging acceptance and any potentially dangerous
 For staged operator instructions see
 `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
 
+## Phase D3b2b2c4n / Milestone #61: Read-only real provider probe and deterministic error test matrix
+
+Milestone #61 adds a **separately opt-in, non-mutating**
+`npm run vault:staging:provider-probe` command for a
+**dedicated disposable staging GitHub Vault** (no real-user
+Notes). It requires
+`OGE_VAULT_REAL_PROVIDER_PROBE_READ_ONLY=
+YES_ISOLATED_PRIVATE_STAGING_GETS_ONLY` as a single value,
+exact signed owner/session/repo/installation and the existing
+isolated secure staging MongoDB and OAuth/App configuration.
+
+The script requires the regular Vault staging preflight,
+requests two independent **contents:read GitHub App**
+installation clients, and compares full signed owner identity,
+exact private repo mapping, current branch HEAD and immutable
+commit tree SHA. It verifies that the first HEAD is unchanged
+after the second scoped GET client reads the same commit,
+and rechecks signed account mapping including the account
+ID and login. It returns only redacted booleans; it never
+fetches Notes blobs, stores note contents in MongoDB or
+requests any GitHub write-scope token.
+
+A passing read-only probe **does not** validate the existence
+of two physical devices, actual browser OAuth sessions, any
+GitHub write behavior or a complete staging acceptance
+matrix. These are explicitly reported as `false`.
+The operator probe has **not yet been executed against
+real GitHub staging provider credentials** in this milestone.
+
+Synthetic provider/HTTP tests exercise the **real**
+`vaultGithubRequest` transport with simulated status
+responses for GitHub 401, 403, secondary rate-limited 403,
+429, 409 and 422; POST/PATCH writes under 429, 409,
+422, 503 and network drops are performed **once only**,
+with no blind retry. Additional tests reject signed owner
+revocation, changed repo ID/installation/login, changed
+HEAD/tree and unsafe/stale operator configuration. They
+are **not actual provider fault injections**.
+
+Only an independently authorized operator with real
+disposable credentials can subsequently run the opt-in
+GET-only command and separately document true two-device
+OAuth/App, private repository and write-path acceptance.
+No external observation or two-device signoff is
+recorded. The `github-write-possible` quarantine
+remains non-releasable without independent quiescence
+and dual authorization; PR #35 remains draft/unmerged
+and production restore flags remain OFF.
+
+For detailed operator checklist see
+`docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

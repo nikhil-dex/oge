@@ -659,6 +659,52 @@ M54's destination conflict planner remains unchanged and
 `canCommit:false`; the 12-note explicit import approval cannot
 be bypassed. See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
 
+## Phase D3b2b2c4i / Milestone #56: Bounded historical private source proof
+
+Source verification from #55 previously required an identical
+signed current HEAD. A backup's source HEAD often becomes historic
+after another GitHub Save. Milestone #56 extends the same
+`verifyVaultNotesChunkGitHubSourceReadOnly` helper with a separate,
+**default-OFF** `allowBoundedHistory` mode; the original #55
+current-only mode is unchanged.
+
+After validating every downloaded chunk's complete self-consistent
+Notes sequence (maximum 1,024 Notes/16 parts) **before any provider
+access**, the owner-scoped historical verifier pins the current
+signed private GitHub branch HEAD. It follows at most **20
+single-parent Git commits** towards the backup's original snapshot.
+It refuses a detached/unreachable SHA, merge, cycle, invalid parent,
+missing commit or deeper history; it never treats an arbitrary
+caller-provided SHA as proof of source authenticity. Once the
+Git ancestry is verified, it reads the complete canonical
+**historical** snapshot Git tree and independently matches every
+downloaded note's ID, Git blob SHA-1 calculated from raw bytes and
+normalized note-content digest against that immutable tree.
+
+The final branch HEAD and exact owner/session/repo installation are
+rechecked. The redacted result distinguishes a current snapshot
+(0 later commits) from a historic one (1–20 later commits), while
+always returning `canCommit:false`, `authorizesRestore:false`,
+`canUnlockImport:false`, and `canRetryAutomatically:false`.
+No private backup text is logged, persisted into MongoDB or returned
+in the result. No GitHub or MongoDB mutating operation is exposed.
+
+The explicit operator command `npm run vault:chunk:verify-history`
+requires `OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY=
+YES_20_LINEAR_ANCESTORS_ONLY` (one environment value), exact signed
+owner/session/database and a private, 0700/0600 contiguous local
+chunk directory. The older current-only opt-in must remain unset.
+The operator command reads GitHub with **contents:read** permissions.
+
+Synthetic tests cover all depth boundaries, malformed merge/cycle
+histories, forged local SHA-256 and content, a changed branch HEAD,
+revoked signed owner and a 520-note >8-MiB historical source.
+There is still **no large-vault restore write or owner approval UI,
+historical source verification after repo removal, signed live GitHub
+two-device staging, or production flag change**. A confirmed
+historical source never implies that the notes are unchanged today.
+See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

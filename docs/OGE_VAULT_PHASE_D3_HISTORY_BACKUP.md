@@ -1060,6 +1060,68 @@ is still draft/unmerged, and no real notes were touched.
 See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`
 for human-reviewed operator instructions.
 
+## Phase D3b2b2c4p / Milestone #63: Local browser chunk integrity and exact reviewed M57 fingerprint
+
+The M62 staging-only owner review interface now requires a
+**complete local backup file integrity check before its 10-minute
+single-use receipt POST can be enabled**. The new browser-only
+`verifyVaultRestoreLocalChunkFiles` accepts exactly ordered
+`part-0001.json` through the final `part-NNNN.json`,
+up to **16 files (4 MiB per file)** representing up to **1,024
+current private GitHub Notes**. It reads one file at a time with
+the local browser File API and Web Crypto SHA-256; there is no
+network fetch, DB write, persistent browser storage or
+archive-content upload.
+
+The verifier checks the original complete Notes-only chunk
+format, canonical UTF-8/Note schema, byte limits, per-part
+SHA-256, ordered UUIDs and continuous offsets/cursors,
+matching snapshot/count/coverage, and recomputes the
+**complete content-free Git inventory SHA-256** across all
+Notes. It independently hashes the selected local Notes'
+canonical content fields and recomputes the exact **M57
+selectionFingerprint** bound to selected UUID order, original
+snapshot/inventory and the owner-reviewed destination HEAD.
+Tampering with private content, forging a replacement chunk
+checksum, leaving out a page, changing selected order,
+or mismatching the independently reviewed digest all fail
+closed. A green local result reports *only counts*, never
+private headings, answers or note data.
+
+Changing source/target hashes, selected IDs or any chosen
+files immediately invalidates the browser's local check.
+The owner still checks independent conflict review and
+types `APPROVE ONE BATCH`. If the browser POST loses
+the receipt response after submission, the form blocks
+a second POST for the **entire current review session**;
+the owner is redirected to read-only status/history
+investigation rather than silently retrying.
+
+**Crucial trust boundary:** local checksums and self-asserted
+Git SHAs in downloaded files are **not authentication** to
+a GitHub account or proof that those bytes still exist
+in the connected Vault. Local source proof cannot
+confirm draft conflicts or current GitHub HEAD. The
+M55–M58 **signed operator** must still independently
+verify the exact private source repository, raw Git blobs,
+owner/session/subjects, draft conflicts and Git CAS.
+No restore permission is gained from local verification
+alone, and no actual GitHub write is called by the UI.
+
+M63 unit/CI tests use complete 130-note and
+**520-note, >8-MiB** synthetic private backup sequences,
+compare accepted files against the trusted server chunk
+verifier, check incomplete/reordered/tampered parts,
+unsupported Note schemas, changed source/target/selection
+fingerprint and privacy/no-network behavior. No real
+GitHub OAuth two-device staging, actual provider error
+reproduction, full production UI acceptance or release
+approval has occurred. The existing Chromium smoke
+suite is general app coverage, not proof of the
+authenticated local-picker restore workflow.
+
+See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

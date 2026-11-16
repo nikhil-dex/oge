@@ -1,8 +1,9 @@
 # Oge Vault — Phase D3: GitHub revision history and backup architecture
 
-**Status: bounded GitHub revision read/restore and complete-current-Notes-only
-backup export previews implemented; backup import, multi-resource export,
-and live authenticated staging remain pending. No production cutover.**
+**Status: bounded GitHub revision read/restore, current-Notes-only export,
+and read-only import conflict planning previews implemented. GitHub import
+commits, multi-resource backup and live authenticated staging remain pending.
+No production cutover.**
 
 ## Staging-only revision preview
 
@@ -112,7 +113,57 @@ The existing legacy `/api/backup` remains unchanged. During D1 staging,
 connected Vault accounts are blocked from using it, rather than exporting
 or importing permanent MongoDB copies.
 
-## Next: GitHub-backed import and full backup coverage (not implemented)
+## Phase D3b2a: Notes-only import validation and conflict preview
+
+On **isolated staging only**, set:
+
+```sh
+OGE_VAULT_MAIN_PREVIEW=true
+OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW=true
+```
+
+Submit the previously downloaded Notes-only JSON backup as the **entire
+JSON request body** to:
+
+`POST /api/vault/backup-import/plan`
+
+This is **read-only conflict planning, not an import action**. There is no
+endpoint that can commit the archive or reuse the returned plan as write
+authorization. The operation validates the owner session and private GitHub
+App Vault mapping, parses at most an **8 MiB** JSON archive in memory, and
+rejects legacy/unknown formats, extra fields, corrupted note data, duplicate
+or invalid UUIDs, malformed source SHA metadata and misleading coverage
+claims. The source GitHub snapshot and blob SHAs are never trusted as
+authorization to write to the destination repository.
+
+A complete, snapshot-pinned scan of the **target** private GitHub tree
+checks its current note IDs, including nested, noncanonical and duplicated
+paths. It then checks owner-scoped MongoDB subject **metadata** and the
+presence of encrypted temporary drafts scoped to the exact signed owner,
+GitHub repository and note IDs, using bounded query chunks. It finally
+rechecks GitHub HEAD and the owner/repository mapping.
+
+The response provides only note IDs and conservative statuses:
+
+- `create-candidate`: the note ID is absent from the destination GitHub
+  snapshot and no encrypted draft was found. It is **not** approved to write
+- `existing-note-conflict`: the destination already has that UUID; it is
+  never overwritten, even when a source SHA appears to match
+- `draft-conflict`: a temporary encrypted unsynced draft exists for that
+  UUID; it must be reviewed rather than deleted
+
+The plan includes `targetHead`, summary counts, `readOnly: true`,
+`canCommit: false` and `requiresFreshApproval: true`. It does not echo
+headings, answers or private note text, store uploaded content or create a
+GitHub commit. As an advisory snapshot, it can become stale as soon as
+another device writes; a future import executor must **recalculate every
+conflict, draft and HEAD check within its own lock before committing**.
+
+The test suite includes over 500 notes, malformed or tampered archives,
+unowned subjects, GitHub drift/429, duplicate files and protected drafts.
+No authenticated live staging import has been performed.
+
+## Next: Approved GitHub import commits and full backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:
 
@@ -141,8 +192,9 @@ No migration or cleanup of existing data is authorized by this document.
   restore conflicts.
 - CI browser smoke remains anonymous; signed OAuth and live GitHub App history
   restoration have **not** been exercised.
-- The revision preview is capped to recent note history, and the current-Notes
-  export is size bounded. Full history, multi-resource export, large-vault
-  pagination and any backup import still require design and staging tests.
+- The revision preview is capped to recent note history, the current-Notes
+  export is size bounded, and Notes-only import currently has a **read-only
+  conflict planner**. Full history, multi-resource export, large-vault
+  pagination and any approved GitHub import commit remain unimplemented.
 - PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
   isolated staging until security and explicit release approval.

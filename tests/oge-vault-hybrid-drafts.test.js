@@ -116,6 +116,13 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.match(page, /attemptedGitHubSave = \{ noteId: draftNoteId, revision: hybridRevisionRef\.current \}/);
   assert.match(page, /&confirm=true&revision=/);
   assert.match(page, /checked\.confirmed === true/);
+  assert.match(page, /method: 'POST'/);
+  assert.match(page, /sha: checked\.sha/);
+  assert.match(page, /reconciled\?\.confirmed && reconciled\.cleared/);
+  assert.match(page, /JSON\.stringify\(attemptedGitHubSave\.submittedDraft\)/);
+  assert.match(page, /Note saved successfully — GitHub commit recovered/);
+  assert.match(page, /newer or unchecked draft retained/);
+  assert.match(page, /hybridGenerationRef\.current \+= 1/);
   assert.match(page, /GitHub Save confirmed — temporary draft retained/);
   assert.match(page, /Draft pending — GitHub confirmation needed/);
   assert.match(page, /method: 'DELETE'/);

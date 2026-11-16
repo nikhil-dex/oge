@@ -46,7 +46,8 @@ async function context() {
 function failure(error) {
   if (error instanceof VaultSubjectLockedError) return json({ error: error.message }, 409);
   if (error instanceof VaultGitHubError) return json({ error: error.message },
-    error.status === 401 ? 401 : error.status === 409 ? 409 : 503);
+    error.status === 401 ? 401 : error.status === 429 ? 429 :
+      error.status === 409 ? 409 : 503);
   if (error?.code === 11000 || error?.message === 'vault-draft-revision-conflict')
     return json({ error: 'vault-draft-revision-conflict' }, 409);
   if (error instanceof SyntaxError || error instanceof TypeError)

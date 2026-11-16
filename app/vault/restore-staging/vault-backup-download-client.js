@@ -58,7 +58,7 @@ export default function VaultBackupDownloadClient({ enabled }) {
         if (accepted.partNumber !== index) throw new TypeError('Chunk order changed');
 
         // Provide only verified data as a numbered private file. No note
-        // content in log/error/status; no archive upload, localStorage or DB.
+        // content in log/error/status; no upload or persistent storage.
         const blob = new Blob([text], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         downloadsRef.current.add(url);

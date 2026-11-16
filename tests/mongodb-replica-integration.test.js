@@ -416,6 +416,7 @@ test('real MongoDB account deletion blocks orphaned drafts and file-index recove
     for (const collectionName of [
       'vault_drafts', 'vault_file_index_state', 'vault_file_index_bootstrap',
       'vault_files', 'vault_subject_inspections', 'vault_subject_deletion_jobs',
+      'vault_save_receipts',
     ]) {
       const ownerId = 'orphan-' + randomUUID();
       await db.collection('users').insertOne({ googleSub: ownerId, sessionVersion: epochA });

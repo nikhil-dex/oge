@@ -4,6 +4,7 @@ import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-li
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { ObjectId } from 'mongodb';
 import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../lib/oge-vault-cutover-guard.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,9 @@ export async function GET(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to view notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const slug = new URL(request.url).searchParams.get('subject');
     const filter = { ownerId: ctx.ownerId };
     if (slug) filter.subjectSlug = slug;
@@ -42,6 +46,9 @@ export async function POST(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to create notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     let data;
@@ -71,6 +78,9 @@ export async function PUT(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     let data;
@@ -105,6 +115,9 @@ export async function DELETE(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to delete notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id');
@@ -124,6 +137,9 @@ export async function PATCH(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     let data;

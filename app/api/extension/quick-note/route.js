@@ -5,6 +5,7 @@ import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { normalizeQuickNoteContent, quickNoteTitle, MAX_QUICK_NOTE_LENGTH } from '../../../../lib/quick-notes.js';
 import { withActiveOwnerMutation } from '../../../../lib/active-owner-mutation.js';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../../lib/oge-vault-cutover-guard.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,12 @@ export async function POST(request) {
         extensionTokenExpiresAt: { $gt: new Date() },
       }, { session, projection: { _id: 1 } });
       if (!live) return json({ error: 'This extension connection has expired or been revoked.' }, 401);
+      // An extension token is not GitHub Vault authorization. In staging,
+      // never fall back to writing permanent MongoDB content for an account
+      // whose own vault is connected or incompletely provisioned.
+      const cutover = await inspectLegacyCutoverForOwner(db, user.googleSub,
+        { extensionTokenHash: tokenHash }, { session });
+      if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
       const now = new Date();
       if (subjectSlug) {
         const subject = await db.collection('subjects').findOne(

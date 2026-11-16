@@ -9,6 +9,7 @@ import { exportNoteMetadata, importNoteMetadata } from '../../../lib/backup-note
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { withAtomicBackupImport } from '../../../lib/atomic-backup-import.js';
 import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../lib/oge-vault-cutover-guard.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,9 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to export your OgeNotes data.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkRateLimit(ctx.db, { scope: 'backup-export', identifier: ctx.ownerId, limit: 10, windowMs: 60 * 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
     // A signed JWT can outlive a deleted account, and a fresh Google login
@@ -85,6 +89,11 @@ export async function POST(request) {
   try {
   const ctx = await context();
   if (!ctx) return json({ error: 'Sign in to restore your OgeNotes data.' }, 401);
+  // A legacy backup can re-introduce full committed note/revision text into
+  // MongoDB after GitHub cutover. In preview, stop before parsing any body.
+  const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+    { sessionVersion: ctx.sessionVersion });
+  if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
   const throttle = await checkRateLimit(ctx.db, { scope: 'backup-import', identifier: ctx.ownerId, limit: 5, windowMs: 60 * 60 * 1000 });
   if (!throttle.allowed) return rateLimitResponse(throttle);
   let raw;

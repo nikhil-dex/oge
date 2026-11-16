@@ -69,6 +69,9 @@ export async function POST(request) {
     const throttle = await checkRateLimit(db, { scope: 'revision-restore', identifier: ownerId, limit: 30, windowMs: 60 * 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      const lockedCutover = await inspectLegacyCutoverForOwner(db, ownerId,
+        { sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const collection = db.collection('notes');
       const note = await collection.findOne({ _id: new ObjectId(noteId), ownerId }, { session });
       if (!note) return json({ error: 'Note not found.' }, 404);

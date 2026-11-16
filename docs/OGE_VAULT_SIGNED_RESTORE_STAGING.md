@@ -528,3 +528,8 @@ M59 automated synthetic Git and real disposable MongoDB tests are NOT real signe
 ## M66 encrypted-file operator bridge
 
 See docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md for the new default-off signed M59 operator mode, the FD3 password pipe, in-memory M65 AES-GCM/M63 inventory/review preflight before ticket claim, and unchanged M58 independent GitHub provenance/CAS. No live signed two-device acceptance or production authorization.
+
+
+## M67 external physical-device evidence inventory (NOT signoff)
+
+The read-only `npm run vault:staging:two-device-evidence` command checks a complete strictly redacted external 12-scenario manifest in private 0700/0600 files without reaching MongoDB/GitHub. Distinct opaque UUID session markers and SHA-256 strings are **user supplied**, not independently verified credentials, physical-device evidence or provider attestations. Even a complete manifest ALWAYS denies signoff, production, restore, retry and lock release; an independent operator must inspect authentic retained artifacts and observe real two-device OAuth/App staging. Full procedure: `docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md`.

@@ -9,6 +9,7 @@ import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate
 import {
   draftKey, validatedHybridDraft, putHybridDraft, getHybridDraft, clearConfirmedDraft, unsealDraft,
 } from '../../../../lib/oge-vault-hybrid-drafts.js';
+import { inspectVaultDraftGitHubSave } from '../../../../lib/oge-vault-save-recovery.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,20 @@ export async function GET(request) {
     }
     const noteId = params.get('id');
     const scope = draftKey(ctx.ownerId, ctx.repoId, noteId);
+    if (params.get('confirm') === 'true') {
+      const revision = Number(params.get('revision'));
+      if (!Number.isSafeInteger(revision) || revision < 1)
+        return json({ error: 'A valid draft revision is required.' }, 400);
+      // An explicit recovery scan can read several GitHub resources. Apply
+      // the normal owner note-rate limit, even though this never mutates data.
+      const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'notes');
+      if (!throttle.allowed) return rateLimitResponse(throttle);
+      const client = await getVaultNoteClient(ctx.db, {
+        ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion,
+      });
+      return json(await inspectVaultDraftGitHubSave(
+        ctx.db.collection('vault_drafts'), client, scope, revision));
+    }
     return json({ item: await getHybridDraft(ctx.db.collection('vault_drafts'), scope) });
   } catch (error) { return failure(error); }
 }

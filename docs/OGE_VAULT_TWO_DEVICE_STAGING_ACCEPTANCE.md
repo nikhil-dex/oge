@@ -76,3 +76,61 @@ preview gates disabled in production.
 
 **Release/merge gate:** this automated phase does not authorize enabling
 import flags, merging PR #35, production lock release or migrating Note data.
+
+## Milestone #51 — Cross-subject and revoked-session rehearsal
+
+The same disposable MongoDB + synthetic GitHub provider runner now checks
+four more security cases beyond Milestone #50:
+
+- An in-flight encrypted draft belonging to **subject B** uses the same
+  note UUID as a planned import into **subject A**. The account-wide fence
+  blocks the import while the draft writes; fresh import conflict planning
+  rejects the existing draft even though its subject differs.
+- An active approved import of a note in **subject A** blocks a second
+  device from creating a draft in unrelated **subject B**. Once GitHub
+  confirmation releases the fence, normal encrypted drafts can resume.
+- A Vault GitHub installation changes **after** the durable
+  `github-write-possible` marker but **before** the remote batch writer.
+  The import executor re-verifies owner/repo mapping and **never invokes
+  the GitHub writer**. The durable owner quarantine remains for audited
+  investigation rather than blindly unlocking.
+- An account session incarnation changes at the same boundary. The
+  stale session cannot publish GitHub content or release the original lock.
+  The lock is not a claim that a write occurred; it is a conservative
+  barrier until the uncertain state is reviewed.
+
+These are deterministic tests; they do **not** replace real OAuth
+revocation and browser session tests. The unavoidable distributed
+time-of-check/time-of-use gap between MongoDB, GitHub App authorization
+and GitHub ref writes remains subject to live acceptance.
+
+### Import-specific read-only staging preflight
+
+`npm run vault:import:staging-preflight` builds on the existing Vault B7
+configuration inspection. It verifies the isolated staging origin, private
+RSA signing key shape, temporary encrypted draft key, and all required
+**staging-only** flags: `OGE_VAULT_MAIN_PREVIEW`,
+`OGE_VAULT_HYBRID_DRAFT_PREVIEW`,
+`OGE_VAULT_NOTE_API_PREVIEW`,
+`OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW`, and
+`OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW`. For this isolated
+synthetic-only rehearsal, explicitly set
+`OGE_VAULT_IMPORT_STAGING_ACK=ISOLATED_SYNTHETIC_ACCOUNTS_ONLY`.
+All destructive/account-deletion and manual lock-release controls must
+remain disabled. Do **not** enable these preview flags on production.
+
+This command only reads in-memory configuration and outputs redacted
+pass/fail reason codes. It never connects to MongoDB or GitHub, changes
+flags, inspects real users, provisions credentials or grants production
+authorization. A PASS is strictly **configuration-only**:
+`liveProviderVerified=false`,
+`authenticatedBrowserVerified=false`,
+`twoDeviceSignedAcceptanceComplete=false`, and
+`productionImportAuthorized=false`.
+No actual isolated-staging credentials, GitHub installation or two
+signed browser identities have been verified by the command.
+
+**Open live acceptance:** two separate authenticated browser devices,
+actual disposable private GitHub App installation, real 429/409/422 and
+late-revocation behavior, sessionStorage recovery on mobile, subject
+deletion and save concurrency, operator-reviewed quarantine recovery.

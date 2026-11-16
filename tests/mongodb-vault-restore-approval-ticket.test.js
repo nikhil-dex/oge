@@ -171,3 +171,46 @@ test('M59 expired approval cannot claim even before TTL monitor removes metadata
     })).state, 'pending');
   });
 });
+
+test('M60 no new signed restore ticket while earlier batch is claimed but unconfirmed', onlyReplica, async () => {
+  await disposable(async (db) => {
+    const f = await fixture(db);
+    await recordVaultRestoreApproval(db, f.identity, f.receipt, { now: f.now });
+    await claimVaultRestoreApprovalOnce(db, f.identity, f.verified,
+      { now: new Date(f.now.getTime() + 10) });
+    const next = issueVaultRestoreApprovalTicket(f.identity, {
+      ...f.approval, expectedTargetHead: 'd'.repeat(40),
+    }, { secret: KEY, now: f.now.getTime() + 20 });
+    await assert.rejects(recordVaultRestoreApproval(
+      db, f.identity, next, { now: new Date(f.now.getTime() + 20) }),
+    /vault-restore-previous-batch-unconfirmed/);
+    assert.equal(await db.collection('vault_restore_approvals')
+      .countDocuments({ ownerId: f.identity.ownerId }), 1);
+    // Once an actual confirmed Git commit has been separately recorded,
+    // a NEW signed receipt may be issued, with fresh selection and HEAD.
+    await confirmVaultRestoreApproval(db, f.identity, f.verified,
+      'e'.repeat(40));
+    const result = await recordVaultRestoreApproval(db, f.identity, next,
+      { now: new Date(f.now.getTime() + 30) });
+    assert.equal(result.status, 'pending');
+    assert.equal(await db.collection('vault_restore_approvals')
+      .countDocuments({ ownerId: f.identity.ownerId }), 2);
+  });
+});
+
+test('M60 owner import quarantine rejects issuing a new browser restore ticket', onlyReplica, async () => {
+  await disposable(async (db) => {
+    const f = await fixture(db);
+    await db.collection('users').updateOne({
+      googleSub: f.identity.ownerId,
+    }, { $set: { vaultImportLock: {
+      operationId: randomUUID(),
+      state: 'github-write-possible', repoId: f.identity.repoId,
+    } } });
+    await assert.rejects(recordVaultRestoreApproval(
+      db, f.identity, f.receipt, { now: f.now }),
+    /vault-restore-ticket-owner-or-repository-changed/);
+    assert.equal(await db.collection('vault_restore_approvals')
+      .countDocuments({}), 0);
+  });
+});

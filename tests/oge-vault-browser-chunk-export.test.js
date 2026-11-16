@@ -113,11 +113,6 @@ test('M64 moving branch HEAD, changed inventory, omitted part and note modificat
       const c = structuredClone(base); c[1].notes[0].answer = 'FORGED PRIVATE CONTENT';
       return c;
     })(),
-    (() => {
-      const c = structuredClone(base); c[1].notes[0].answer = 'FORGED PRIVATE CONTENT';
-      c[1].chunkSha256 = HASH(JSON.stringify(c[1].notes));
-      return c;
-    })(),
     (() => { const c = structuredClone(base); c[1].afterId = uuid(3); return c; })(),
   ];
   for (const parts of variants) {
@@ -127,6 +122,21 @@ test('M64 moving branch HEAD, changed inventory, omitted part and note modificat
       await v.finish();
     })(), TypeError);
   }
+});
+
+test('M64 self-consistent forged payload is not GitHub authentication; external signed proof is still required', async () => {
+  const forged = structuredClone(sample());
+  forged[1].notes[0].answer = 'SELF CONSISTENT FORGED CONTENT';
+  forged[1].chunkSha256 = HASH(JSON.stringify(forged[1].notes));
+  // Inventory includes self-reported Git blob SHA, not independently
+  // authenticated raw Git object bytes. This is why the operator MUST
+  // prove source blobs against the signed GitHub App before any restore.
+  const v = verifier();
+  for (const part of forged) await v.accept(part);
+  const result = await v.finish();
+  assert.equal(result.verifiedCompleteCurrentNotesSequence, true);
+  assert.equal(result.signedGitHubSourceProvenanceByThisCheck, false);
+  assert.equal(result.authorizesRestore, false);
 });
 
 test('M64 extra fields, invalid canonical notes, false coverage and oversized vaults refused', async () => {

@@ -52,11 +52,23 @@ export default function RestoreReviewClient() {
     }
   }, []);
 
+  // The initial read updates state only from asynchronous network
+  // callbacks; React effects never synchronously cascade setState.
   useEffect(() => {
     const controller = new AbortController();
-    loadHistory(controller.signal);
+    fetch(historyEndpoint, {
+      cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
+    }).then(readResponse).then((data) => {
+      if (!controller.signal.aborted) setHistory(data);
+    }).catch((error) => {
+      if (!controller.signal.aborted)
+        setHistoryError(error instanceof Error
+          ? error.message : 'Staging history unavailable.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setHistoryBusy(false);
+    });
     return () => controller.abort();
-  }, [loadHistory]);
+  }, []);
 
   const review = classifyVaultRestoreReviewHistory(history);
   const canRequest = !historyBusy && !historyError &&

@@ -33,7 +33,8 @@ function vaultError(error) {
     const status = error.message === 'vault-note-conflict' ? 409 :
       error.message === 'vault-not-connected' ? 409 :
         error.message === 'session-expired' ? 401 :
-          error.status === 404 ? 404 : error.status === 409 || error.status === 422 ? 409 : 503;
+          error.status === 429 ? 429 : error.status === 404 ? 404 :
+            error.status === 409 || error.status === 422 ? 409 : 503;
     return json({ error: error.message }, status);
   }
   console.error('GitHub Notes UI adapter failure:', error?.name);

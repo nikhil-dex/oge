@@ -1,11 +1,14 @@
-# Oge Vault — Milestone #46 import-lock operator recovery inspection
+# Oge Vault — Milestones #46–47: import-lock triage and prewrite-only staging release
 
-**Status:** default-off code-path inspection only; **no automated/manual lock
-release command is implemented**. Signed live provider staging not completed.
+**Status:** #46 read-only operator inspection and #47 disposable-local-only
+prewrite lock recovery are implemented in code. **No production release of an
+uncertain or post-GitHub-write lock is implemented or authorized.**
+Signed live provider staging is still pending.
 
 This runbook is for an authorized incident responder in a controlled,
 private environment. It does not give a browser user or an ordinary notes
-route access to operator recovery. The only new command is **read-only**.
+route access to operator recovery. The default inspection command is **read-only**; a separate exact prewrite
+recovery command is restricted by code to a disposable local replica set.
 
 ## Why it stays locked
 
@@ -99,11 +102,63 @@ A `githubHeadStable: true` and
    incident timeline, and the proposed action. Retain an access-controlled
    audit record **without** private note text or credentials.
 
-**No unlock/update/delete endpoint or CLI is shipped in Milestone #46.**
-After this inspection, no import-lock mutation is authorized by the tool.
-A separately reviewed, explicitly controlled recovery implementation and live
-two-device staging signoff are still required. Never use an ad hoc,
-unscoped MongoDB update to bypass the lock.
+Milestone #46 inspection alone never authorizes a release. Only the narrowly
+scoped disposable-local #47 prewrite tool documented below may mutate an
+`acquired` lock for synthetic staging incidents. Never use an ad hoc,
+unscoped MongoDB update to bypass a lock.
+
+## 4. Milestone #47 — Dispose-only prewrite lock recovery
+
+**Not for Atlas, a production database, real user data, or a possibly started
+GitHub mutation.** The new import write path persists the
+`vaultImportLock.state='github-write-possible'` marker, approved commit
+fingerprint and timestamp **before** invoking the GitHub batch writer.
+Any error after that point retains the lock. The #46 inspector reports this
+only as a redacted phase.
+
+For a **synthetic disposable** incident with exact
+`vaultImportLock.state='acquired'` (before a GitHub write):
+
+1. Establish an isolated localhost:27017 MongoDB **replica set** with a new
+   dedicated database named `oge_vault_recovery_staging_<identifier>`. This
+   CLI refuses `mongodb+srv://`, remote/Atlas MongoDB, other database names
+   and non-replica-set servers.
+2. Stop all application instances and background writers of that synthetic
+   environment and have a separate reviewer inspect the original lock,
+   exact signed account session and repository, and the incident record.
+   The environment variables asserting maintenance and independent review
+   are **human attestations**, not cryptographic identity verification.
+3. Provide all exact scope variables from Section 2 plus the
+   `OGE_VAULT_RELEASE_STARTED_AT` immutable ISO-8601 millisecond timestamp
+   and `OGE_VAULT_RELEASE_INCIDENT_ID` incident UUID, through a private
+   secret manager. Do not write them into the repository or shell history.
+4. Supply the following deliberate, **non-default** attestations:
+   `OGE_VAULT_PREWRITE_RELEASE_STAGING_ONLY=YES_DISPOSABLE_PREWRITE_ONLY`,
+   `OGE_VAULT_MAINTENANCE_QUIESCED=YES_ALL_WRITERS_STOPPED`,
+   `OGE_VAULT_INDEPENDENT_REVIEW=YES_SEPARATE_APPROVER` and
+   `OGE_VAULT_PREWRITE_RELEASE_CONFIRMATION=RELEASE_ONLY_PRE_GITHUB_WRITE_LOCK`.
+5. Only within that disposable environment execute
+   `npm run vault:import-lock:release-prewrite-staging`.
+
+The transaction atomically checks the exact owner session, connected repo,
+operation UUID, start time, `state='acquired'`, no active draft writers and
+no active subject writers. It clears only the matching import lock and inserts
+one metadata-only `vault_import_lock_recovery_audit` record in the same
+majority-committed transaction. If the record insertion fails, the removal
+rolls back. Neither GitHub files, imported notes, encrypted drafts nor subject
+metadata are touched. Replaying the command cannot release a second lock
+because the old operation ID and timestamp must match.
+
+A `legacy-unknown` lock or any `github-write-possible` state **always**
+fails this release CAS, regardless of age, apparent HEAD stability, operator
+assertions or positive GitHub evidence. For those cases, leave the lock in
+place and escalate for stronger provider-backed proof, verified worker
+quiescence and a separately reviewed controlled-recovery design. No
+production-ready or automatic unlock workflow is shipped.
+
+The `vault_import_lock_recovery_audit` collection is protected by the
+account-deletion retention guard. It contains only incident/account/operation
+metadata and the recovery type; no note bodies or draft ciphertext.
 
 ## Release gates
 

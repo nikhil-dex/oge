@@ -45,6 +45,8 @@ jobs:
         run: npm run lint -- --quiet
       - name: Run baseline tests
         run: npm test
+      - name: Review known MongoDB note-content paths before GitHub cutover
+        run: npm run vault:storage-path-audit
       - name: Build application
         run: npm run build
         env:

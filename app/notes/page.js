@@ -467,7 +467,12 @@ export default function NotesPage({
       // Only this submitted, immutable draft revision may be confirmed after a
       // lost Save response. Never use the potentially newer revision later.
       if (hybridDrafts && vaultMode && draftNoteId && hybridRevisionRef.current >= 1)
-        attemptedGitHubSave = { noteId: draftNoteId, revision: hybridRevisionRef.current };
+        attemptedGitHubSave = {
+          noteId: draftNoteId, revision: hybridRevisionRef.current,
+          submittedDraft: { subjectId: current?.subjectSlug || activeSubject,
+            heading, answer, tags, favorite: Boolean(current?.favorite),
+            baseSha: current?.sha || null },
+        };
       const note = await responseJson(await fetch(notesApi, {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -530,10 +535,9 @@ export default function NotesPage({
       await load(activeSubject);
     } catch (err) {
       if (attemptedGitHubSave && hybridDrafts && vaultMode) {
-        // An HTTP error does NOT prove GitHub rejected the commit. Read the
-        // exact encrypted draft revision back and verify an immutable GitHub
-        // blob before showing a success message. Do not delete any browser or
-        // MongoDB drafts here; later edits may still be unsynced.
+        // An HTTP error does NOT prove GitHub rejected the commit. Verify
+        // immutable GitHub content, then independently CAS-clear ONLY that
+        // saved draft revision. Neither operation issues a second Git commit.
         try {
           const checked = await responseJson(await fetch(
             '/api/vault/drafts?id=' + encodeURIComponent(attemptedGitHubSave.noteId) +
@@ -541,8 +545,53 @@ export default function NotesPage({
             { cache: 'no-store' },
           ));
           if (checked.confirmed === true) {
-            setDraftStatus('GitHub Save confirmed — temporary draft retained');
-            setMessage('GitHub confirmed the submitted Save. Close and reopen this note to review any remaining draft edits.');
+            let reconciled = null;
+            try {
+              reconciled = await responseJson(await fetch('/api/vault/drafts', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
+                body: JSON.stringify({
+                  id: attemptedGitHubSave.noteId,
+                  revision: attemptedGitHubSave.revision, sha: checked.sha,
+                }),
+              }));
+            } catch { /* A second network failure must retain every draft. */ }
+            if (reconciled?.confirmed && reconciled.cleared) {
+              let safeLocalCopy = true;
+              try {
+                const key = hybridKey(attemptedGitHubSave.noteId);
+                const raw = window.sessionStorage.getItem(key);
+                if (raw) {
+                  const browser = JSON.parse(raw)?.draft;
+                  safeLocalCopy = JSON.stringify(browser) ===
+                    JSON.stringify(attemptedGitHubSave.submittedDraft);
+                  if (safeLocalCopy &&
+                      JSON.stringify(liveEditorRef.current) === submittedEditor) {
+                    window.sessionStorage.removeItem(key);
+                    if (!editingId && window.sessionStorage.getItem(
+                      newDraftPointerKey(activeSubject)) === attemptedGitHubSave.noteId)
+                      window.sessionStorage.removeItem(newDraftPointerKey(activeSubject));
+                  }
+                }
+              } catch { safeLocalCopy = false; }
+              if (safeLocalCopy &&
+                  JSON.stringify(liveEditorRef.current) === submittedEditor) {
+                hybridGenerationRef.current += 1;
+                setNewDraftId('');
+                editorInitialRef.current = null;
+                setNoteDialog(false);
+                setAnswerFullscreen(false);
+                setPreview(false);
+                setEditingId(reconciled.note.id);
+                setMessage('Note saved successfully — GitHub commit recovered.');
+                await load(activeSubject);
+                return;
+              }
+            }
+            // A saved revision is not proof that a newer concurrent draft was
+            // saved. Leave the editor and local recovery copy available.
+            setDraftStatus('GitHub Save confirmed — newer or unchecked draft retained');
+            setMessage('GitHub confirmed the submitted version. Another draft may remain; close and reopen to review it before saving again.');
             return;
           }
         } catch { /* GitHub/offline failures never become a Saved state. */ }

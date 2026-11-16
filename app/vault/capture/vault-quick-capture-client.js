@@ -45,7 +45,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
     try {
       sessionStorage.setItem(vaultCapturePointer(ownerId, repoId, subject), id);
       sessionStorage.setItem(vaultCaptureLocalKey(ownerId, repoId, id), text);
-    } catch { setStatus('Browser session storage unavailable — keep a manual copy.'); }
+    } catch { /* Session storage may be denied; keep the editor copy intact. */ }
   }, [ownerId, repoId]);
 
   useEffect(() => {

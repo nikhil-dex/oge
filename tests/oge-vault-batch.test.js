@@ -22,6 +22,8 @@ function fixture() {
           throw new VaultGitHubError('github-api-error', 422);
         }
         head = options.body.sha;
+        if (failRef.afterWrite)
+          throw new VaultGitHubError('github-api-error', failRef.afterWrite === 'conflict' ? 422 : 503);
         return { object: { sha: head } };
       }
       if (path.startsWith('/git/commits/') && !options.method) return commits.get(path.slice(13));
@@ -131,4 +133,44 @@ test('batch API is disabled by default and never writes note content to MongoDB'
   assert.doesNotMatch(source, /collection\(['"]notes['"]\)/);
   assert.doesNotMatch(source, /insertOne\(/);
   assert.doesNotMatch(source, /\.updateOne\(/);
+});
+
+test('B7: GitHub ref PATCH succeeds but response is lost; verified note is saved once', async () => {
+  const f = fixture();
+  const id = randomUUID(), subjectId = randomUUID();
+  f.failRef.afterWrite = 'timeout';
+  const saved = await commitVaultNoteBatch(f.client, [{
+    action: 'create', id,
+    note: { subjectId, heading: 'Confirmed despite timeout', answer: 'Private note' },
+  }]);
+  assert.equal(saved.results.length, 1);
+  assert.equal(saved.results[0].id, id);
+  assert.equal(saved.commitSha, f.getHead());
+  assert.equal(f.getFiles().size, 1);
+});
+
+test('B7: even a conflict-shaped lost GitHub response is verified before rejection', async () => {
+  const f = fixture();
+  const id = randomUUID(), subjectId = randomUUID();
+  f.failRef.afterWrite = 'conflict';
+  const saved = await commitVaultNoteBatch(f.client, [{
+    action: 'create', id, note: { subjectId, heading: 'Safe', answer: 'Confirmed' },
+  }]);
+  assert.equal(saved.results[0].answer, 'Confirmed');
+  assert.equal(f.getFiles().size, 1);
+});
+
+test('B7: confirmed GitHub commit still requires valid commit ancestry', async () => {
+  const f = fixture();
+  const id = randomUUID(), subjectId = randomUUID();
+  const untrusted = { ...f.client, call: async (path, opts = {}) => {
+    const response = await f.client.call(path, opts);
+    if (path.startsWith('/git/commits/') && path.slice(13) !== H('head-0') &&
+        !opts.method) return { ...response, parents: [H('unrelated-parent')] };
+    return response;
+  } };
+  await assert.rejects(commitVaultNoteBatch(untrusted, [{
+    action: 'create', id, note: { subjectId, heading: 'Must verify', answer: 'Parent' },
+  }]), /vault-commit-unconfirmed/);
+  assert.equal(f.getFiles().size, 1, 'a committed file may exist even after unconfirmed result');
 });

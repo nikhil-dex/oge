@@ -207,6 +207,65 @@ forged JSON with recalculated local SHA-256, forged inventory/blob hashes,
 corrupted raw blobs, stale HEAD, revoked owner session, rate limits,
 missing pages and unsafe local files.
 
+## Milestone #56 — Bounded historical GitHub source provenance
+
+Milestone #55 only verified a downloaded chunk set while its GitHub
+source snapshot was still the signed owner's **current HEAD**. To
+support a backup taken shortly before a later Save, #56 provides
+a **separately opt-in, read-only** historical source verifier:
+
+```sh
+# Set the explicit operator-only flag in the PRIVATE terminal, not
+# in production environment or committed application config:
+# OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY=YES_20_LINEAR_ANCESTORS_ONLY
+npm run vault:chunk:verify-history
+```
+
+Use the same exact `OGE_VAULT_INSPECT_OWNER_ID`,
+`OGE_VAULT_INSPECT_SESSION_VERSION`,
+`OGE_VAULT_INSPECT_REPO_ID`, private GitHub App and explicit
+`MONGODB_URI`/`MONGODB_DB` as the #55 source checker.
+`OGE_VAULT_CHUNK_PLAN_DIRECTORY` still requires one operator-owned
+**0700 directory** with contiguous, owner-only **0600** private chunk
+files. **Unset** the older
+`OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY` flag: #56 refuses missing,
+ambiguous or simultaneous current/historical operator consent.
+
+For a complete self-consistent chunk set (at most **1,024 current Notes
+across 16 parts**), the verifier first checks the exact signed account
+and pinned HEAD of its **connected private source GitHub Vault**.
+It follows that HEAD's **single-parent Git commit chain**, at most
+**20 newer commits**, until it reaches the backup's original snapshot.
+Invalid/cyclic history, merge commits, a detached/unreachable snapshot,
+expired source installation, or history beyond the 20-step bound cannot
+be accepted as proof. Only after establishing this ancestry does it
+read the complete **historical Git tree** and verify all note IDs,
+Git blob SHAs and canonical note contents against raw immutable
+GitHub blob bytes. It checks that branch HEAD and the signed owner
+mapping are still unchanged at the end.
+
+The report contains only redacted counts, `commitsAfterSnapshot`,
+`sourceHistoricalSnapshotVerified` and non-authorizing verification
+fields. It does **not** report owner IDs, private note text, commit SHAs
+or GitHub tokens. It has `canCommit:false`,
+`authorizesRestore:false`, `canUnlockImport:false` and
+`canRetryAutomatically:false`. The previous
+`npm run vault:chunk:verify-source` behavior remains current-only
+unless the independent #56 opt-in is deliberately provided.
+
+**Historical provenance does not imply the notes still exist in current
+GitHub HEAD.** A newer commit may have edited or deleted some Notes.
+It does not constitute a durable signed backup, proof after repo
+deletion, authorization to import, a recovery/quiescence assessment,
+or a full multi-resource archive. There is no #56 GitHub write,
+MongoDB plaintext cache, chunk restore approval or automatic replay.
+
+Automated synthetic tests exercise 0, 1, 3, 19, and 20 newer commits,
+21-commit rejection, merges, cycles, detached history, a forged note
+body with recomputed local checksums, shifted branch HEAD, revoked
+signed account and a 520-Note, over-8-MiB historical backup.
+**Real authenticated GitHub App/two-device staging is not signed off.**
+
 ## Remaining release blockers
 
 An explicitly approved assembly and restore workflow (including

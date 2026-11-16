@@ -3,7 +3,7 @@
  * Milestone #46: explicit, read-only operator inspection of a stuck Vault
  * import lock. This tool NEVER unlocks, edits or decrypts user content.
  *
- * DO NOT call getDatabase(): it creates MongoDB indexes. This script only
+ * Avoid the application's index-creating database initializer. Only
  * reads owner-scoped MongoDB metadata, mints a scoped GitHub App token, and
  * checks the branch ref twice. No GitHub note reads or writes occur.
  *

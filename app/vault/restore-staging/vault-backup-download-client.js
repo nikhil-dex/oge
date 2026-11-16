@@ -41,6 +41,7 @@ export default function VaultBackupDownloadClient({ enabled }) {
     abortRef.current = abort;
     const verifier = createVaultBrowserChunkDownloadVerifier();
     let cursor = null;
+    let completed = false;
 
     try {
       for (let index = 1; index <= 16; index++) {
@@ -79,6 +80,7 @@ export default function VaultBackupDownloadClient({ enabled }) {
 
         if (accepted.complete) {
           const complete = await verifier.finish();
+          completed = true;
           setReport(complete);
           break;
         }
@@ -89,7 +91,8 @@ export default function VaultBackupDownloadClient({ enabled }) {
       }
       // A missing final page or >16 pages cannot count as complete.
       // This is also guarded by verifier.finish() above.
-      if (abort.signal.aborted) throw new TypeError('Export was cancelled');
+      if (abort.signal.aborted || !completed)
+        throw new TypeError('Export was cancelled or incomplete');
       // Even with complete server response verification, browser save
       // permission can fail: the local file-review picker checks actual files.
     } catch {

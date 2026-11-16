@@ -152,6 +152,108 @@ presence, malformed rows, revoked session and GitHub App mapping.
 A standalone signed staging acceptance with a real GitHub installation
 and two authenticated devices **has not been executed**.
 
+## Milestone #61 — Isolated real GitHub provider READ probe and acceptance matrix
+
+M61 introduces an opt-in **read-only operator probe** that can be run
+against an independently authorized **disposable staging** GitHub App
+installation. This command does **not** create notes, move Git refs,
+request a GitHub write token, or verify two physical devices. **It has
+not been run against live credentials in this development milestone.**
+
+### Read-only operator invocation
+
+Only in a protected staging operator environment, set the **existing**
+isolated Vault/Hybrid/Notes/restore-approval preview prerequisites and
+the exact signed staging account scope from the dedicated secure staging
+database. Explicitly set:
+
+```sh
+# Operator-only opt-in; do not commit credentials or use production accounts
+# OGE_VAULT_REAL_PROVIDER_PROBE_READ_ONLY=YES_ISOLATED_PRIVATE_STAGING_GETS_ONLY
+# MONGODB_DB=oge_vault_restore_staging_<disposable-database>
+# OGE_VAULT_INSPECT_OWNER_ID=<signed-test-owner-id>
+# OGE_VAULT_INSPECT_SESSION_VERSION=<signed-session-version>
+# OGE_VAULT_INSPECT_REPO_ID=<disposable-private-GitHub-repository-id>
+# OGE_VAULT_INSPECT_INSTALLATION_ID=<disposable-GitHub-App-installation-id>
+npm run vault:staging:provider-probe
+```
+
+The preflight checks `OGE_STAGING_URL`, `AUTH_URL`,
+`OGE_VAULT_BASE_URL`, private GitHub App and OAuth configuration,
+the dedicated `oge_vault_restore_staging_*` MongoDB name, exact
+signed user/session/repo/installation and default-off opt-in **before**
+connecting to MongoDB or GitHub. Never run with a production MongoDB
+URI or real user account, even if the database name resembles staging.
+Staging account/deployment isolation must also be independently
+confirmed by an operator; configuration matching alone is not proof.
+
+The command independently requests **two** restricted
+`contents:read` GitHub App installation clients from the same
+owner-connected private repo. It verifies the full signed GitHub
+account mapping including login/account ID, matches branch HEAD,
+immutable HEAD commit's tree SHA, rechecks branch HEAD and owner
+mapping, and outputs only redacted booleans. It fetches **no Notes
+blobs**. A provider 401/403/429, changed HEAD/tree or revoked
+owner/session prevents a positive probe. No write-scope token is
+minted and the command never executes a restore.
+
+A positive read probe means only that **this exact GET-only scope
+could be observed**. The result explicitly declares
+`physicalTwoDeviceSessionsVerified:false`,
+`liveOAuthBrowserAcceptanceVerified:false`,
+`realGitHubWriteFailureMatrixVerified:false` and
+`completeStagingAcceptanceSignedOff:false`. Two independently
+requested installation tokens are **not two independent browser
+devices**, and a verified read-only GitHub response is not
+authorization to restore or to clear an uncertain owner import lock.
+
+### Deterministic transport error matrix covered in CI
+
+Automated tests invoke the production `vaultGithubRequest`
+transport using controlled synthetic fetchers to verify fail-closed
+behavior for GitHub 401 auth expiry, 403 permission revocation,
+403 rate-limit headers, 429 throttling, 409 conflict, 422 Git
+non-fast-forward/conflict and network failure. For GitHub POST/PATCH
+writes, **there is one attempt even if the reply is 429/409/422/503
+or the network response is lost**. A lost HTTP response cannot be
+treated as proof that the remote write failed; the M58 owner import
+quarantine and M59 consumed receipt remain in force. These tests are
+deterministic transport simulations, **not actual provider fault
+injections or signed two-device tests**.
+
+### Required external acceptance checklist (NOT signed off)
+
+Before any proposal to merge/enable restore, a qualified operator
+must document independent, dated, redacted evidence that all of the
+following were actually observed with *only* disposable test data:
+
+1. Dedicated OAuth/Auth.js login of **two real separate browser/device
+   sessions** for the same disposable owner; verify stale/revoked
+   signed sessions cannot inspect or modify another account.
+2. GitHub App installation provenance: exact private owned repo ID,
+   same signed GitHub account, **contents:read** token isolation,
+   denial of writes through read-only client, and separate constrained
+   **contents:write** token only for an authorized staged batch.
+3. Real GitHub CAS: one create-only 1–12-note restore commit on a
+   disposable private Vault, verified revision and note byte content,
+   no MongoDB permanent note body, and no encrypted draft deletion.
+4. Actual stale-HEAD, 409/422, 429/secondary-rate-limit, 403/revoked
+   installation and network-timeout responses observed and recorded
+   **without retrying a possibly executed write**. Do not deliberately
+   corrupt or delete an existing real user's GitHub repository.
+5. With two actual devices, verify the owner import-exclusive fence
+   prevents concurrent drafts and secondary restore writes, and the
+   unknown-outcome state requires separate human reconciliation.
+6. Observe receipt expiry, one-time claim, incomplete history and
+   owner-locked state; verify no automatic next batch/lock release.
+7. Operator independently confirms staging database/host/credentials
+   are isolated, no sensitive data leaked into CI logs, and production
+   feature flags have never been enabled.
+
+**No automated script may mark this external checklist complete
+merely because unit tests, a GET-only probe or GitHub Actions passed.**
+No actual provider observation/signoff is currently recorded here.
+
 ## Remaining release blockers
 
 M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no finished owner-facing UI for managing private backup downloads. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.

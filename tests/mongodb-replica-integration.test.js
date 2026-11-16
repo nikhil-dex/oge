@@ -13,6 +13,7 @@ import { retireConfirmedVaultDraftWithReceipt, readConfirmedVaultSaveReceipt } f
 import { inspectVaultLegacyData } from '../lib/oge-vault-legacy-inventory.js';
 import { inspectLegacyCutoverForOwner } from '../lib/oge-vault-cutover-guard.js';
 import { withVaultOwnerDraftWrite, withVaultOwnerImportExclusive } from '../lib/oge-vault-import-fence.js';
+import { inspectVaultImportLockReadOnly } from '../lib/oge-vault-import-lock-inspection.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -689,6 +690,91 @@ test('real MongoDB D3b2b2 import fence rejects cross-subject draft writes until 
     } finally {
       done();
       await importing;
+    }
+    assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultImportLock,
+      undefined);
+  });
+});
+
+test('real MongoDB D3b2b2c2 operator lock inspection returns redacted metadata and never unlocks', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'lock-inspection-' + randomUUID();
+    const repoId = 702, sessionVersion = randomUUID(), operationId = randomUUID();
+    const noteId = randomUUID();
+    const lock = { operationId, repoId, startedAt: new Date('2026-11-16T00:00:00.000Z') };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion,
+      vault: { status: 'connected', repoId },
+      vaultImportLock: lock, vaultActiveDraftWriters: 0,
+    });
+    await db.collection('vault_drafts').insertOne({
+      ownerId, repoId, noteId, revision: 1,
+      encrypted: { ciphertext: 'ENCRYPTED_PRIVATE_DRAFT_CONTENT' },
+    });
+    await db.collection('subjects').insertOne({
+      ownerId, slug: randomUUID(), vaultActiveWriters: 1,
+    });
+    const beforeUser = await db.collection('users').findOne({ googleSub: ownerId });
+    const beforeDraft = await db.collection('vault_drafts').findOne({ ownerId, repoId, noteId });
+    let githubCalls = 0;
+    const report = await inspectVaultImportLockReadOnly(db, {
+      ownerId, repoId, sessionVersion, expectedOperationId: operationId,
+    }, { now: new Date('2026-11-16T09:30:00.000Z'),
+      githubHeadReader: async () => { githubCalls++; return 'a'.repeat(40); },
+    });
+    assert.equal(report.status, 'MANUAL_OPERATOR_REVIEW_REQUIRED');
+    assert.equal(report.ownerSnapshotStable, true);
+    assert.equal(report.pendingEncryptedDraftPresent, true);
+    assert.equal(report.activeSubjectWriterPresent, true);
+    assert.equal(report.githubHeadStable, true);
+    assert.equal(report.automaticUnlockAuthorized, false);
+    assert.equal(report.operatorUnlockAuthorized, false);
+    assert.equal(githubCalls, 2);
+    const serialized = JSON.stringify(report);
+    for (const privateValue of [
+      ownerId, String(repoId), operationId, sessionVersion, noteId,
+      'ENCRYPTED_PRIVATE_DRAFT_CONTENT', 'a'.repeat(40),
+    ]) assert.equal(serialized.includes(privateValue), false);
+    assert.deepEqual(await db.collection('users').findOne({ googleSub: ownerId }), beforeUser);
+    assert.deepEqual(await db.collection('vault_drafts').findOne({ ownerId, repoId, noteId }),
+      beforeDraft);
+    const staleScope = await inspectVaultImportLockReadOnly(db, {
+      ownerId, repoId, sessionVersion: randomUUID(), expectedOperationId: operationId,
+    }, { githubHeadReader: async () => { throw new Error('must not execute'); } });
+    assert.equal(staleScope.status, 'OWNER_OR_REPOSITORY_NOT_VERIFIED');
+    assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultImportLock.operationId,
+      operationId);
+  });
+});
+
+test('real MongoDB D3b2b2c2 live exclusive import lock remains intact after operator read', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'lock-inspection-live-' + randomUUID(), repoId = 703;
+    const sessionVersion = randomUUID(), operationId = randomUUID();
+    const owner = { ownerId, repoId, sessionVersion };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault: { status: 'connected', repoId },
+    });
+    let started, done;
+    const ready = new Promise((resolve) => { started = resolve; });
+    const hold = new Promise((resolve) => { done = resolve; });
+    const importWork = withVaultOwnerImportExclusive(db, owner, async () => {
+      started();
+      await hold;
+    }, { operationId });
+    try {
+      await ready;
+      const report = await inspectVaultImportLockReadOnly(db, {
+        ...owner, expectedOperationId: operationId,
+      }, { githubHeadReader: async () => 'b'.repeat(40) });
+      assert.equal(report.lockPresent, true);
+      assert.equal(report.expectedOperationMatched, true);
+      assert.equal(report.operatorUnlockAuthorized, false);
+      assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultImportLock.operationId,
+        operationId);
+    } finally {
+      done();
+      await importWork;
     }
     assert.equal((await db.collection('users').findOne({ googleSub: ownerId })).vaultImportLock,
       undefined);

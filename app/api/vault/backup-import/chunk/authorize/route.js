@@ -22,6 +22,8 @@ const json = (value, status = 200) => Response.json(value, {
 
 function stagingAllowed(env, request) {
   if (env.OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW !== 'true' ||
+      !/^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(
+        env.MONGODB_DB || '') ||
       env.OGE_VAULT_MAIN_PREVIEW !== 'true' ||
       env.OGE_VAULT_NOTE_API_PREVIEW !== 'true' ||
       env.OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW !== 'true' ||

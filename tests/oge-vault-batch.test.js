@@ -174,3 +174,42 @@ test('B7: confirmed GitHub commit still requires valid commit ancestry', async (
   }]), /vault-commit-unconfirmed/);
   assert.equal(f.getFiles().size, 1, 'a committed file may exist even after unconfirmed result');
 });
+
+test('B7 simulated two-device GitHub race preserves the winner and rejects stale writer', async () => {
+  const f = fixture();
+  const id = randomUUID(), subjectId = randomUUID();
+  const first = await commitVaultNoteBatch(f.client, [{
+    action: 'create', id, note: { subjectId, heading: 'Original', answer: 'Version 1' },
+  }]);
+  const originalSha = first.results[0].sha;
+  let raceInjected = false;
+  let winner;
+  const delayedDevice = { ...f.client,
+    async call(path, options = {}) {
+      // Device B has already prepared its commit, but Device A updates the
+      // branch before B's non-fast-forward protection runs.
+      if (!raceInjected && path === '/git/ref/heads/main' &&
+          options.method === 'PATCH') {
+        raceInjected = true;
+        winner = await commitVaultNoteBatch(f.client, [{
+          action: 'update', id, sha: originalSha,
+          note: { subjectId, heading: 'Device A', answer: 'A wins' },
+        }]);
+      }
+      return f.client.call(path, options);
+    },
+  };
+  await assert.rejects(commitVaultNoteBatch(delayedDevice, [{
+    action: 'update', id, sha: originalSha,
+    note: { subjectId, heading: 'Device B', answer: 'B stale update' },
+  }]), (error) => error instanceof VaultGitHubError &&
+    error.message === 'vault-note-conflict' && error.status === 409);
+
+  assert.equal(raceInjected, true);
+  assert.equal(f.getHead(), winner.commitSha);
+  assert.equal(f.getFiles().size, 1);
+  const note = await f.client.call('/contents/notes/' + id + '.json?ref=main');
+  assert.equal(JSON.parse(Buffer.from(note.content, 'base64').toString()).answer, 'A wins');
+  assert.notEqual(JSON.parse(Buffer.from(note.content, 'base64').toString()).answer,
+    'B stale update');
+});

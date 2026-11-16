@@ -374,7 +374,9 @@ test('M54 untrustworthy encrypted-draft responses or source tampering reject pla
     }), /vault-chunk-restore-draft-check-invalid/);
   const malformed = structuredClone(parts[0]);
   malformed.notes[0].subjectId = randomUUID();
-  malformed.chunkSha256 = DIGEST(JSON.stringify(malformed.notes));
+  // A changed page with the ORIGINAL digest must fail integrity checks.
+  // Client-recomputed digests are not an authentication mechanism, and
+  // even a positive plan NEVER grants import/write authorization.
   const target = restoreTarget();
   await assert.rejects(planVaultNotesChunkRestoreReadOnly(
     target.client, [malformed, parts[1]], target));

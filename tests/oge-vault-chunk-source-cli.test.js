@@ -71,7 +71,9 @@ test('M55 source verifier cannot write GitHub, alter MongoDB notes or authorize 
   assert.match(cliSource, /checkPrivateFiles\(directory\)/);
   assert.match(engine, /scanVaultNotesSnapshotIndex/);
   assert.match(engine, /createHash\('sha1'\)/);
-  assert.match(engine, /currentSourceGitHubCommitAndAllBlobBytesVerified: true/);
+  assert.match(engine, /sourceGitHubCommitAndAllBlobBytesVerified: true/);
+  assert.match(engine, /currentSourceGitHubCommitAndAllBlobBytesVerified:/);
+  assert.match(engine, /historicalSourceSnapshotsSupported: allowBoundedHistory/);
   assert.match(engine, /authorizesRestore: false/);
   assert.match(engine, /canCommit: false/);
   assert.doesNotMatch(cliSource + engine,

@@ -8,6 +8,7 @@ import { deleteSubjectAtomically } from '../lib/atomic-subject-deletion.js';
 import { deleteAccountDataAtomically, ACCOUNT_OWNER_COLLECTIONS } from '../lib/account-deletion-transaction.js';
 import { promoteStagedVaultFileIndex } from '../lib/oge-vault-file-index-promotion.js';
 import { reconcileVaultFileIndexVerification } from '../lib/oge-vault-file-index-recovery.js';
+import { reconcileConfirmedVaultDraft } from '../lib/oge-vault-save-finalize.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -423,5 +424,44 @@ test('real MongoDB account deletion blocks orphaned drafts and file-index recove
       assert.equal(await db.collection('users').countDocuments({ googleSub: ownerId }), 1);
       assert.equal(await db.collection(collectionName).countDocuments({ ownerId }), 1);
     }
+  });
+});
+
+test('real MongoDB B7 ambiguous Save cleanup cannot remove a newer draft revision', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const ownerId = 'b7-finalize-' + randomUUID(), repoId = 126;
+    const noteId = randomUUID(), sha = 'a'.repeat(40);
+    const scope = { ownerId, repoId, noteId };
+    const drafts = db.collection('vault_drafts');
+    await drafts.createIndex({ ownerId: 1, repoId: 1, noteId: 1 }, { unique: true });
+    await drafts.insertOne({ ...scope, revision: 3,
+      encrypted: { ciphertext: 'synthetic encrypted draft for test' }, status: 'pending' });
+    const client = { branch: 'main', vault: { repoId } };
+    const noteReader = async () => ({ id: noteId, sha });
+    const verified = async () => ({ confirmed: true, sha, commitSha: 'b'.repeat(40) });
+
+    const first = await reconcileConfirmedVaultDraft(drafts, client, scope, 3, sha, {
+      inspector: verified, noteReader,
+    });
+    assert.equal(first.confirmed, true);
+    assert.equal(first.cleared, true);
+    assert.equal(await drafts.countDocuments(scope), 0);
+
+    await drafts.insertOne({ ...scope, revision: 3,
+      encrypted: { ciphertext: 'new synthetic draft' }, status: 'pending' });
+    // Emulate a concurrent autosave completing after remote verification
+    // but before the cleanup CAS. The older Save must not remove revision 4.
+    const raced = await reconcileConfirmedVaultDraft(drafts, client, scope, 3, sha, {
+      inspector: verified, noteReader: async () => {
+        await drafts.updateOne({ ...scope, revision: 3 },
+          { $set: { revision: 4, encrypted: { ciphertext: 'newer synthetic draft' } } });
+        return { id: noteId, sha };
+      },
+    });
+    assert.equal(raced.confirmed, true);
+    assert.equal(raced.cleared, false);
+    const remaining = await drafts.findOne(scope);
+    assert.equal(remaining.revision, 4);
+    assert.equal(remaining.encrypted.ciphertext, 'newer synthetic draft');
   });
 });

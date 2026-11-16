@@ -884,6 +884,66 @@ historical source-deletion recovery, uncertain lock unlock,
 Quick Notes/AirNotes cutover or production gate is enabled.
 See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
 
+## Phase D3b2b2c4m / Milestone #60: Bounded multi-batch history, unknown outcomes block progression
+
+The isolated M59 signed restore bridge issues an independent
+one-time 10-minute ticket for each owner-approved 1–12 Note
+GitHub CAS batch. M60 adds a staging-only, **read-only**
+`GET /api/vault/backup-import/chunk/history` route, requiring
+the existing disabled-by-default M59 approval preview gate,
+exact Auth.js owner/session, and dedicated secure restore
+staging MongoDB. It retrieves only the most recent **25
+metadata-only receipts** for the exact same signed owner,
+session, GitHub repo and App installation, ordered by
+creation timestamp and hashed receipt ID. A compound MongoDB
+index makes the bounded lookup efficient.
+
+The new `inspectVaultRestoreBatchHistoryReadOnly` engine
+rechecks the signed account and its import-lock state before
+and after the database read. It can report independently
+confirmed batches, pending/expired signed approvals, a
+claimed-but-unconfirmed outcome that could represent an
+unknown remote GitHub mutation, a present owner import
+quarantine, invalid metadata or a truncated history window.
+None of these states grants authorization to resume.
+
+M60 also prevents issuing a **new** M59 signed receipt
+whenever the owner import lock exists or an earlier
+receipt remains `claimed` rather than `confirmed`.
+After a truly confirmed previous batch, any additional
+batch requires a **new reviewed source fingerprint, exact
+current target Git HEAD and distinct signed owner approval**.
+There is no multi-batch automatic loop, and a `claimed`
+status is never treated as a failed or safely retryable
+GitHub commit.
+
+Results exclude note IDs, headings, answers, chunk files
+and owner identity. They explicitly state
+`historicalTotalsProven:false`,
+`historicalBatchChainVerified:false`,
+`currentGitHubHeadVerified:false`,
+`automaticNextBatchAuthorized:false`,
+`automaticRetryAuthorized:false` and
+`operatorLockReleaseAuthorized:false`. History is
+limited to the latest 25 records and metadata older than
+seven days after receipt expiration may be removed by
+MongoDB TTL; **this is not a durable complete disaster
+recovery ledger**.
+
+Real disposable replica-set integration tests verify two
+independently confirmed receipts, claimed/unknown outcome
+with an older confirmation, pending/expired records,
+more than 25 rows, import quarantine, invalid history,
+revoked owner mapping, and the new approval issuance
+block. These tests do **not** run authenticated live
+GitHub App OAuth, two-device provider isolation, real
+429/409/422 errors or deployment signoff. The signed
+staging acceptance and any potentially dangerous
+`github-write-possible` lock release remain BLOCKED.
+
+For staged operator instructions see
+`docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

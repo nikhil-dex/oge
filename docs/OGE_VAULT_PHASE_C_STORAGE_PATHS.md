@@ -40,6 +40,7 @@ unreachable branches.
 | `lib/atomic-subject-deletion.js` | Legacy MongoDB notes cascade removal | Keep connected Vault deletion fail-closed until GitHub and metadata transactional coordinator is validated |
 | `lib/oge-vault-subject-finalization.js` | Read-only check that legacy subject notes are absent | Keep as a safety gate until the legacy note audit is complete |
 | `lib/account-deletion-transaction.js` | Dynamically iterates collections for account deletion | Existing connected-Vault guard must stay until safe cross-store lifecycle handling is approved |
+| `lib/google-account-link.js` | Dynamically checks whether a GitHub account has legacy content before linking Google | Preserve this non-migration safety check; add Vault owner/repo/draft checks before any future account consolidation |
 
 ## Additional related storage
 

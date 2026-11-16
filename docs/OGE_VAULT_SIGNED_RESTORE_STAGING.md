@@ -523,3 +523,8 @@ has been completed.
 M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no completed, live-accepted production offline backup and restore experience. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.
 
 **Do not merge PR #35 or enable production restore flags.**
+
+
+## M66 encrypted-file operator bridge
+
+See docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md for the new default-off signed M59 operator mode, the FD3 password pipe, in-memory M65 AES-GCM/M63 inventory/review preflight before ticket claim, and unchanged M58 independent GitHub provenance/CAS. No live signed two-device acceptance or production authorization.

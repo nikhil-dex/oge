@@ -137,5 +137,16 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.match(api, /return POST\(request\)/);
   assert.match(page, /cleaned\?\.confirmed !== true \|\| cleaned\.cleared !== true/);
   assert.match(page, /GitHub saved — draft cleanup pending/);
+  // A lost DELETE response can be replayed only through GitHub-verified
+  // receipt reconciliation; never retry the full note Save or close on
+  // an unconfirmed cleanup.
+  const normalSave = page.slice(page.indexOf('if (hybridDrafts && draftNoteId) {'),
+    page.indexOf('// An edit that raced with confirmed cleanup'));
+  assert.match(normalSave, /method: 'DELETE'/);
+  assert.match(normalSave, /method: 'POST'/);
+  assert.match(normalSave, /NOT the GitHub note Save/);
+  assert.match(normalSave, /cleaned\?\.confirmed !== true \|\| cleaned\.cleared !== true/);
+  assert.match(normalSave, /return;/);
+
   assert.match(page, /GitHub saved — newer browser draft retained/);
 });

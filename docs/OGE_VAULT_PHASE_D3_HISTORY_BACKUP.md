@@ -613,6 +613,52 @@ draft output and private-file permissions are covered in CI. Signed
 live GitHub two-device staging and all non-Notes data paths remain
 release blockers. See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
 
+## Phase D3b2b2c4h / Milestone #55: Signed source Git blob provenance for chunks
+
+Milestone #54 guarantees complete, correctly ordered and internally
+checksum-consistent downloaded Notes chunks. This is **not** the same
+as validating where those chunks came from: anyone can regenerate
+SHA-256 fields after editing a local file.
+
+`verifyVaultNotesChunkGitHubSourceReadOnly()` adds an independent,
+source-side read-only check with a signed owner-bound **private GitHub
+Vault contents:read** client. First it verifies the entire chunk
+sequence in memory, retaining only note UUIDs, source Git blob SHAs and
+normalized note-content SHA-256 digests. Before reading any GitHub
+blob, it requires the full chunk snapshot to be exactly the
+**currently connected source branch HEAD**, exact full canonical
+Git tree entries matching every supplied Note ID/SHA, and the
+owner/session/repository mapping.
+
+The verifier reads each raw immutable Git blob in bounded groups of
+five. It recomputes Git's `SHA-1(blob <length>\\0 + bytes)` from the
+returned bytes, checks the canonical OgeNotes schema and compares
+all note fields against the locally supplied page's normalized
+content digest. It then rechecks the signed owner and Git HEAD.
+No source plaintext is logged, returned, stored in MongoDB, or used
+to authorize import. 1,024 notes / 16 pages is the explicit
+maximal current-head-only proof bound to avoid unbounded GitHub API
+requests. Provider errors and unavailable data fail closed.
+
+The default-off private operator command
+`npm run vault:chunk:verify-source` requires
+`OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY=YES_CURRENT_GITHUB_HEAD_ONLY`,
+exact signed owner/session/repo/database, and 0700 private directory
+with contiguous 0600 non-symlink JSON parts. File permissions and
+sequence names are checked before MongoDB connection or GitHub token
+minting. It returns a redacted, **non-authorizing** report.
+
+This can establish that submitted chunk content matches a
+**currently accessible signed GitHub source**, including a verified
+520-note collection larger than 8 MiB, but it is not a durable
+signature, historical commit proof, disaster-recovery substitute
+after source loss, actual GitHub staging acceptance, or approval
+to write a destination repo. If the original HEAD moved or source
+access is gone, no claim of source authentication is made.
+M54's destination conflict planner remains unchanged and
+`canCommit:false`; the 12-note explicit import approval cannot
+be bypassed. See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

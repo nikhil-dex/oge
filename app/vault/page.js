@@ -42,6 +42,16 @@ export default async function VaultPage({ searchParams }) {
   const configured = vaultConfigured();
   const previewEnabled = process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true';
   const mainPreviewEnabled = process.env.OGE_VAULT_MAIN_PREVIEW === 'true';
+  const standaloneEditorVisible =
+    process.env.OGE_VAULT_STANDALONE_EDITOR_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_STANDALONE_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_STANDALONE_DRAFT_PREVIEW === 'true' &&
+    mainPreviewEnabled &&
+    process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
+    process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true' &&
+    process.env.AUTH_URL === process.env.OGE_STAGING_URL &&
+    /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(process.env.MONGODB_DB || '') &&
+    checkVaultStagingReadiness(process.env).ok;
   const capturePreviewEnabled = mainPreviewEnabled &&
     process.env.OGE_VAULT_QUICK_CAPTURE_PREVIEW === 'true' &&
     process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
@@ -88,6 +98,7 @@ export default async function VaultPage({ searchParams }) {
             {previewEnabled && <Link className="oge-primary-link" href="/vault/preview">Open GitHub-only Notes preview →</Link>}
             {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open familiar Notes interface (GitHub-only) →</Link>}
             {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Quick Capture to GitHub Vault (staging preview) →</Link>}
+            {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}
             {restoreStagingVisible && <Link className="oge-primary-link" href="/vault/restore-staging">Review staging-only backup restore →</Link>}
           </>
         ) : (

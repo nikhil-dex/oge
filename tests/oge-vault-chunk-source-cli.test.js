@@ -77,3 +77,24 @@ test('M55 source verifier cannot write GitHub, alter MongoDB notes or authorize 
   assert.doesNotMatch(cliSource + engine,
     /\.updateOne\(|\.insertOne\(|\.deleteOne\(|commitVaultNoteBatch\(/);
 });
+
+test('M56 historical source CLI consent is exclusive and never bypasses private files', async () => {
+  const bothModes = scope('/tmp/m56-missing-chunks');
+  bothModes.OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY = 'YES_CURRENT_GITHUB_HEAD_ONLY';
+  bothModes.OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY = 'YES_20_LINEAR_ANCESTORS_ONLY';
+  expectBlocked(bothModes);
+  const historyOnly = scope('/tmp/m56-missing-chunks');
+  historyOnly.OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY = '';
+  historyOnly.OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY =
+    'YES_20_LINEAR_ANCESTORS_ONLY';
+  expectBlocked(historyOnly);
+  expectBlocked({
+    ...historyOnly, OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY:
+      'YES_ARBITRARY_REVISION_HISTORY',
+  });
+  const source = await readFile(cli, 'utf8');
+  assert.match(source, /currentMode !== historyMode/);
+  assert.match(source, /allowBoundedHistory: historyMode/);
+  assert.match(source, /OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY/);
+  assert.doesNotMatch(source, /force: true|method: 'POST'|method: 'PATCH'/);
+});

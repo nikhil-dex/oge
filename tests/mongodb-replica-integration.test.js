@@ -15,6 +15,7 @@ import { inspectLegacyCutoverForOwner } from '../lib/oge-vault-cutover-guard.js'
 import { withVaultOwnerDraftWrite, withVaultOwnerImportExclusive } from '../lib/oge-vault-import-fence.js';
 import { inspectVaultImportLockReadOnly } from '../lib/oge-vault-import-lock-inspection.js';
 import { releasePreWriteVaultImportLockInStaging } from '../lib/oge-vault-import-lock-prewrite-release.js';
+import { inspectVaultImportAttemptEvidenceReadOnly } from '../lib/oge-vault-import-attempt-evidence.js';
 
 const uri = process.env.OGE_TEST_MONGODB_URI;
 const realDatabase = { skip: !uri ? 'Set OGE_TEST_MONGODB_URI for isolated replica-set integration tests' : false };
@@ -936,5 +937,75 @@ test('real MongoDB D3b2b2c3 audit insertion failure rolls back exact lock releas
     assert.equal((await db.collection('users').findOne({ googleSub: ownerId }))
       .vaultImportLock.state, 'acquired');
     assert.equal(await db.collection('vault_import_lock_recovery_audit').countDocuments({}), 0);
+  });
+});
+
+test('real MongoDB M48 evidence inspection reads only signed metadata and preserves quarantined drafts', realDatabase, async () => {
+  await isolatedDatabase(async (db) => {
+    const { createHash } = await import('node:crypto');
+    const h = (x) => createHash('sha1').update(x).digest('hex');
+    const ownerId = 'import-evidence-' + randomUUID();
+    const sessionVersion = randomUUID(), repoId = 866, operationId = randomUUID();
+    const noteId = randomUUID();
+    const baseHead = h('evidence-base'), nextHead = h('evidence-import');
+    const baseTree = h('evidence-base-tree'), nextTree = h('evidence-import-tree');
+    const commitMarker = 'Restore OgeNotes backup ' + 'd'.repeat(64);
+    const vault = { status: 'connected', repoId, installationId: 56,
+      githubAccountId: '88', githubLogin: 'synthetic-owner', repoName: 'ogenotes-vault' };
+    const importedLock = {
+      operationId, repoId, startedAt: new Date('2026-11-16T08:00:00.000Z'),
+      attemptedAt: new Date('2026-11-16T08:01:00.000Z'),
+      state: 'github-write-possible', approvedHead: baseHead,
+      commitMarker, selectedIds: [noteId],
+    };
+    await db.collection('users').insertOne({
+      googleSub: ownerId, sessionVersion, vault,
+      vaultImportLock: importedLock, vaultActiveDraftWriters: 0,
+    });
+    await db.collection('vault_drafts').insertOne({
+      ownerId, repoId, noteId: randomUUID(), revision: 2,
+      encrypted: { ciphertext: 'ONLY_ENCRYPTED_DRAFT' },
+    });
+    const before = await db.collection('users').findOne({ googleSub: ownerId });
+    const draftBefore = await db.collection('vault_drafts').findOne({ ownerId });
+    const originalBlob = { path: 'README.md', type: 'blob',
+      mode: '100644', sha: h('readme') };
+    const importedBlob = { path: 'notes/' + noteId + '.json',
+      type: 'blob', mode: '100644', sha: h('imported-file') };
+    const calls = [];
+    const client = { vault: { ...vault }, branch: 'main',
+      async call(path, options = {}) {
+        calls.push({ path, method: options.method || 'GET' });
+        if (path === '/git/ref/heads/main') return { object: { sha: nextHead } };
+        if (path === '/git/commits/' + nextHead) return {
+          tree: { sha: nextTree }, parents: [{ sha: baseHead }],
+          message: commitMarker,
+        };
+        if (path === '/git/commits/' + baseHead) return { tree: { sha: baseTree } };
+        if (path === '/git/trees/' + baseTree + '?recursive=1')
+          return { truncated: false, tree: [originalBlob] };
+        if (path === '/git/trees/' + nextTree + '?recursive=1')
+          return { truncated: false, tree: [originalBlob, importedBlob] };
+        throw new Error('Unexpected provider GET');
+      },
+    };
+    const result = await inspectVaultImportAttemptEvidenceReadOnly(db, {
+      ownerId, sessionVersion, repoId, expectedOperationId: operationId,
+    }, client);
+    assert.equal(result.status, 'MATCHING_IMPORT_COMMIT_METADATA_ONLY');
+    assert.equal(result.matchingCommitMetadataFound, true);
+    assert.equal(result.importedContentVerified, false);
+    assert.equal(result.operatorUnlockAuthorized, false);
+    assert.ok(calls.every((x) => x.method === 'GET'));
+    assert.deepEqual(await db.collection('users').findOne({ googleSub: ownerId }), before);
+    assert.deepEqual(await db.collection('vault_drafts').findOne({ ownerId }), draftBefore);
+    const serialized = JSON.stringify(result);
+    for (const sensitive of [ownerId, operationId, noteId, commitMarker,
+      baseHead, nextHead, 'ONLY_ENCRYPTED_DRAFT'])
+      assert.equal(serialized.includes(sensitive), false);
+    const differentOwner = await inspectVaultImportAttemptEvidenceReadOnly(db, {
+      ownerId, sessionVersion: randomUUID(), repoId, expectedOperationId: operationId,
+    }, client);
+    assert.equal(differentOwner.status, 'OWNER_OR_REPOSITORY_NOT_VERIFIED');
   });
 });

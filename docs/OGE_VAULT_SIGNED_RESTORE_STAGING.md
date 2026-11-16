@@ -325,6 +325,90 @@ authenticate two real staging devices or exercise a real GitHub
 restore through the new page. **Actual GitHub App OAuth/two-device
 acceptance remains unsigned**.
 
+## Milestone #63 — Local private backup integrity check in the staging browser
+
+The M62 staging review page now has a **mandatory local file review**
+before it can issue an M59 signed one-time approval. This closes a
+previous UX gap in which an owner had to manually copy a source checksum
+and selection fingerprint but could not independently check the
+downloaded chunk files in the browser.
+
+After preparing a M57 **signed source/target** intent using the
+existing trusted operator tooling, open `/vault/restore-staging` from
+a **trusted disposable staging computer**. Supply the exact M57
+source commit, full inventory SHA-256, current target HEAD, selection
+fingerprint and the selected 1–12 UUIDs **in their approved order**.
+Choose the complete `part-0001.json` through final
+`part-NNNN.json` source chunk files using the local file picker,
+then explicitly press **Verify local chunks and reviewed fingerprint**.
+Only 1–16 numbered JSON parts of **at most 4 MiB each** are accepted,
+covering **at most 1,024 Notes**. The browser reads the files
+sequentially with the local File API; no file is submitted to an
+HTTP request or placed into browser local/session storage.
+
+The browser's Web Crypto SHA-256 verifier checks all these properties:
+
+- Exact part filenames, file bounds, canonical chunk format and
+  Notes-only coverage (no Quick Notes, AirNotes, encrypted drafts or
+  historical revisions).
+- Canonical Note structure/field ordering, note-size limits,
+  UTF-8 validity, unique ascending UUIDs, chunk offsets, cursor
+  continuity, complete page count, and per-part SHA-256.
+- **Full inventory SHA-256** over each note ID + Git blob SHA
+  from every part, matching the exact originally reviewed source
+  snapshot/inventory checksum.
+- The SHA-256 of canonical selected note metadata (including actual
+  local heading/answer bytes) mapped to each of the **1–12 chosen
+  Note IDs** in owner-selected order, matching the reviewed M57
+  `selectionFingerprint` for the exact destination HEAD.
+
+The UI shows **only number of parts, total Notes and selected Notes**
+on success. It does not render private note headings or answers,
+store a backup, send notes to MongoDB, request a GitHub token,
+or commit a GitHub change. Any corrupt, missing, duplicated,
+forged or mismatched file blocks the browser's receipt request.
+Changing any reviewed field or selected local files invalidates
+the local proof and requires another explicit check. The owner
+still must acknowledge the independent conflict review and type
+`APPROVE ONE BATCH`.
+
+**Local integrity is not GitHub authentication.** Source commit
+SHA and blob SHA fields inside downloaded JSON are self-reported
+metadata until independently verified against the *signed private
+GitHub App installation* by the M55–M58 operator source proof.
+A matching local SHA-256 is neither a signed approval nor evidence
+that GitHub currently contains these notes; it also says nothing
+about the latest target HEAD or MongoDB encrypted-draft conflicts.
+The M59 browser approval API rechecks the HEAD independently,
+and the M58 operator re-reads and verifies every Git blob and
+target conflict behind its durable owner/subject locks.
+
+If the signed browser POST fails or loses its response **after
+submission**, the staging page now permanently disables that
+form for the current review session rather than allowing a
+second POST. Inspect the read-only owner history; a claimed or
+pending result might indicate an approval was already created.
+No automatic retry, multi-batch continuation, import-lock release
+or silent draft deletion was added.
+
+**Privacy caution:** these downloaded chunks contain the
+owner's *plaintext* Notes. Choose files only on a trusted device
+and an isolated, authorized staging origin. The browser handles
+the file bytes in memory while checking them; JavaScript running
+on a compromised origin or browser extension could potentially
+access them. No automatic copy, upload, persistence or local
+backup is performed by this feature.
+
+Unit tests match the server's canonical chunk verifier on
+130 Notes and a **520-note, >8-MiB** backup; check incomplete
+parts, reordering, forged checksums, modified local bodies,
+unsupported fields, mismatched selection order/HEAD/inventory
+and no-network/no-storage operation. These tests run with
+synthetic data, not a real signed GitHub staging account.
+The existing Chromium desktop/mobile smoke is a general
+app check; it is **not** a live authenticated test of this
+file-picker workflow or any real restoration.
+
 ## Remaining release blockers
 
 M59 automated synthetic Git and real disposable MongoDB tests are NOT real signed two-device provider staging; no actual independent staging session has been signed off. The signed route issues one-time approval receipts but no finished owner-facing UI for managing private backup downloads. Automatic multi-batch progress/resumption, verified operator quiescence and dual approval for uncertain lock repair, recovery after source repository loss, Quick Notes, AirNotes, extension integration, privacy review and production cutover remain incomplete.

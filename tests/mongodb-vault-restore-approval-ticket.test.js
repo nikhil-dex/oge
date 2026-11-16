@@ -107,6 +107,11 @@ test('M59 metadata-only receipt is atomically claimed once before restore and co
     assert.ok(indexes.some((i) =>
       i.name === 'vault_restore_approval_expiration_v1' &&
       i.expireAfterSeconds === 7 * 24 * 60 * 60));
+    assert.ok(indexes.some((i) =>
+      i.name === 'vault_restore_owner_recent_batches_v1' &&
+      i.key.ownerId === 1 && i.key.sessionVersion === 1 &&
+      i.key.repoId === 1 && i.key.installationId === 1 &&
+      i.key.createdAt === -1 && i.key._id === -1));
   });
 });
 

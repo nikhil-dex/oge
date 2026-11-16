@@ -31,6 +31,7 @@ export default function RestoreReviewClient() {
   const [localVerifyBusy, setLocalVerifyBusy] = useState(false);
   const [localVerifyError, setLocalVerifyError] = useState('');
   const [approveBusy, setApproveBusy] = useState(false);
+  const [receiptAttempted, setReceiptAttempted] = useState(false);
   const [approvalError, setApprovalError] = useState('');
   const [receipt, setReceipt] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -83,7 +84,7 @@ export default function RestoreReviewClient() {
   const canRequest = !historyBusy && !historyError &&
     review.canRequestReceipt && locallyVerified && reviewed &&
     typedConfirmation === 'APPROVE ONE BATCH' &&
-    !approveBusy && !localVerifyBusy && !receipt;
+    !approveBusy && !localVerifyBusy && !receiptAttempted && !receipt;
 
   async function requestReceipt(event) {
     event.preventDefault();
@@ -92,6 +93,10 @@ export default function RestoreReviewClient() {
     setApproveBusy(true);
     try {
       const selected = buildVaultRestoreReviewApproval(fields);
+      // Treat a lost POST response as ambiguous: even if the browser never
+      // received the receipt, the signed server may have issued it.
+      // No second request in this reviewed browser session.
+      setReceiptAttempted(true);
       const response = await fetch(approveEndpoint, {
         method: 'POST', cache: 'no-store', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
@@ -118,7 +123,7 @@ export default function RestoreReviewClient() {
       // Never automatically replay or issue a second POST here.
       setApprovalError((error instanceof Error ? error.message
         : 'Approval receipt was not confirmed.') +
-        ' Inspect the read-only history before considering a new request.');
+        ' Do not retry this review session. Inspect the read-only history, then begin a new independently reviewed session if needed.');
     } finally { setApproveBusy(false); }
   }
 
@@ -311,6 +316,12 @@ export default function RestoreReviewClient() {
           </label>
           {approvalError && <p role="alert" className={styles.alert}>
             {approvalError}</p>}
+          {receiptAttempted && !receipt &&
+            <p role="status" className={styles.alert}>
+              This review session has already attempted to issue a receipt.
+              Refresh read-only history and conduct a separate new review;
+              do not replay an unknown POST response.
+            </p>}
           <button type="submit" className={styles.primary}
             disabled={!canRequest}>
             {approveBusy ? 'Requesting…' : 'Request one-time staging receipt'}

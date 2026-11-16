@@ -530,6 +530,47 @@ GitHub OAuth/installation, actual provider throttling, mobile browser
 recovery or production cutover. Those live checks remain mandatory.
 Import preview flags remain default-off outside isolated staging.
 
+## Phase D3b2b2c4f / Milestone #53: Snapshot-pinned chunked Notes-only export
+
+The original `GET /api/vault/backup-export` keeps its **8 MiB full
+archive/413** semantics. A separate, **default-OFF** staging-only
+`GET /api/vault/backup-export/chunk` preview is available only when
+`OGE_VAULT_MAIN_PREVIEW`, `OGE_VAULT_BACKUP_EXPORT_PREVIEW`, and
+`OGE_VAULT_BACKUP_EXPORT_CHUNK_PREVIEW` all equal `true`. It requires
+the signed owner and exact connected private GitHub Vault, uses an
+installation token restricted to **contents:read**, and checks subject
+ownership and signed session/repository mapping.
+
+Every request scans the **complete** GitHub commit tree rather than the
+500-note directory listing, rejects invalid/truncated/duplicate paths,
+and downloads no more than **64 immutable Notes blobs** (maximum **4 MiB**
+per JSON response). Each page contains `snapshot`, `totalNotes`,
+`offset`, `count`, `inventorySha256` over the sorted full
+UUID/blob-SHA inventory, a page `chunkSha256`, `hasMore`, and
+`nextAfterId` for continuation. The next request must supply the
+original snapshot and the exact previous note UUID. If the branch HEAD
+changes, export fails with 409 before continuing; the owner must restart
+the download from the new snapshot rather than mix revisions.
+
+The pure `createVaultNotesChunkSequenceVerifier` accepts one downloaded
+part at a time and maintains only SHA-256 state, counters and a cursor.
+It rejects skipped or reordered pages, inconsistent page counts,
+missing note IDs, content changes, tampered per-page checksums and a
+mismatched final inventory checksum. A successful `finish()` establishes
+a complete **current Notes-only** set of downloaded pages, not a complete
+Oge backup, authenticated GitHub identity or authorization to import.
+
+A part always says `completeBackup:false` and cannot be submitted
+to the existing one-shot backup import. No production-ready large-vault
+assembly/import/restore exists yet. Synthetic tests cover a **520-note,
+over-8-MiB** snapshot, missing/tampered chunks, 429/corrupt blobs, stale
+cursors, subjects, empty vaults and unchanged legacy 413 semantics.
+No note content is stored in MongoDB. See
+`docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
+**Live signed GitHub OAuth/two-device acceptance, cross-resource backup,
+chunk restoration, owner-facing UI and production flags remain blocked.**
+
 ## Next: Full import recovery and backup coverage (not implemented)
 
 A safe GitHub-backed replacement must:

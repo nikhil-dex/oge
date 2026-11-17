@@ -45,6 +45,9 @@ export default async function VaultRecoveryCenterPage() {
 
   const model = buildVaultRecoveryCenterModel(process.env);
   const sourceCompareEnabled = vaultCurrentResourceSourceCheckAllowed(process.env);
+  // M91 requires a second explicit staging opt-in, independent from M89.
+  const authenticatedRestorePreviewEnabled = sourceCompareEnabled &&
+    process.env.OGE_VAULT_RESTORE_SOURCE_PREVIEW === 'true';
 
   return (
     <main className={'shell oge-shell oge-retro-workspace ' + styles.page}>
@@ -144,9 +147,9 @@ export default async function VaultRecoveryCenterPage() {
             <span className="oge-section-kicker">04 · RESTORATION PREVIEW</span>
             <h2 id="restore-preview-heading">Inspect possible conflicts</h2>
           </div>
-          <span className="oge-settings-pill">Local-only · no restore</span>
+          <span className="oge-settings-pill">Read-only · no restore</span>
         </div>
-        <VaultRestorePreview />
+        <VaultRestorePreview authenticateCurrent={authenticatedRestorePreviewEnabled} />
       </section>
       <section className="oge-settings-card oge-vault-card"
         aria-labelledby="excluded-heading">

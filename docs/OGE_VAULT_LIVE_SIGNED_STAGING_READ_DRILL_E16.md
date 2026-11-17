@@ -189,3 +189,24 @@ Existing anonymous local Chromium smoke tests remain separate.
 
 **No real user Notes were modified, no production deploy or merge.
 PR #35 remains DRAFT/UNMERGED.**
+
+## E17 / Milestone #85 — Offline real-adapter provider-fault rehearsal
+
+`npm run vault:staging:synthetic-provider-fault-matrix` is a
+separately default-OFF command for 12 **strictly IN-MEMORY**
+403/429/409/422/503/network/lost-ACK and post-write readback
+scenarios. It calls the REAL `vaultGithubRequest` and
+`withVaultOwnerImportExclusive`/draft-fence functions, but injects
+a synthetic fake GitHub fetcher and fake Mongo users row, **never**
+external GitHub or MongoDB services. Verifies one PATCH maximum,
+durable metadata-only owner `github-write-possible` marker before
+write, quarantine retention and rejection of autosaves/repeated
+imports after ambiguous GitHub responses, including a simulated
+remote change with lost acknowledgment. Only synthetic confirmed
+success/prewrite refusal releases in-memory test locks. All checks
+passing gives exit **2 = HOLD**, not production acceptance or
+postwrite lock-release authorization. It **does not execute** real
+GitHub App revocation, provider rate limits/HEAD conflicts or
+actual lost responses; independent live disposable-provider testing
+remains PENDING.
+See `docs/OGE_VAULT_PROVIDER_FAULT_MATRIX_OFFLINE_E17.md`.

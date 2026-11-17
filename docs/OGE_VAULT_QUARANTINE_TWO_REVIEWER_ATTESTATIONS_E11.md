@@ -200,3 +200,23 @@ safety, redacted output and the **HOLD=2** return code.
 
 **M78 and M77 read-only staging endpoints remain unchanged, M75 write
 and production flags remain OFF, and PR #35 remains DRAFT/UNMERGED.**
+
+## E12 / Milestone #80 — Two-reviewer signed local evidence file hashes
+
+Added a **separately default-OFF**, **offline read-only**
+`npm run vault:quarantine:verify-artifact-hashes` command and
+`lib/oge-vault-quarantine-artifact-integrity.js`. M80 first
+independently checks the same trusted M79 exact owner/incident/repo
+scope and two distinct valid Ed25519 signatures, then recomputes the
+actual SHA256 of three private fixed-name redacted files bounded to
+128 KiB each. Exact raw bytes must match the previously signed M79
+`writerShutdownSha256`, `outstandingGitHubRequestsSha256` and
+`encryptedDraftPreservationSha256`. Unsafe directory permissions,
+missing or extra files, symlinks, hardlinks, changed file metadata,
+tampering or broken signatures fail closed. Output is content-free;
+**even a positive match returns exit code 2, HOLD**. This proves local
+file bits correspond to two signers' declared digests, not that the
+external producer is authentic or that prior GitHub PATCH requests
+have ended. It **does not authorize** a postwrite lock release,
+automatic retry, deletion or production cutover. See
+`docs/OGE_VAULT_QUARANTINE_SIGNED_ARTIFACT_INTEGRITY_E12.md`.

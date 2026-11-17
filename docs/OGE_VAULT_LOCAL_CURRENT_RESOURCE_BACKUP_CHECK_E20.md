@@ -133,3 +133,25 @@ UX, extension/Learning Tracks cutover, external writer quiescence
 proof and independent security audit all remain pending.
 
 No real user Notes modified. No staging or production flags enabled.
+
+## E21 / Milestone #89 — Server independently checks local file against current private GitHub
+
+Separate default-OFF owner-authenticated HTTPS staging
+`POST /api/vault/backup-current-resources/source-check` verifies
+ONLY the claimed SHA256 fingerprints, current Git HEAD/tree IDs and
+three resource counts after the user's browser completes M88 local
+canonical file validation. The browser NEVER uploads plaintext Note
+contents, private Note IDs/titles or full archive; it sends metadata
+only on explicit user selection using a separate optional Recovery
+Center picker. Server independently reuses the M73 GitHub App
+`contents:read` full exporter, with live HEAD/owner/repo/subject
+verification, then compares reconstructed full canonical SOURCE
+SHA256 in constant time. The 3/hour owner limiter writes transient
+Mongo `rateLimitBuckets` metadata only, no Note content. A match
+authenticates the **CURRENT** private GitHub file snapshot at the
+check time given trusted Auth.js/GitHub App/server, not historical
+backups or complete account content; a mismatch can simply mean
+the current Git HEAD moved. No restore/import/writer/postwrite-lock
+unlock, no automated retries, no production deployment, no real
+OAuth/2-device acceptance. See
+`docs/OGE_VAULT_CURRENT_GITHUB_SOURCE_CHECK_E21.md`.

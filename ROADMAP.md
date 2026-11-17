@@ -2,6 +2,14 @@
 
 > Purpose: keep implementation aligned with the agreed product goal. This roadmap is the source of truth for scope, migration order, security gates, and launch readiness.
 
+## Oge Vault milestone #93 — E25: final read-only source freshness recheck and owner review states (17 Nov 2026)
+
+- **Implemented** an independent default-OFF `OGE_VAULT_RECOVERY_STALE_RECHECK_PREVIEW=false` guarded by every M92/M91/M89/M87 signed-owner, private GitHub App, protected HTTPS, isolated Mongo staging gate. It does **not** expose a new endpoint or GitHub write token.
+- The owner first locally checks two current-resource archives via M88; M92 authenticates the candidate against bounded historical GitHub, M89 checks the current reference, and the browser computes conflict counts in ephemeral memory. **Before publishing those counts**, E25 runs **another separate M89 current-reference comparison** with the identical metadata. Any new HEAD, mismatch, provider fault, exhausted rate limit, or forged response causes HOLD/error **without counts**. No private text, UUID or file is uploaded.
+- **Owner decision states are strictly informational:** manually review conflicts, manually review potential additions, or read-only review for a no-change comparison. Every state explicitly refuses restore/commit/import/lock release/automatic retry. A second read only narrows a stale window; GitHub HEAD can still change immediately afterward. Two current-source reads consume two of M89's three checks per owner/hour, alongside one of M92's two hourly historical scans; do not automate retries.
+- New synthetic test cases cover final matched source, last-step GitHub HEAD divergence, failed provider responses, forged unlock flags, invalid archives before network, redaction and safe default-off gates. Full CI results must be checked independently. Live two-device OAuth/real GitHub provider fault and security acceptance remain pending. Rough scoped prototype estimate stays **~96%**, not production readiness.
+- **Next #94:** begin real signed staging OAuth/GitHub App read-only acceptance and provider failure drills using disposable accounts only, then independent security signoff. No restore writes, merge, deploy, production access, or quarantine unlocking.
+
 ## Oge Vault milestone #92 — E24: bounded authenticated private GitHub historical backup provenance (17 Nov 2026)
 
 - **Implemented draft staging prototype:** historical backup candidate and current reference are separately selected and independently passed through full M88 local checksum/schema validation before network. The browser sends ONLY the historical candidate's snapshot/tree IDs, two SHA-256 fingerprints and three counts to a **new separately default-OFF** signed-owner `POST /api/vault/backup-current-resources/history-check`; file contents/Note UUIDs/titles are never uploaded. `OGE_VAULT_HISTORICAL_SOURCE_CHECK_PREVIEW=false` requires all E23/E21/E19 isolated staging gates.
@@ -9,7 +17,7 @@
 - On exact historical match, a **separate M89 current HEAD source check** must match the current reference before locally displaying redacted per-resource additions/conflicts/unchanged/current-only counts. Any missing/mismatched source produces HOLD with no authoritative conflict plan. Historical check limit **2/owner/hour**, M89 existing current check **3/owner/hour**. Only transient rate-limit Mongo metadata is written.
 - **No authenticated atomic restore transaction:** Git HEAD can move after either check; no GitHub writes, restoration, import, owner approval grant, draft migration, quarantine release, automatic retry, deletion or production deployment. History/drafts/Learning Tracks/legacy Mongo content remain outside the M73 backup; real OAuth/provider and independent security audit are pending.
 - Regression tests use synthetic read-only GitHub clients. End-to-end GitHub Actions results must be checked before reporting validation. The previously scoped prototype estimate remains **~96%**, and is NOT production readiness.
-- **Next #93:** authenticated stale-state guardrails and clear owner/operator recovery decision states while retaining all write functions disabled; prioritize live OAuth/App, failure and two-device acceptance before further restoration power.
+- **M93 follow-up:** E25 adds a final read-only current-source recheck and explicit manual-review/HOLD states. Live provider testing and atomic future-restore controls remain pending.
 
 ## Oge Vault milestone #91 — E23: authenticated current-reference restoration preview (17 Nov 2026)
 

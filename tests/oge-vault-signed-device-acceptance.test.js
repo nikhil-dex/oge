@@ -76,8 +76,10 @@ test('M82 one signed-session observation binds operator challenge, read-only Git
   assert.ok(f.calls.every((call) => call.path.startsWith('/git/')));
   const visible = JSON.stringify(report);
   for (const privateData of [CHALLENGE_A, HEAD, TREE,
-    vault.githubLogin, vault.githubAccountId, vault.repoId.toString()])
+    vault.githubLogin, vault.githubAccountId])
     assert.equal(visible.includes(privateData), false);
+  assert.equal(Object.hasOwn(report, 'repoId'), false);
+  assert.equal(Object.hasOwn(report, 'ownerId'), false);
   const g = fixture();
   const other = await inspectSignedDeviceAcceptanceReadOnly(
     g.first, g.second, {

@@ -407,3 +407,23 @@ proofs, and self-reported M67 session markers are NOT independently
 bound to real M82 devices. Real GitHub OAuth/App and two physical
 device acceptance remain unperformed.
 See docs/OGE_VAULT_SIGNED_TWO_DEVICE_ACCEPTANCE_PAIR_E15.md.
+
+## E16 / Milestone #84 — Operator-executed real staging read-only probe
+
+Added a separately default-OFF runnable
+`npm run vault:staging:run-signed-read-drill` command that uses TWO
+distinct **owner-private, operator-acquired** Playwright Auth.js staging
+session storage-state files in independent HTTPS APIRequestContext
+clients. Strict staging URL/DB/no-write flags, private single-link
+file permissions, no localStorage, exact secure HttpOnly same-origin
+session cookies and distinct session cookie fingerprints are required.
+Each session sends one fresh generated nonce to existing M82 read-only
+owner/private GitHub App endpoint. No automatic login, redirect, retry,
+Note content or Git/Mongo writes. The script saves an exclusive
+M83-compatible private pair and a separately protected random
+challenge file. **Even a successful real read returns exit 2 = HOLD.**
+This milestone implemented and synthetically tested the harness:
+**NO real OAuth session state, physical two-device execution or actual
+provider fault scenario was available to or run by CI.** Two different
+cookies are NOT proof of different human users or physical devices.
+See `docs/OGE_VAULT_LIVE_SIGNED_STAGING_READ_DRILL_E16.md`.

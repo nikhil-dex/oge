@@ -31,7 +31,8 @@ const plan = {
     .digest('hex'),
   confirmation: 'INSPECT_DISPOSABLE_FAULT_STAGING_NO_WRITES_OR_UNLOCK',
 };
-const { expectedHead: _head, ...parentScope } = scope;
+const parentScope = { ...scope };
+delete parentScope.expectedHead;
 const s = {
   format: 'oge-vault-disposable-fault-sentinel',
   version: 1, ...parentScope, expiresAt: plan.expiresAt,

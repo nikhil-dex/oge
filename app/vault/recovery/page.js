@@ -8,6 +8,7 @@ import {
   vaultRecoveryCenterStagingAllowed,
 } from '../../../lib/oge-vault-recovery-center.js';
 import SiteNavbar from '../../components/site-navbar.js';
+import VaultCurrentBackupLocalCheck from './vault-current-backup-local-check.js';
 import styles from './recovery-center.module.css';
 
 export const metadata = {
@@ -105,10 +106,21 @@ export default async function VaultRecoveryCenterPage() {
         )}
       </section>
       <section className="oge-settings-card oge-vault-card"
+        aria-labelledby="local-check-heading">
+        <div className="oge-settings-card-heading">
+          <div>
+            <span className="oge-section-kicker">02 · VERIFY LOCALLY</span>
+            <h2 id="local-check-heading">Check a downloaded backup</h2>
+          </div>
+          <span className="oge-settings-pill">No upload</span>
+        </div>
+        <VaultCurrentBackupLocalCheck />
+      </section>
+      <section className="oge-settings-card oge-vault-card"
         aria-labelledby="excluded-heading">
         <div className="oge-settings-card-heading">
           <div>
-            <span className="oge-section-kicker">02 · NOT INCLUDED</span>
+            <span className="oge-section-kicker">03 · NOT INCLUDED</span>
             <h2 id="excluded-heading">Outside this snapshot</h2>
           </div>
           <span className="oge-settings-pill">Not backed up here</span>
@@ -133,7 +145,7 @@ export default async function VaultRecoveryCenterPage() {
         aria-labelledby="safety-heading">
         <div className="oge-settings-card-heading">
           <div>
-            <span className="oge-section-kicker">03 · SAFETY STATUS</span>
+            <span className="oge-section-kicker">04 · SAFETY STATUS</span>
             <h2 id="safety-heading">Recovery is not yet enabled</h2>
           </div>
           <span className="oge-settings-pill">Review pending</span>

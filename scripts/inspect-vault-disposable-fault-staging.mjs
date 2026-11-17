@@ -43,7 +43,10 @@ const allowed =
   env.OGE_VAULT_FAULT_PREFLIGHT_OWNER_ID.length <= 200 &&
   UUID.test(env.OGE_VAULT_FAULT_PREFLIGHT_SESSION_VERSION || '') &&
   /^[1-9]\d{0,18}$/.test(env.OGE_VAULT_FAULT_PREFLIGHT_GITHUB_ACCOUNT_ID || '') &&
+  SHA.test(env.OGE_VAULT_FAULT_PREFLIGHT_BASE_HEAD || '') &&
   SHA.test(env.OGE_VAULT_FAULT_PREFLIGHT_HEAD || '') &&
+  env.OGE_VAULT_FAULT_PREFLIGHT_BASE_HEAD !==
+    env.OGE_VAULT_FAULT_PREFLIGHT_HEAD &&
   Number.isSafeInteger(Number(env.OGE_VAULT_FAULT_PREFLIGHT_REPO_ID)) &&
   Number(env.OGE_VAULT_FAULT_PREFLIGHT_REPO_ID) > 0 &&
   Number.isSafeInteger(Number(env.OGE_VAULT_FAULT_PREFLIGHT_INSTALLATION_ID)) &&
@@ -87,6 +90,7 @@ if (!allowed) {
       installationId: Number(env.OGE_VAULT_FAULT_PREFLIGHT_INSTALLATION_ID),
       githubAccountId: env.OGE_VAULT_FAULT_PREFLIGHT_GITHUB_ACCOUNT_ID,
       branch: env.OGE_VAULT_FAULT_PREFLIGHT_BRANCH,
+      baseHead: env.OGE_VAULT_FAULT_PREFLIGHT_BASE_HEAD,
       expectedHead: env.OGE_VAULT_FAULT_PREFLIGHT_HEAD,
     };
     const identity = {

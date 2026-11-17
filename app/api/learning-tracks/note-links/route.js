@@ -29,11 +29,11 @@ async function ownedTrack(ctx, trackId, session) {
 }
 function failure(error) {
   if (error instanceof VaultGitHubError) {
+    // Provider/client setup 404 is NOT proof the individual linked Note is gone.
     const status = error.message === 'session-expired' ? 401 :
-      error.message === 'vault-not-connected' ? 409 :
-        error.status === 404 ? 404 : 503;
+      error.message === 'vault-not-connected' ? 409 : 503;
     return json({ error: status === 409 ? 'Connect your private GitHub Vault first.' :
-      status === 404 ? 'Committed GitHub Note not found.' :
+      status === 401 ? 'Session changed. Sign in again before checking links.' :
         'Cannot verify the private GitHub Vault. No link was changed.' }, status);
   }
   if (error?.message === 'Account session no longer exists')
@@ -120,7 +120,13 @@ export async function POST(request) {
     // No GitHub write token or new Notes content writer is available here.
     const client = await getVaultNoteClient(ctx.db,
       { ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion }, { readOnly: true });
-    await readVaultNote(client, data.noteId);
+    try {
+      await readVaultNote(client, data.noteId);
+    } catch (error) {
+      if (error instanceof VaultGitHubError && error.status === 404)
+        return json({ error: 'Committed GitHub Note not found.' }, 404);
+      throw error;
+    }
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       if (!await ownedTrack(ctx, data.trackId, session))
         return json({ error: 'Learning track changed while linking.' }, 409);

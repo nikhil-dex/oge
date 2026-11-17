@@ -85,7 +85,7 @@ export async function POST(request) {
     const client = await getVaultNoteClient(ctx.db,
       { ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion }, { readOnly: true });
     await readVaultNote(client, data.noteId);
-    return withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       if (!await ownedTrack(ctx, data.trackId, session))
         return json({ error: 'Learning track changed while linking.' }, 409);
       const links = ctx.db.collection('learningTrackNoteLinks');
@@ -110,7 +110,7 @@ export async function DELETE(request) {
     if (!ctx) return json({ error: 'Sign in before unlinking Notes.' }, 401);
     const limit = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'learning-tracks');
     if (!limit.allowed) return rateLimitResponse(limit);
-    return withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+    return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       const result = await ctx.db.collection('learningTrackNoteLinks')
         .deleteOne({ ownerId: ctx.ownerId, ...data }, { session });
       return result.deletedCount === 1 ? json({ unlinked: true }) :

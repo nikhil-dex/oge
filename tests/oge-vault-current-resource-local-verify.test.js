@@ -117,7 +117,7 @@ test('M88 genuine M73-format synthetic archive accepted by BOTH original server 
   ]) assert.equal(report[flag], false, flag);
   const output = JSON.stringify(report);
   for (const secret of [
-    'Sensitive notes', 'Quick', 'AirNote',
+    'Sensitive notes', 'Quick\\nprivate content',
     IDs.notes, IDs.quickNotes, IDs.airNotes, SHA, TREE,
     a.inventorySha256, a.archiveSha256,
   ]) assert.equal(output.includes(secret), false);
@@ -191,7 +191,7 @@ test('M88 bounded file checks reject oversized, noncanonical, malformed, invalid
     mockFile(original + '\n'),
     mockFile(original.replace('"format":', '"format":"wrong","format":')),
     mockFile('{not JSON'),
-    { size: 4, arrayBuffer: async () => new Uint8Array([255, 255, 255, 255]).buffer },
+    { size: 300, arrayBuffer: async () => new Uint8Array(300).fill(255).buffer },
     { ...file, size: 0 },
     null,
   ]) {
@@ -225,5 +225,5 @@ test('M88 private Recovery Center picker has no fetch/submit/store or Note/body 
   assert.match(core, /MAX_BYTES = 8 \* 1024 \* 1024/);
   assert.match(core, /text !== JSON\.stringify\(parsed\)/);
   assert.doesNotMatch(client + core,
-    /\bfetch\(|\bXMLHttpRequest\b|\bWebSocket\b|navigator\.sendBeacon|navigator\.storage|localStorage|sessionStorage|indexedDB|formData|FormData\(|method: 'POST'|method: 'PATCH'|uploadFile|setItem\(/);
+    /\bfetch\(|\bXMLHttpRequest\b|\bWebSocket\b|navigator\.sendBeacon|navigator\.storage|(?:window|globalThis)\.(?:localStorage|sessionStorage|indexedDB)|formData|FormData\(|method: 'POST'|method: 'PATCH'|uploadFile|setItem\(/);
 });

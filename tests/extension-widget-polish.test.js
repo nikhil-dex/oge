@@ -66,7 +66,9 @@ test('Saved Links tool has a visible Save page link button using existing API', 
   assert.doesNotMatch(script, /data-tool="url"/);
   assert.match(script, /data-tool="links" type="button">☷ My links<\/button>/);
   assert.match(script, /data-save-url>＋ Save current page to Saved Links<\/button>/);
-  assert.match(script, /Reserved for future tool/);
+  // M97 used the previously reserved third tool slot for Learning Tracks.
+  assert.match(script, /data-tool="tracks" type="button">▷ Tracks<\/button>/);
+  assert.match(script, /data-save-track>Create learning track<\/button>/);
   assert.match(script, /urlSave\.addEventListener\('click', async \(\) =>/);
   assert.match(script, /send\('SAVE_CURRENT_TAB'\)/);
   assert.match(script, /Page link saved to Saved Links/);

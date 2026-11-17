@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { previewVaultRecoveryFiles } from '../../../lib/oge-vault-restore-preview.js';
+import { previewVaultHistoricallyAuthenticatedRecoveryFiles } from '../../../lib/oge-vault-historical-restore-preview.js';
 import {
   previewVaultAuthenticatedRecoveryFiles,
 } from '../../../lib/oge-vault-authenticated-restore-preview.js';
@@ -13,7 +14,9 @@ import styles from './recovery-center.module.css';
  * reference MUST match the private GitHub current HEAD via M89 before any
  * authoritative-at-inspection comparison is displayed. No restore writes.
  */
-export default function VaultRestorePreview({ authenticateCurrent = false }) {
+export default function VaultRestorePreview({
+  authenticateCurrent = false, authenticateHistory = false,
+}) {
   const backupInput = useRef(null);
   const currentInput = useRef(null);
   const running = useRef(false);
@@ -38,9 +41,11 @@ export default function VaultRestorePreview({ authenticateCurrent = false }) {
     setError('');
     setReport(null);
     try {
-      const result = authenticateCurrent
-        ? await previewVaultAuthenticatedRecoveryFiles(backup, reference)
-        : await previewVaultRecoveryFiles([backup, reference]);
+      const result = authenticateHistory
+        ? await previewVaultHistoricallyAuthenticatedRecoveryFiles(backup, reference)
+        : authenticateCurrent
+          ? await previewVaultAuthenticatedRecoveryFiles(backup, reference)
+          : await previewVaultRecoveryFiles([backup, reference]);
       // Store only counts and safety flags, no private bytes or identifiers.
       setReport(result);
     } catch {
@@ -75,22 +80,37 @@ export default function VaultRestorePreview({ authenticateCurrent = false }) {
       <p className={styles.localHelper}>
         Each JSON file must be at most 8 MiB. No private Note text,
         resource ID, title or file bytes are uploaded.
-        {authenticateCurrent
-          ? ' After both local checks, only the reference fingerprint, Git snapshot identifiers and three resource counts are sent to the independently authenticated, rate-limited M89 current GitHub source checker.'
-          : ' Offline comparison only: neither backup is independently authenticated to GitHub because live source verification is disabled.'}
+        {authenticateHistory
+          ? ' After both local checks, only fingerprints, Git snapshot identifiers and resource counts are sent separately to the M92 bounded-history and M89 current-source read-only verification endpoints. History supports at most 20 single-parent Git commits.'
+          : authenticateCurrent
+            ? ' After both local checks, only the reference fingerprint, Git snapshot identifiers and three resource counts are sent to the independently authenticated, rate-limited M89 current GitHub source checker.'
+            : ' Offline comparison only: neither backup is independently authenticated to GitHub because live source verification is disabled.'}
       </p>
       <button type="button" className="oge-primary-link" disabled={busy}
         onClick={check}>
-        {authenticateCurrent
-          ? 'Verify current GitHub reference and preview'
-          : 'Compare both files locally'}
+        {authenticateHistory
+          ? 'Verify private GitHub history and current reference'
+          : authenticateCurrent
+            ? 'Verify current GitHub reference and preview'
+            : 'Compare both files locally'}
       </button>
       {busy && <p role="status" className={styles.localStatus}>
-        Checking both archives{authenticateCurrent
-          ? ' and authenticating the current GitHub reference…'
-          : ' locally…'}
+        Checking both archives{authenticateHistory
+          ? ', bounded private Git history and current GitHub reference…'
+          : authenticateCurrent
+            ? ' and authenticating the current GitHub reference…'
+            : ' locally…'}
       </p>}
       {error && <p role="alert" className={styles.localError}>{error}</p>}
+      {['HISTORICAL_PRIVATE_GITHUB_SOURCE_DIFFERS_HOLD',
+        'CURRENT_PRIVATE_GITHUB_SOURCE_DIFFERS_HOLD'].includes(report?.status) && (
+        <p role="alert" className={styles.localError}>
+          The selected archive could not be matched to the signed private
+          GitHub source. It may be outside the bounded history or the
+          reference may have changed. No authenticated plan is displayed;
+          there is no permission to restore or automatically retry.
+        </p>
+      )}
       {report?.status === 'CURRENT_GITHUB_REFERENCE_DIFFERED_HOLD' && (
         <p role="alert" className={styles.localError}>
           The chosen reference does not match the owner&apos;s current
@@ -100,9 +120,12 @@ export default function VaultRestorePreview({ authenticateCurrent = false }) {
         </p>
       )}
       {report?.resources && <div role="status" className={styles.localResult}>
-        <p><strong>{report.currentSnapshotAuthenticatedAtCheck
-          ? 'Reference matched authenticated current private GitHub at inspection time.'
-          : 'Local-only file comparison — reference not source-authenticated.'}</strong></p>
+        <p><strong>{report.backupSourceAuthenticated &&
+          report.currentSnapshotAuthenticatedAtCheck
+          ? 'Historical backup and current reference independently matched private GitHub at inspection time.'
+          : report.currentSnapshotAuthenticatedAtCheck
+            ? 'Reference matched authenticated current private GitHub at inspection time.'
+            : 'Local-only file comparison — reference not source-authenticated.'}</strong></p>
         <p>Would add: <strong>{report.totalAdd}</strong>
           {' '}· Conflicting: <strong>{report.totalConflict}</strong>
           {' '}· Unchanged: <strong>{report.totalUnchanged}</strong>
@@ -117,11 +140,13 @@ export default function VaultRestorePreview({ authenticateCurrent = false }) {
           ))}
         </ul>
         <p>Conflicts indicate equal resource IDs but different Git blob SHA
-          values. The recovery backup itself has only local checks, not
-          independently authenticated historical GitHub provenance.
-          The current repository may change after the comparison.</p>
-        <p><strong>Still required:</strong> source backup provenance,
-          explicit safe conflict decisions, GitHub write quiescence,
+          values. {report.backupSourceAuthenticated
+            ? 'The candidate archive matched a bounded private historical GitHub commit; this is not proof of a complete account backup.'
+            : 'The recovery backup has only local checks, not independently authenticated historical GitHub provenance.'}
+          {' '}The current repository may change after inspection, and the
+          historical and current checks are not an atomic transaction.</p>
+        <p><strong>Still required:</strong> explicit safe conflict decisions,
+          stable source-to-target validation, GitHub write quiescence,
           live OAuth and provider-failure acceptance, audited restore controls
           and security signoff. No overwrite, import, automatic retry,
           lock release or restore is authorized.</p>

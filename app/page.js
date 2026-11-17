@@ -25,6 +25,9 @@ export default async function HomePage() {
   const db = await getDatabase();
   const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1 } });
   if (!account?.onboardingComplete) redirect('/onboarding');
+  const visibleModules = process.env.OGE_LEARNING_TRACKS_PREVIEW === 'true'
+    ? [...modules, { number: '06', group: 'LEARN', title: 'Learning Tracks', description: 'Turn video playlists into daily learning goals.', href: '/learning-tracks', icon: '▷' }]
+    : modules;
 
   return (
     <main className="shell hub-shell oge-shell">
@@ -57,10 +60,10 @@ export default async function HomePage() {
       <section className="oge-module-section" aria-labelledby="modules-title">
         <div className="oge-section-heading">
           <div><span className="oge-section-kicker">YOUR TOOLKIT</span><h2 id="modules-title">Everything in its place.</h2></div>
-          <span className="oge-count">05 MODULES</span>
+          <span className="oge-count">{String(visibleModules.length).padStart(2, "0")} MODULES</span>
         </div>
         <div className="hub-grid oge-module-grid">
-          {modules.map((item) => (
+          {visibleModules.map((item) => (
             <a key={item.href} className={item.featured ? 'hub-card oge-module-card hub-card-featured' : 'hub-card oge-module-card'} href={item.href}>
               <div className="oge-module-card-top"><span className="oge-module-icon" aria-hidden="true">{item.icon}</span><span className="hub-card-kicker">{item.number} · {item.group}</span></div>
               <h3>{item.title} <span aria-hidden="true">↗</span></h3>

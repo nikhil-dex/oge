@@ -137,3 +137,22 @@ relative paths, default-OFF CLI and successful **HOLD=2** vs invalid
 **M75 GitHub writer, M76 approval, M77/M78 staging HTTP routes,
 M79 verification command and the older M47 prewrite-only lock-release
 procedure remain unchanged. No real user Notes or drafts modified.**
+
+## E13 / Milestone #81 — Independently pinned producer-signature claims
+
+The default-OFF **offline** command
+`npm run vault:quarantine:verify-producer-provenance` verifies three
+**role-bound and independently pinned Ed25519 public key signatures**
+for worker-shutdown, outstanding GitHub requests and encrypted draft
+preservation evidence. Each producer signs the exact M79 owner/incident/
+operation/repo scope, M78 HOLD review fingerprint/status and its own
+M80 raw evidence SHA-256; separate producer keys are required from
+each other and both M79 reviewers. M79 operator/reviewer signatures
+and M80 on-disk SHA-256 checks are rerun. Successful verification
+prints only redacted metadata, **exits 2 = HOLD**, never authorizes
+postwrite lock release, safe retry or production cutover. It verifies
+key signatures over FILE BYTES, not independent real producer identity,
+truth of the underlying observations, complete app worker shutdown or
+settlement of old GitHub PATCH. The three new trusted public keys
+must be established in an independent protected registry.
+See `docs/OGE_VAULT_QUARANTINE_PRODUCER_ATTESTATIONS_E13.md`.

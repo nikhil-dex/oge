@@ -19,3 +19,13 @@
 .actions a { color: inherit; padding:8px 0; margin-right:6px; }
 .error { color:#c64b4b; }
 @media(max-width:820px){.grid{grid-template-columns:1fr}.hero{padding-top:28px}}
+
+/* M98: read-only daily lessons preview */
+.lessons { margin-top: 18px; border-top: 1px solid rgba(128,128,128,.24); padding-top: 12px; }
+.lessons p { margin: 8px 0; }
+.scheduleDate { max-width: 260px; }
+.dayList { list-style: none; padding: 0; display: grid; gap: 12px; }
+.dayList > li { padding: 12px; border: 1px solid rgba(128,128,128,.22); border-radius: 10px; }
+.dayList ul { padding-left: 20px; margin: 8px 0 0; }
+.dayList ul li { margin: 6px 0; overflow-wrap: anywhere; }
+.dayList a { color: inherit; }

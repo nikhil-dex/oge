@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import SiteNavbar from '../components/site-navbar';
+import { buildDailyLessons } from '../../lib/learning-tracks.js';
 import styles from './learning-tracks.module.css';
 
 async function read(response) {
@@ -16,6 +17,8 @@ export default function LearningTracksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [discovered, setDiscovered] = useState({});
+  const [startDate, setStartDate] = useState('');
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try { setTracks((await read(await fetch('/api/learning-tracks', { cache: 'no-store' }))).tracks); }
@@ -41,7 +44,7 @@ export default function LearningTracksPage() {
       }));
       setTracks((current) => [track, ...current]);
       setForm({ title: '', url: '', videosPerDay: '2', totalVideos: '' });
-      setMessage('Playlist added. Progress is tracked manually for now.');
+      setMessage('Playlist added. Progress remains manual until you mark videos complete.');
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -56,12 +59,25 @@ export default function LearningTracksPage() {
     } catch (err) { setError(err.message); await load(); }
     finally { setBusy(false); }
   }
+  async function discover(track) {
+    if (busy) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const data = await read(await fetch('/api/learning-tracks/discover?id=' + encodeURIComponent(track.id), { cache: 'no-store' }));
+      setDiscovered((current) => ({ ...current, [track.id]: data }));
+      setMessage('Public playlist metadata loaded for this session only. No lesson content was saved.');
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
   async function remove(track) {
     if (!window.confirm('Remove “' + track.title + '” and its progress record?')) return;
     setBusy(true); setError(''); setMessage('');
     try {
       await read(await fetch('/api/learning-tracks?id=' + encodeURIComponent(track.id), { method: 'DELETE' }));
       setTracks((current) => current.filter((item) => item.id !== track.id));
+      setDiscovered((current) => {
+        const next = { ...current }; delete next[track.id]; return next;
+      });
       setMessage('Learning track removed.');
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -70,7 +86,7 @@ export default function LearningTracksPage() {
     <section className={styles.hero}>
       <span className="oge-section-kicker">LEARNING TRACKS · PREVIEW</span>
       <h1>Make playlists into <span>progress.</span></h1>
-      <p>Add a YouTube playlist, choose a daily video goal, and record what you finish. This preview saves only playlist and progress metadata. Video metadata sync, lessons and GitHub-backed notes are not enabled yet.</p>
+      <p>Add a YouTube playlist, set a daily goal and mark completed videos. Optionally discover public video titles through the official YouTube API and preview the next seven lesson days. Discovery is on demand, not automatic. Notes are not created yet.</p>
     </section>
     <section className={styles.grid}>
       <form className={styles.panel} onSubmit={create}>
@@ -87,17 +103,44 @@ export default function LearningTracksPage() {
         {message && <p role="status">{message}</p>}
         {loading && <p>Loading tracks…</p>}
         {!loading && tracks.length === 0 && <p>No tracks yet. Add your first playlist.</p>}
-        {tracks.map((track) => <article key={track.id} className={styles.track}>
-          <h3>{track.title}</h3>
-          <p>{track.videosPerDay} video{track.videosPerDay === 1 ? '' : 's'} per day · {track.completedVideos}{track.totalVideos == null ? ' completed (total unknown)' : ' / ' + track.totalVideos + ' completed'}</p>
-          {track.totalVideos !== null && <progress max={track.totalVideos} value={track.completedVideos} aria-label={'Progress for ' + track.title} />}
-          <div className={styles.actions}>
-            <a href={track.url} target="_blank" rel="noopener noreferrer">Open playlist ↗</a>
-            <button type="button" disabled={busy || track.completedVideos <= 0} onClick={() => progress(track, -1)}>Undo one</button>
-            <button type="button" disabled={busy || (track.totalVideos !== null && track.completedVideos >= track.totalVideos)} onClick={() => progress(track, 1)}>Completed one +</button>
-            <button type="button" disabled={busy} onClick={() => remove(track)}>Remove</button>
-          </div>
-        </article>)}
+        {tracks.map((track) => {
+          const snapshot = discovered[track.id];
+          const validProgress = snapshot && track.completedVideos <= snapshot.totalVideos;
+          const days = validProgress ? buildDailyLessons(snapshot.videos, track.videosPerDay, track.completedVideos, startDate) : [];
+          const currentDay = Math.floor(track.completedVideos / track.videosPerDay);
+          const upcoming = days.slice(currentDay, currentDay + 7);
+          return <article key={track.id} className={styles.track}>
+            <h3>{track.title}</h3>
+            <p>{track.videosPerDay} video{track.videosPerDay === 1 ? '' : 's'} per day · {track.completedVideos}{track.totalVideos == null ? ' completed (total unknown)' : ' / ' + track.totalVideos + ' completed'}</p>
+            {track.totalVideos !== null && <progress max={track.totalVideos} value={track.completedVideos} aria-label={'Progress for ' + track.title} />}
+            <div className={styles.actions}>
+              <a href={track.url} target="_blank" rel="noopener noreferrer">Open playlist ↗</a>
+              <button type="button" disabled={busy} onClick={() => discover(track)}>{snapshot ? 'Refresh lessons' : 'Discover lessons'}</button>
+              <button type="button" disabled={busy || track.completedVideos <= 0} onClick={() => progress(track, -1)}>Undo one</button>
+              <button type="button" disabled={busy || (track.totalVideos !== null && track.completedVideos >= track.totalVideos)} onClick={() => progress(track, 1)}>Completed one +</button>
+              <button type="button" disabled={busy} onClick={() => remove(track)}>Remove</button>
+            </div>
+            {snapshot && <section className={styles.lessons} aria-label={'Lessons for ' + track.title}>
+              <p>Snapshot: {snapshot.totalVideos} public playlist entries. Read-only discovery; titles and order can change. Completed count follows playlist order, not video identity.</p>
+              {track.totalVideos !== null && track.totalVideos !== snapshot.totalVideos &&
+                <p className={styles.error}>Your manually recorded total ({track.totalVideos}) differs from the discovered count ({snapshot.totalVideos}). This does not overwrite your saved total.</p>}
+              {!validProgress ? <p className={styles.error}>Recorded progress exceeds discovered videos. Schedule hidden until the data is reconciled.</p> :
+                <>
+                  <label className={styles.scheduleDate}>Optional schedule start date<input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
+                  <p>{days.length} lesson days total · showing {upcoming.length} upcoming day{upcoming.length === 1 ? '' : 's'}</p>
+                  {upcoming.length === 0 && <p>All discovered videos marked complete.</p>}
+                  <ol className={styles.dayList}>
+                    {upcoming.map((day) => <li key={day.day}>
+                      <strong>Day {day.day}{day.date ? ' · ' + day.date : ''}</strong>
+                      <ul>{day.videos.map((video) => <li key={video.position}>
+                        {video.completed ? '✓ ' : ''}<a href={video.url} target="_blank" rel="noopener noreferrer">{video.title}</a>
+                      </li>)}</ul>
+                    </li>)}
+                  </ol>
+                </>}
+            </section>}
+          </article>;
+        })}
       </section>
     </section>
   </main>;

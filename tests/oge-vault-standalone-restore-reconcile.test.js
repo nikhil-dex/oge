@@ -346,13 +346,17 @@ test('M77 protected staging HTTP route is exact owner operation readOnly, no unl
   const gate = await readFile(new URL(
     '../lib/oge-vault-standalone-restore-staging.js',
     import.meta.url), 'utf8');
+  const readers = await readFile(new URL(
+    '../lib/oge-vault-standalone-restore-incident-readers.js',
+    import.meta.url), 'utf8');
   assert.match(route, /standaloneRestoreStagingAllowed\(request, \{ reconcile: true \}\)/);
   assert.match(gate, /OGE_VAULT_STANDALONE_RESTORE_RECONCILE_PREVIEW !== 'true'/);
   assert.match(route, /signedStandaloneRestoreContext\(\)/);
-  assert.match(route, /ownerMutationFilter\(identity\.ownerId/);
-  assert.match(route, /ownerLockReader/);
-  assert.match(route, /vault_standalone_restore_approvals/);
-  assert.match(route, /state: \{ \$in: \['claimed', 'confirmed'\] \}/);
+  assert.match(route, /standaloneRestoreIncidentReaders/);
+  assert.match(route, /lockReader/);
+  assert.match(readers, /ownerMutationFilter\(ownerId/);
+  assert.match(readers, /vault_standalone_restore_approvals/);
+  assert.match(readers, /state: \{ \$in: \['claimed', 'confirmed'\] \}/);
   assert.match(route, /reconcileStandaloneRestoreReadOnly/);
   assert.match(route, /expectedOperationId/);
   assert.match(core, /MAX_STANDALONE_RESTORE_RECONCILE_COMMITS = 20/);

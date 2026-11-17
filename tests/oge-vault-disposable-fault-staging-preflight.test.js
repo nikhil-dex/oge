@@ -9,7 +9,7 @@ import {
 } from '../lib/oge-vault-disposable-fault-staging-preflight.js';
 
 const NOW = Date.now();
-const HEAD = 'a'.repeat(40), TREE = 'b'.repeat(40);
+const HEAD = 'a'.repeat(40), BASE = '1'.repeat(40), TREE = 'b'.repeat(40);
 const SENTINEL_SHA = 'c'.repeat(40), MARKER_SHA = 'd'.repeat(40);
 const NESTED_SHA = 'e'.repeat(40);
 const ORIGIN = 'https://vault-staging.example.test';
@@ -18,7 +18,7 @@ const scope = {
   runId: 'bd3f91d0-0d08-4fca-a40c-d99d44aa7b71',
   repoId: 8001, installationId: 9002,
   githubAccountId: '100003',
-  branch: 'main',
+  branch: 'main', baseHead: BASE,
   expectedHead: HEAD,
 };
 const plan = {
@@ -31,9 +31,10 @@ const plan = {
     .digest('hex'),
   confirmation: 'INSPECT_DISPOSABLE_FAULT_STAGING_NO_WRITES_OR_UNLOCK',
 };
+const { expectedHead: _head, ...parentScope } = scope;
 const s = {
   format: 'oge-vault-disposable-fault-sentinel',
-  version: 1, ...scope, expiresAt: plan.expiresAt,
+  version: 1, ...parentScope, expiresAt: plan.expiresAt,
   confirmation: 'DISPOSABLE_PRIVATE_GITHUB_VAULT_NO_REAL_USER_NOTES',
 };
 const secret = Buffer.from(JSON.stringify(s));
@@ -87,7 +88,7 @@ function fake({ publicRepo = false, archived = false, extraNote = false,
           '9'.repeat(40) : HEAD } };
       }
       if (path === '/git/commits/' + HEAD)
-        return { tree: { sha: TREE } };
+        return { tree: { sha: TREE }, parents: [{ sha: BASE }] };
       if (path === '') return { ...repo };
       if (path === '/git/trees/' + TREE + '?recursive=1')
         return { sha: TREE, truncated: false, tree: wrongTree ? [] : entries };
@@ -151,7 +152,8 @@ test('M86 rejects wrong independently pinned operator scope before ANY private G
     { installationId: scope.installationId + 1 },
     { githubAccountId: '30920' },
     { origin: 'https://different-staging.example.test' },
-    { branch: 'another' }, { expectedHead: '0'.repeat(40) },
+    { branch: 'another' }, { baseHead: '0'.repeat(40) },
+    { expectedHead: '0'.repeat(40) },
   ]) {
     const f = fake();
     await assert.rejects(inspect(f, {
@@ -171,7 +173,7 @@ test('M86 rejects forged local plan, invalid expiry and untrusted review hashes'
     { origin: 'http://vault-staging.example.test' },
     { origin: 'https://production.example.test' },
     { githubAccountId: '0' }, { repoId: -1 },
-    { expectedHead: 'bad' },
+    { expectedHead: 'bad' }, { baseHead: HEAD }, { baseHead: 'bad' },
   ]) assert.throws(() => validateVaultDisposableFaultPlan(
     { ...plan, ...change }, scope, { now: NOW }), TypeError);
 });

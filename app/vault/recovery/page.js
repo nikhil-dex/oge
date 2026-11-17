@@ -10,6 +10,7 @@ import {
 import SiteNavbar from '../../components/site-navbar.js';
 import VaultCurrentBackupLocalCheck from './vault-current-backup-local-check.js';
 import VaultCurrentSourceCheck from './vault-current-source-check.js';
+import VaultRestorePreview from './vault-restore-preview.js';
 import { vaultCurrentResourceSourceCheckAllowed } from '../../../lib/oge-vault-current-resource-source-verify.js';
 import styles from './recovery-center.module.css';
 
@@ -137,10 +138,21 @@ export default async function VaultRecoveryCenterPage() {
             </p>}
       </section>
       <section className="oge-settings-card oge-vault-card"
+        aria-labelledby="restore-preview-heading">
+        <div className="oge-settings-card-heading">
+          <div>
+            <span className="oge-section-kicker">04 · RESTORATION PREVIEW</span>
+            <h2 id="restore-preview-heading">Inspect possible conflicts</h2>
+          </div>
+          <span className="oge-settings-pill">Local-only · no restore</span>
+        </div>
+        <VaultRestorePreview />
+      </section>
+      <section className="oge-settings-card oge-vault-card"
         aria-labelledby="excluded-heading">
         <div className="oge-settings-card-heading">
           <div>
-            <span className="oge-section-kicker">04 · NOT INCLUDED</span>
+            <span className="oge-section-kicker">05 · NOT INCLUDED</span>
             <h2 id="excluded-heading">Outside this snapshot</h2>
           </div>
           <span className="oge-settings-pill">Not backed up here</span>
@@ -165,7 +177,7 @@ export default async function VaultRecoveryCenterPage() {
         aria-labelledby="safety-heading">
         <div className="oge-settings-card-heading">
           <div>
-            <span className="oge-section-kicker">05 · SAFETY STATUS</span>
+            <span className="oge-section-kicker">06 · SAFETY STATUS</span>
             <h2 id="safety-heading">Recovery is not yet enabled</h2>
           </div>
           <span className="oge-settings-pill">Review pending</span>

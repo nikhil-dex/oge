@@ -3,11 +3,12 @@ import { auth } from '../../../../auth.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
-import { withActiveOwnerMutation } from '../../../../lib/active-owner-mutation.js';
+import { withActiveOwnerMutation, ownerMutationFilter } from '../../../../lib/active-owner-mutation.js';
 import { getVaultNoteClient, listVaultNotePage, readVaultNote } from '../../../../lib/oge-vault-notes.js';
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 import {
   learningTrackNoteLinksEnabled, validLearningTrackNoteSelection, publicLessonNoteLink,
+  verifyLessonNoteLinkReadOnly,
 } from '../../../../lib/oge-learning-track-note-links.js';
 
 export const runtime = 'nodejs';
@@ -35,6 +36,8 @@ function failure(error) {
       status === 404 ? 'Committed GitHub Note not found.' :
         'Cannot verify the private GitHub Vault. No link was changed.' }, status);
   }
+  if (error?.message === 'Account session no longer exists')
+    return json({ error: 'Session changed. Sign in again before editing links.' }, 401);
   if (error?.code === 11000)
     return json({ error: 'This lesson has a new link from another device. Refresh.' }, 409);
   if (error instanceof TypeError) return json({ error: 'Invalid link request.' }, 400);
@@ -48,6 +51,39 @@ export async function GET(request) {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in before viewing Note links.' }, 401);
     const q = new URL(request.url).searchParams;
+    if (q.get('mode') === 'verify') {
+      // Deliberate owner action: one link per request, eight checks/owner/hour.
+      // Never trust a browser-supplied Note ID or claim persistent existence.
+      const trackId = q.get('trackId');
+      const videoId = q.get('videoId');
+      if (!trackId || !UUID.test(trackId) ||
+          !/^[A-Za-z0-9_-]{11}$/.test(videoId || ''))
+        return json({ error: 'Select a valid linked lesson.' }, 400);
+      if (!await ownedTrack(ctx, trackId))
+        return json({ error: 'Learning track not found.' }, 404);
+      const scope = { ownerId: ctx.ownerId, trackId, videoId };
+      const collection = ctx.db.collection('learningTrackNoteLinks');
+      const record = await collection.findOne(scope, { projection: { _id: 1, noteId: 1 } });
+      if (!record) return json({ error: 'Link changed. Refresh before checking again.' }, 409);
+      const limit = await checkRateLimit(ctx.db, { scope: 'learning-track-note-check',
+        identifier: ctx.ownerId, limit: 8, windowMs: 3600000 });
+      if (!limit.allowed) return rateLimitResponse(limit);
+      const status = await verifyLessonNoteLinkReadOnly({
+        record,
+        createClient: () => getVaultNoteClient(ctx.db,
+          { ownerId: ctx.ownerId, sessionVersion: ctx.sessionVersion }, { readOnly: true }),
+        readNote: (client, noteId) => readVaultNote(client, noteId),
+        sessionStillActive: async () => Boolean(await ctx.db.collection('users').findOne(
+          ownerMutationFilter(ctx.ownerId, { sessionVersion: ctx.sessionVersion }),
+          { projection: { _id: 1 } })),
+        rereadLink: () => collection.findOne(scope, { projection: { _id: 1, noteId: 1 } }),
+      });
+      if (status === 'session-expired')
+        return json({ error: 'Session changed. Sign in again before checking links.' }, 401);
+      if (status === 'changed')
+        return json({ error: 'Link changed on another device. Refresh before checking again.' }, 409);
+      return json({ status, warning: 'Point-in-time private GitHub read only. No Note or link changed.' });
+    }
     if (q.get('mode') === 'notes') {
       // Owner-only, server-side read-only GitHub App client. NO Note bodies in HTTP.
       const limit = await checkRateLimit(ctx.db, { scope: 'learning-track-note-picker',

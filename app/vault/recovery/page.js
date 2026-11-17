@@ -9,6 +9,8 @@ import {
 } from '../../../lib/oge-vault-recovery-center.js';
 import SiteNavbar from '../../components/site-navbar.js';
 import VaultCurrentBackupLocalCheck from './vault-current-backup-local-check.js';
+import VaultCurrentSourceCheck from './vault-current-source-check.js';
+import { vaultCurrentResourceSourceCheckAllowed } from '../../../lib/oge-vault-current-resource-source-verify.js';
 import styles from './recovery-center.module.css';
 
 export const metadata = {
@@ -41,6 +43,7 @@ export default async function VaultRecoveryCenterPage() {
   if (!owner) notFound();
 
   const model = buildVaultRecoveryCenterModel(process.env);
+  const sourceCompareEnabled = vaultCurrentResourceSourceCheckAllowed(process.env);
 
   return (
     <main className={'shell oge-shell oge-retro-workspace ' + styles.page}>
@@ -117,10 +120,27 @@ export default async function VaultRecoveryCenterPage() {
         <VaultCurrentBackupLocalCheck />
       </section>
       <section className="oge-settings-card oge-vault-card"
+        aria-labelledby="source-check-heading">
+        <div className="oge-settings-card-heading">
+          <div>
+            <span className="oge-section-kicker">03 · PRIVATE GITHUB SOURCE</span>
+            <h2 id="source-check-heading">Compare against current GitHub</h2>
+          </div>
+          <span className="oge-settings-pill">Read-only · opt-in</span>
+        </div>
+        {sourceCompareEnabled
+          ? <VaultCurrentSourceCheck />
+          : <p role="status" className="oge-settings-note">
+              Live private GitHub source comparison is disabled in this
+              staging environment. Local backup verification above
+              remains available without any network request.
+            </p>}
+      </section>
+      <section className="oge-settings-card oge-vault-card"
         aria-labelledby="excluded-heading">
         <div className="oge-settings-card-heading">
           <div>
-            <span className="oge-section-kicker">03 · NOT INCLUDED</span>
+            <span className="oge-section-kicker">04 · NOT INCLUDED</span>
             <h2 id="excluded-heading">Outside this snapshot</h2>
           </div>
           <span className="oge-settings-pill">Not backed up here</span>
@@ -145,7 +165,7 @@ export default async function VaultRecoveryCenterPage() {
         aria-labelledby="safety-heading">
         <div className="oge-settings-card-heading">
           <div>
-            <span className="oge-section-kicker">04 · SAFETY STATUS</span>
+            <span className="oge-section-kicker">05 · SAFETY STATUS</span>
             <h2 id="safety-heading">Recovery is not yet enabled</h2>
           </div>
           <span className="oge-settings-pill">Review pending</span>

@@ -29,3 +29,10 @@
 .dayList ul { padding-left: 20px; margin: 8px 0 0; }
 .dayList ul li { margin: 6px 0; overflow-wrap: anywhere; }
 .dayList a { color: inherit; }
+
+/* M99 owner-selects a committed GitHub Note; no Note body is persisted. */
+.noteActions { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; }
+.dayList ul li button { font-size: .79rem; margin: 4px; }
+.notePicker { margin: 14px 0; padding: 14px; border: 1px dashed rgba(128,128,128,.45); border-radius: 10px; }
+.noteChoice { display:flex; justify-content: space-between; align-items:center; gap: 10px; border-bottom: 1px solid rgba(128,128,128,.2); padding: 7px 0; }
+.noteChoice span { overflow-wrap: anywhere; }

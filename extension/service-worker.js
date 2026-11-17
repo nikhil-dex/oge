@@ -1,7 +1,7 @@
 // All OgeNotes requests are made from the extension service worker.
 // The floating content script never receives the bearer token or app origin.
 const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
-const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK']);
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK', 'OPEN_LEARNING_TRACKS']);
 const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
 
 function normalizeBase(value) {
@@ -95,6 +95,12 @@ async function handleAction(message, sender) {
       body: JSON.stringify({ url: sender.tab.url, title, videosPerDay, totalVideos }),
     });
     return { title: data.track.title };
+  }
+  if (message.type === 'OPEN_LEARNING_TRACKS') {
+    // Never trust a target origin or path from a possibly hostile web page.
+    const { origin } = await getConnection();
+    await chrome.tabs.create({ url: origin + '/learning-tracks', active: true });
+    return { opened: true };
   }
   if (message.type === 'SAVE_CURRENT_TAB') {
     const url = sender.tab.url;

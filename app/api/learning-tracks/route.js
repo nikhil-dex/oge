@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { learningTrackNoteLinksEnabled } from '../../../lib/oge-learning-track-note-links.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { normalizeLearningTrack, publicLearningTrack } from '../../../lib/learning-tracks.js';
@@ -28,7 +29,7 @@ export async function GET() {
     if (!ctx) return json({ error: 'Sign in to view learning tracks.' }, 401);
     const tracks = await ctx.db.collection('learningTracks').find({ ownerId: ctx.ownerId })
       .sort({ createdAt: -1 }).limit(100).toArray();
-    return json({ tracks: tracks.map(publicLearningTrack) });
+    return json({ tracks: tracks.map(publicLearningTrack), noteLinkingEnabled: learningTrackNoteLinksEnabled() });
   } catch (error) {
     console.error('Learning Tracks GET failed:', error?.name);
     return json({ error: 'Unable to read learning tracks.' }, 503);
@@ -106,6 +107,7 @@ export async function DELETE(request) {
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       const result = await ctx.db.collection('learningTracks').deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
+      if (result.deletedCount) await ctx.db.collection('learningTrackNoteLinks').deleteMany({ ownerId: ctx.ownerId, trackId: id }, { session });
       return result.deletedCount ? json({ deleted: id }) : json({ error: 'Learning track not found.' }, 404);
     }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {

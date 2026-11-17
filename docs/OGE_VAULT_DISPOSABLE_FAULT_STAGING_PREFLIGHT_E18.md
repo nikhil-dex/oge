@@ -47,30 +47,27 @@ Example with dummy IDs, a SHA and a UUID:
   "installationId": 9002,
   "githubAccountId": "100003",
   "branch": "main",
-  "expectedHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "baseHead": "1111111111111111111111111111111111111111",
   "expiresAt": "2026-11-18T10:00:00.000Z",
   "confirmation": "DISPOSABLE_PRIVATE_GITHUB_VAULT_NO_REAL_USER_NOTES"
 }
 ```
 
-The `expectedHead` must equal the actual **final Git HEAD after
-the sentinel has been committed**. Because a checked-in sentinel
-changes its own commit HEAD, writing an exact self-referential
-`expectedHead` inside the same commit is not practically satisfiable
-without a special prearranged process. **Do not use the above example
-as an operational instruction to manufacture a self-referential Git
-hash.**
+The sentinel's `baseHead` MUST name the existing, independently
+observed **parent Git commit BEFORE the sentinel is added**. An
+authorized operator then adds this metadata-only sentinel in a
+**single-parent Git commit** in the disposable repository.
+The resulting commit will have a DIFFERENT `expectedHead` SHA.
+After that commit, the operator obtains its actual SHA from an
+independent provider read and uses that value **only in the
+separately protected local operator plan and environment**.
 
-**Important design constraint:** The M86 verifier currently requires
-`sentinel.expectedHead === plan.expectedHead === Git HEAD`, which
-is impossible to satisfy with a sentinel committed in that same head
-under ordinary SHA-1 Git commits. Before a real staging rehearsal,
-the sentinel schema must be revised to bind a separate, externally
-known *parent or installation identity* rather than requiring its own
-commit SHA. **M86 remains prototype-only and cannot be reported as a
-successfully executable live staging preflight yet.** The mocked
-preflight tests confirm validation logic but cannot overcome the
-self-referential SHA problem.
+M86 checks the resulting commit has exactly one parent equal to
+the sentinel's independently provided `baseHead`. It does not try
+to embed a commit's own SHA inside its contents. This is a feasible
+staging workflow, but the sentinel is still only an operator claim,
+not external identity verification, and the preflight has not yet
+been executed against a real provider by this milestone.
 
 The allowlist intentionally requires no regular Note content:
 - `.ogenotes/vault.json`
@@ -100,6 +97,7 @@ The separately protected local operator JSON plan must have exactly:
   "installationId": 9002,
   "githubAccountId": "100003",
   "branch": "main",
+  "baseHead": "1111111111111111111111111111111111111111",
   "expectedHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "expiresAt": "2026-11-18T10:00:00.000Z",
   "operatorReviewSha256": "<64 lowercase hex of independent private review>",
@@ -132,7 +130,8 @@ OGE_VAULT_FAULT_PREFLIGHT_REPO_ID=<independently verified repo numeric ID>
 OGE_VAULT_FAULT_PREFLIGHT_INSTALLATION_ID=<independently verified App install ID>
 OGE_VAULT_FAULT_PREFLIGHT_GITHUB_ACCOUNT_ID=<independent account ID>
 OGE_VAULT_FAULT_PREFLIGHT_BRANCH=<staging default branch>
-OGE_VAULT_FAULT_PREFLIGHT_HEAD=<independently observed HEAD SHA-1>
+OGE_VAULT_FAULT_PREFLIGHT_BASE_HEAD=<parent Git SHA before sentinel>
+OGE_VAULT_FAULT_PREFLIGHT_HEAD=<independently observed HEAD after sentinel>
 ```
 
 Requires all existing `checkVaultStagingReadiness` credentials and
@@ -157,9 +156,9 @@ credentials, and never authorizes a ref write.
 
 Exit **2 = READ-ONLY HOLD**, if all exact checks pass. Exit **1 =
 BLOCKED**, if scope/credentials/permissions/repo/plan/sentinel or
-private path is unsafe. No exit 0. Again: given the unresolved
-sentinel/self-HEAD binding, **a normal live repo cannot pass M86 as
-currently drafted**.
+private path is unsafe. No exit 0. The pre-sentinel parent SHA and
+post-sentinel HEAD are both independently pinned; a positive result
+still cannot authorize a real fault-test write.
 
 ## Tests
 
@@ -181,11 +180,10 @@ automated tests.**
 
 ## Hard release blockers
 
-Before any live write/fault test, resolve the self-referential
-sentinel schema, independently verify the actual isolated provider
-repo, authorize only disposable data, run live M82–84 OAuth on two
-physical devices, establish app-worker quiescence, and obtain
-separate explicit operator approval for each real 403/429/409/422/
+Before any live write/fault test, independently verify the actual
+isolated provider repo, authorize only disposable data, run live M82–84
+OAuth on two physical devices, establish app-worker quiescence, and
+obtain separate explicit operator approval for each real 403/429/409/422/
 lost-ACK test. Independent review of any resulting write-possible
 lock remains mandatory. M86 adds no recovery/unlock mechanism.
 

@@ -36,6 +36,7 @@
     "vault:staging:run-signed-read-drill": "node scripts/run-vault-signed-staging-read-drill.mjs",
     "vault:staging:m94-readonly-acceptance": "node scripts/run-vault-m94-readonly-acceptance.mjs",
     "vault:staging:m95-review-private-evidence": "node scripts/review-vault-m95-private-acceptance.mjs",
+    "vault:staging:m96-hold-release-review": "node scripts/review-vault-m96-release-gates.mjs",
     "vault:staging:synthetic-provider-fault-matrix": "node scripts/check-vault-provider-fault-matrix-offline.mjs",
     "vault:staging:inspect-disposable-fault-repo": "node scripts/inspect-vault-disposable-fault-staging.mjs",
     "vault:quarantine:verify-two-reviewers": "node scripts/review-vault-quarantine-attestations.mjs",

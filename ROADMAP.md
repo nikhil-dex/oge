@@ -2,6 +2,14 @@
 
 > Purpose: keep implementation aligned with the agreed product goal. This roadmap is the source of truth for scope, migration order, security gates, and launch readiness.
 
+## Oge Vault milestone #90 — E22: read-only local restoration conflict preview (17 Nov 2026)
+
+- **Prototype implemented (not production-ready):** new isolated owner Recovery Center section `/vault/recovery`, browser-only `lib/oge-vault-restore-preview.js` and `app/vault/recovery/vault-restore-preview.js`. Owner selects exactly **two** local M73 current-resource backups (each <=8 MiB); each must independently pass strict M88 canonical JSON, UTF-8, resource validation, inventory SHA-256 and archive SHA-256 checks before any comparison.
+- The browser compares only resource ID and Git blob SHA per kind (Notes, Quick Notes, AirNotes) in ephemeral memory, returning aggregate counters for potential **additions, changed-ID conflicts, unchanged records and current-only records preserved**. No private titles, bodies, IDs or SHA values enter React state, the response, browser storage, logs or network. No uploads or provider access. Added pure-unit regression tests.
+- **Not independent evidence of GitHub source, restoration safety or completeness.** The file picker can reorder two selected files; directional counts are only reliable when the operator knows which file is first. No authenticated source proof is retained from M89, no automatic deletion, no real writes, merge or lock release. Both inputs are untrusted self-hash archives; historical revisions, encrypted drafts, Learning Tracks and legacy Mongo Notes are excluded.
+- **Next #91:** binding a non-destructive preview to a truly authenticated current GitHub source while retaining owner privacy, resolving file-order ambiguity and stale snapshot races. Follow with owner-approved recovery authorization and extensive live provider/OAuth acceptance. Uncertain GitHub writes remain quarantined and cannot be retried/unlocked through Recovery Center.
+- CI/live OAuth acceptance must be independently verified before calling #90 tested in GitHub Actions. This is a scoped staging prototype, **not** production readiness.
+
 ## 1. Product goal
 
 Build a production-ready, multi-user personal knowledge and study app by selectively reusing proven code from `ogenotes`, preserving its existing visual design, and adapting the backend for secure user accounts. Do not rewrite the application from scratch.

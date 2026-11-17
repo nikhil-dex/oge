@@ -174,3 +174,23 @@ missing/extra claims, changed local file, symlink and wrong
 independently pinned trust key.
 
 Existing M75–M80 read and write implementations are unchanged.
+
+## E14 / Milestone #82 — Signed browser staging acceptance observation
+
+Added default-OFF exact-origin, dedicated-disposable-staging-only
+POST /api/vault/acceptance/signed-device-read. It accepts a fresh
+operator 32-byte random challenge and untrusted device-a/device-b
+label, validates a current Auth.js user session, checks the mapped
+private GitHub App owner/repo/installation and reuses the M61
+independent contents:read-only HEAD/commit/tree consistency probe.
+Owner/repository mapping is revalidated; no Git/Mongo writes, Note
+contents, browser session marker, OAuth token or owner identifier are
+returned. Only a redacted challenge fingerprint/status/negative
+signoff flags are exposed. A device label **does NOT prove a device**,
+and two read-only tokens from ONE signed-in session are not two
+physical sessions. Real OAuth issuer identity, two-physical-device
+autosave/conflict behavior, permission revocation, writer quiescence,
+provider 429/403/409/422/lost-ACK tests and security signoff remain
+PENDING. Even a positive observation cannot authorize restore,
+unlock, production cutover or merge.
+See docs/OGE_VAULT_SIGNED_TWO_DEVICE_ACCEPTANCE_E14.md.

@@ -52,7 +52,7 @@ export default function VaultCurrentSourceCheck() {
         Optional live read-only comparison: select the downloaded backup
         again. Your browser first validates the complete file locally.
         Only its SHA-256 fingerprints, Git snapshot/tree identifiers and
-        three resource counts are sent to this site's authenticated server.
+        three resource counts are sent to the authenticated Oge server.
         <strong> No private Note text or full backup file is uploaded.</strong>
       </p>
       <label className={styles.localFileLabel} htmlFor="vault-source-check-file">

@@ -143,3 +143,24 @@ default-OFF/HOLD=2, redacted output and no real GitHub/MongoDB clients.
 App/ OAuth acceptance on physical devices and controlled, explicitly
 approved disposable-data failure tests. Synthetic green CI cannot
 substitute for that real-world validation.
+
+## E18 / Milestone #86 — Disposable private staging repo READ-only preflight
+
+New independently default-OFF operator CLI
+`npm run vault:staging:inspect-disposable-fault-repo` requires
+owner-private explicit fault-test plan, independent run/owner/repo/
+installation and pre-sentinel parent/post-sentinel HEAD pins,
+isolated HTTPS staging origin and Mongo replica, existing B7
+preflight and read-only GitHub App identity. Two separately scoped
+`contents:read` App clients GET private repo metadata, stable
+branch/commit/tree and a tiny disposable sentinel blob. The sentinel
+contains only metadata including the **parent baseHead**; the
+independent operator plan pins the **new commit expectedHead** to
+avoid self-referential Git commit hashes. The complete Git tree
+must contain only the Vault marker, disposable sentinel and
+optional README/.gitignore — no real Note/Quick Note/AirNote files,
+symlinks, unexpected directories, public or archived repo. No
+Git ref writes, user Notes or Mongo mutations. **Exit 2 is still
+HOLD and grants NO fault-injection permission**; CLI has NOT been
+run on a real staging repository by CI. See
+`docs/OGE_VAULT_DISPOSABLE_FAULT_STAGING_PREFLIGHT_E18.md`.

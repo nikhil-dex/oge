@@ -35,7 +35,10 @@ export async function POST(request) {
     const input = JSON.parse(await readLimitedBody(request, 512));
     if (!input || typeof input !== 'object' ||
         Array.isArray(input) ||
-        Object.keys(input).sort().join(',') !== 'challenge,deviceSlot')
+        Object.keys(input).sort().join(',') !== 'challenge,deviceSlot' ||
+        typeof input.challenge !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(input.challenge) ||
+        !['device-a', 'device-b'].includes(input.deviceSlot))
       return reply({ error: 'Invalid bounded acceptance challenge.' }, 400);
 
     // Auth/session and GitHub App trust binding established server-side.

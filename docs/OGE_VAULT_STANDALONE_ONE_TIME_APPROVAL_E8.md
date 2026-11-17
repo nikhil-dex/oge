@@ -145,3 +145,18 @@ rollout.
 
 **Keep PR #35 DRAFT and UNMERGED. All staged restore and write flags
 remain OFF. No live user data was changed.**
+
+## E9 / M77 read-only uncertain restore evidence
+
+A separate independently default-OFF protected staging
+`POST /api/vault/backup-current-resources/reconcile` now inspects the
+**exact** matching durable `github-write-possible` owner lock and claimed
+or confirmed M76 receipt metadata, alongside bounded one-branch Git commit
+ancestry and immutable canonical selected resource blob contents. It
+does **not** require the expired raw 10-minute approval ticket, issue a
+new ticket, change receipt state, retry GitHub writes or release any lock.
+Historical selected content correspondence is compared against the
+original untrusted M73 source; it is not backup origin authentication.
+See `docs/OGE_VAULT_STANDALONE_RESTORE_RECONCILE_E9.md`. The M76
+claimed ticket remains consumed and any unknown outcome remains
+quarantined after inspection.

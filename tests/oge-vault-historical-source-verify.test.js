@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { vaultRecoveryStaleRecheckAllowed } from '../lib/oge-vault-recovery-stale-guard.js';
 import assert from 'node:assert/strict';
 import { createHash, webcrypto } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -291,4 +292,146 @@ test('M92 UI, route and environment source contracts deny mutation and productio
   assert.match(page, /vaultHistoricalResourceSourceCheckAllowed/);
   assert.match(ui, /previewVaultHistoricallyAuthenticatedRecoveryFiles/);
   assert.match(envfile, /OGE_VAULT_HISTORICAL_SOURCE_CHECK_PREVIEW=false/);
+});
+
+test('M93 independent default-OFF guard requires complete M92/91/89/87 isolated gates', () => {
+  assert.equal(vaultRecoveryStaleRecheckAllowed({}, ready), false);
+  assert.equal(vaultRecoveryStaleRecheckAllowed(env, ready), false);
+  const complete = { ...env, OGE_VAULT_RECOVERY_STALE_RECHECK_PREVIEW: 'true' };
+  assert.equal(vaultRecoveryStaleRecheckAllowed(complete, ready), true);
+  for (const changed of [
+    { OGE_VAULT_RECOVERY_STALE_RECHECK_PREVIEW: 'false' },
+    { OGE_VAULT_HISTORICAL_SOURCE_CHECK_PREVIEW: 'false' },
+    { OGE_VAULT_RESTORE_SOURCE_PREVIEW: 'false' },
+    { OGE_VAULT_CURRENT_RESOURCE_SOURCE_CHECK_PREVIEW: 'false' },
+    { OGE_VAULT_RECOVERY_CENTER_PREVIEW: 'false' },
+    { OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW: 'true' },
+    { MONGODB_DB: 'oge_production' },
+  ]) {
+    assert.equal(vaultRecoveryStaleRecheckAllowed({
+      ...complete, ...changed,
+    }, ready), false, JSON.stringify(changed));
+  }
+});
+
+test('M93 final read-only GitHub recheck: 3 ordered metadata-only calls, review state, NO authorization', async () => {
+  const f = fixture();
+  const old = await exportFixture(f, HIST);
+  const current = await exportFixture(f);
+  const urls = [];
+  const fetcher = async (url, options) => {
+    urls.push(url);
+    assert.equal(options.method, 'POST');
+    assert.equal(options.credentials, 'same-origin');
+    for (const privateValue of [...IDS, SUBJECT, 'confidential', 'Private research']) {
+      assert.equal(options.body.includes(privateValue), false);
+    }
+    if (url.endsWith('/history-check')) {
+      return Response.json(compareVaultHistoricalResourceSourceClaim(
+        JSON.parse(options.body), old));
+    }
+    return Response.json(compareVaultCurrentResourceSourceClaim(
+      JSON.parse(options.body), current));
+  };
+  const result = await previewVaultHistoricallyAuthenticatedRecoveryFiles(
+    file(old), file(current),
+    { subtle: webcrypto.subtle, fetcher, recheckCurrent: true });
+  assert.deepEqual(urls.map(u => u.endsWith('/history-check')
+    ? 'history' : 'current'), ['history', 'current', 'current']);
+  assert.equal(result.status, 'HISTORICAL_AND_CURRENT_RECHECK_MATCHED_READ_ONLY');
+  assert.equal(result.reviewState, 'MANUAL_CONFLICT_REVIEW_REQUIRED_NO_RESTORE');
+  assert.equal(result.manualReviewRequired, true);
+  assert.equal(result.finalCurrentSourceRecheckPassedAtInspection, true);
+  assert.equal(result.currentSourceChecksPerformed, 2);
+  assert.equal(result.historyAndCurrentChecksWereAtomic, false);
+  assert.equal(result.snapshotMayBecomeStaleAfterCheck, true);
+  for (const key of ['recoveryApproved', 'restorationAuthorized',
+    'canRestore', 'canAuthorizeImport', 'canReleaseImportLock',
+    'canDeleteExisting', 'canRetryUnknownWrite', 'githubWritesPerformed',
+    'fileContentsUploaded']) assert.equal(result[key], false, key);
+  assert.equal(result.totalConflict, 1);
+  const output = JSON.stringify(result);
+  for (const secret of [SUBJECT, ...IDS, old.snapshot, old.archiveSha256,
+    current.snapshot, 'confidential']) assert.equal(output.includes(secret), false);
+});
+
+test('M93 rejects stale FINAL recheck despite matching history and initial current proof', async () => {
+  const f = fixture();
+  const old = await exportFixture(f, HIST);
+  const current = await exportFixture(f);
+  let currentCount = 0;
+  const fetcher = async (url, options) => {
+    if (url.endsWith('/history-check')) {
+      return Response.json(compareVaultHistoricalResourceSourceClaim(
+        JSON.parse(options.body), old));
+    }
+    currentCount++;
+    return Response.json(compareVaultCurrentResourceSourceClaim(
+      JSON.parse(options.body), currentCount === 1 ? current : old));
+  };
+  const result = await previewVaultHistoricallyAuthenticatedRecoveryFiles(
+    file(old), file(current),
+    { subtle: webcrypto.subtle, fetcher, recheckCurrent: true });
+  assert.equal(currentCount, 2);
+  assert.equal(result.status, 'CURRENT_PRIVATE_GITHUB_RECHECK_STALE_HOLD');
+  assert.equal('resources' in result, false);
+  assert.equal('totalConflict' in result, false);
+  assert.equal(result.canRestore, false);
+  assert.equal(result.canRetryUnknownWrite, false);
+});
+
+test('M93 final provider fault and forged unlock response fail closed, without displaying counts', async () => {
+  const f = fixture();
+  const old = await exportFixture(f, HIST);
+  const current = await exportFixture(f);
+  for (const fault of ['timeout', 'forged']) {
+    let currentCount = 0;
+    const fetcher = async (url, options) => {
+      if (url.endsWith('/history-check')) {
+        return Response.json(compareVaultHistoricalResourceSourceClaim(
+          JSON.parse(options.body), old));
+      }
+      currentCount++;
+      if (currentCount === 2 && fault === 'timeout') {
+        throw new TypeError('simulated provider timeout');
+      }
+      const valid = compareVaultCurrentResourceSourceClaim(
+        JSON.parse(options.body), current);
+      return Response.json(currentCount === 2 && fault === 'forged'
+        ? { ...valid, canReleaseImportLock: true }
+        : valid);
+    };
+    await assert.rejects(previewVaultHistoricallyAuthenticatedRecoveryFiles(
+      file(old), file(current),
+      { subtle: webcrypto.subtle, fetcher, recheckCurrent: true }));
+    assert.equal(currentCount, 2);
+  }
+});
+
+test('M93 invalid selected files fail BEFORE network; UI and docs remain no-write', async () => {
+  const f = fixture();
+  const old = await exportFixture(f, HIST);
+  const current = await exportFixture(f);
+  const tampered = JSON.parse(JSON.stringify(current));
+  tampered.notes[0].answer = 'unauthenticated edit';
+  let calls = 0;
+  await assert.rejects(previewVaultHistoricallyAuthenticatedRecoveryFiles(
+    file(old), file(tampered), {
+      subtle: webcrypto.subtle,
+      fetcher: async () => { calls++; throw new Error('unexpected network'); },
+      recheckCurrent: true,
+    }));
+  assert.equal(calls, 0);
+  const [page, ui, envfile, module] = await Promise.all([
+    readFile(new URL('../app/vault/recovery/page.js', import.meta.url), 'utf8'),
+    readFile(new URL('../app/vault/recovery/vault-restore-preview.js', import.meta.url), 'utf8'),
+    readFile(new URL('../.env.example', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/oge-vault-historical-restore-preview.js', import.meta.url), 'utf8'),
+  ]);
+  assert.match(page, /vaultRecoveryStaleRecheckAllowed/);
+  assert.match(ui, /CURRENT_PRIVATE_GITHUB_RECHECK_STALE_HOLD/);
+  assert.match(ui, /guardStaleState/);
+  assert.match(envfile, /OGE_VAULT_RECOVERY_STALE_RECHECK_PREVIEW=false/);
+  assert.doesNotMatch(module, /\.collection\(|method: ['"]PATCH['"]/);
+  assert.doesNotMatch(module, /localStorage|sessionStorage/);
 });

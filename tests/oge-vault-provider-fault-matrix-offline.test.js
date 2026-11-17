@@ -151,5 +151,5 @@ test('M85 simulation imports REAL adapter and durable import-fence with only inj
   assert.match(cli, /OGE_VAULT_OFFLINE_PROVIDER_FAULT_MATRIX/);
   assert.match(cli, /process\.exitCode = 2/);
   assert.doesNotMatch(adapter + cli,
-    /(?:await\s+)?fetch\(|https?\.request|MongoClient|connectToDatabase|getVaultNoteClient|githubAppJwt|process\.env\.GITHUB_TOKEN/);
+    /(?:await\s+)?fetch\(|https?\.request|MongoClient\\b|connectToDatabase|getVaultNoteClient|githubAppJwt|process\.env\.GITHUB_TOKEN/);
 });

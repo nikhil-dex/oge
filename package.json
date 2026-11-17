@@ -34,6 +34,7 @@
     "vault:staging:verify-evidence-files": "node scripts/verify-vault-two-device-artifacts.mjs",
     "vault:staging:review-signed-device-pair": "node scripts/review-vault-signed-two-device-acceptance.mjs",
     "vault:staging:run-signed-read-drill": "node scripts/run-vault-signed-staging-read-drill.mjs",
+    "vault:staging:synthetic-provider-fault-matrix": "node scripts/check-vault-provider-fault-matrix-offline.mjs",
     "vault:quarantine:verify-two-reviewers": "node scripts/review-vault-quarantine-attestations.mjs",
     "vault:quarantine:verify-artifact-hashes": "node scripts/verify-vault-quarantine-artifact-hashes.mjs",
     "vault:quarantine:verify-producer-provenance": "node scripts/verify-vault-quarantine-producer-provenance.mjs"

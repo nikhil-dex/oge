@@ -12,6 +12,7 @@ import VaultCurrentBackupLocalCheck from './vault-current-backup-local-check.js'
 import VaultCurrentSourceCheck from './vault-current-source-check.js';
 import VaultRestorePreview from './vault-restore-preview.js';
 import { vaultCurrentResourceSourceCheckAllowed } from '../../../lib/oge-vault-current-resource-source-verify.js';
+import { vaultHistoricalResourceSourceCheckAllowed } from '../../../lib/oge-vault-historical-resource-source-verify.js';
 import styles from './recovery-center.module.css';
 
 export const metadata = {
@@ -48,6 +49,8 @@ export default async function VaultRecoveryCenterPage() {
   // M91 requires a second explicit staging opt-in, independent from M89.
   const authenticatedRestorePreviewEnabled = sourceCompareEnabled &&
     process.env.OGE_VAULT_RESTORE_SOURCE_PREVIEW === 'true';
+  const historicalRestorePreviewEnabled =
+    vaultHistoricalResourceSourceCheckAllowed(process.env);
 
   return (
     <main className={'shell oge-shell oge-retro-workspace ' + styles.page}>
@@ -149,7 +152,8 @@ export default async function VaultRecoveryCenterPage() {
           </div>
           <span className="oge-settings-pill">Read-only · no restore</span>
         </div>
-        <VaultRestorePreview authenticateCurrent={authenticatedRestorePreviewEnabled} />
+        <VaultRestorePreview authenticateCurrent={authenticatedRestorePreviewEnabled}
+          authenticateHistory={historicalRestorePreviewEnabled} />
       </section>
       <section className="oge-settings-card oge-vault-card"
         aria-labelledby="excluded-heading">

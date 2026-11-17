@@ -166,3 +166,27 @@ client; and exact default-OFF HTTP route/owner-scoped static Mongo reads.
 
 **No production restore flags enabled, no user data changed, no merge.
 PR #35 remains DRAFT.**
+
+## E11 / Milestone #79 — Offline two-reviewer signed incident attestation
+
+Added `lib/oge-vault-quarantine-dual-review.js` and the explicitly
+default-OFF, owner-private local-only
+`npm run vault:quarantine:verify-two-reviewers` command for checking
+two **distinct, independently trusted Ed25519** signatures over the
+same canonical 15-minute incident claim. The signed claim binds
+independently supplied incident/lock scope, owner-scope digest, exact
+private repo/installation ID, kind/count, original M78 `HOLD_*`
+classification and `reviewFingerprint`, and hashes of off-platform
+writer-shutdown, in-flight GitHub request and encrypted draft-preservation
+evidence references. The signature validator also rejects any M78 review
+that has lost required NO-UNLOCK and NO-RETRY safety statements.
+Trusted public keys and incident scope come from a separate protected
+operator channel, not the dossier. Distinct keys can verify cryptographic
+attestations **but cannot prove they belong to different physical humans
+or that external evidence is genuine**. This step does not read or verify
+artifact bodies, live GitHub state or the actual shutdown of old workers;
+it never releases the Vault. Even full signature verification returns
+`TWO_SIGNATURES_VERIFIED_QUARANTINE_STILL_HELD` with process
+exit **2** (not success 0). The existing M47 prewrite-only CAS still
+cannot release a `github-write-possible` import lock. See
+`docs/OGE_VAULT_QUARANTINE_TWO_REVIEWER_ATTESTATIONS_E11.md`.

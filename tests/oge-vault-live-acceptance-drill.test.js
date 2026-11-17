@@ -74,7 +74,7 @@ test('M84 two separate private staging session reads return exact M82 pair and p
   assert.equal(result.pair.format, 'oge-vault-signed-device-acceptance-pair');
   assert.equal(result.pair.observations['device-a'].declaredDeviceSlot, 'device-a');
   assert.equal(result.pair.observations['device-b'].declaredDeviceSlot, 'device-b');
-  for (const [slot, nonce] of calls) {
+  for (const { slot, nonce } of calls) {
     assertVaultSignedDeviceObservation(result.pair.observations[slot], slot, nonce);
   }
   assert.equal(result.operatorChallenges['device-a'], calls[0].nonce);

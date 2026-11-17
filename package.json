@@ -31,7 +31,8 @@
     "vault:chunk:restore-staging": "node scripts/commit-vault-chunk-restore-staging.mjs",
     "vault:staging:provider-probe": "node scripts/probe-vault-live-provider-readonly.mjs",
     "vault:staging:two-device-evidence": "node scripts/review-vault-two-device-evidence.mjs",
-    "vault:staging:verify-evidence-files": "node scripts/verify-vault-two-device-artifacts.mjs"
+    "vault:staging:verify-evidence-files": "node scripts/verify-vault-two-device-artifacts.mjs",
+    "vault:quarantine:verify-two-reviewers": "node scripts/review-vault-quarantine-attestations.mjs"
   },
   "dependencies": {
     "mongodb": "^6.21.0",

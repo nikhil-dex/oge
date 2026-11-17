@@ -23,6 +23,7 @@ import {
 } from '../lib/oge-vault-m95-evidence-review.js';
 
 const env = process.env;
+const privateReviewOutput = env.OGE_VAULT_M95_PRIVATE_REVIEW_FILE;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const HEX = /^[a-f0-9]{64}$/;
 const STAGE = /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/;
@@ -83,6 +84,29 @@ function allowed() {
   return origin();
 }
 
+async function savePrivateReview(result) {
+  if (privateReviewOutput === undefined || privateReviewOutput === '') return;
+  if (typeof privateReviewOutput !== 'string' ||
+      !isAbsolute(privateReviewOutput) ||
+      [
+        env.OGE_VAULT_M95_M94_REPORT_FILE,
+        env.OGE_VAULT_SIGNED_ACCEPTANCE_PAIR_FILE,
+        env.OGE_VAULT_TWO_DEVICE_EVIDENCE_FILE,
+      ].includes(privateReviewOutput) ||
+      dirname(privateReviewOutput) ===
+        env.OGE_VAULT_TWO_DEVICE_ARTIFACT_DIRECTORY) blocked();
+  const parent = await lstat(dirname(privateReviewOutput));
+  if (!parent.isDirectory() || !owned(parent)) blocked();
+  const fd = await open(privateReviewOutput, constants.O_CREAT |
+    constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
+  try {
+    const raw = JSON.stringify(result, null, 2) + '\n';
+    if (Buffer.byteLength(raw) > 8192) blocked();
+    await fd.writeFile(raw);
+    await fd.sync();
+  } finally { await fd.close(); }
+}
+
 async function privateJson(path, minBytes, maxBytes, expectedHash = null) {
   const dir = await lstat(dirname(path));
   if (!dir.isDirectory() || !owned(dir)) blocked();
@@ -138,6 +162,7 @@ async function run() {
     expectedRunId: env.OGE_VAULT_SIGNED_ACCEPTANCE_EXPECTED_RUN_ID,
     reportFileHashVerified: true,
   });
+  await savePrivateReview(result);
   console.log(JSON.stringify(result, null, 2));
   process.exitCode = result.allM67ScenarioClaimsReportedPassed ? 2 : 3;
 }

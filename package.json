@@ -33,7 +33,8 @@
     "vault:staging:two-device-evidence": "node scripts/review-vault-two-device-evidence.mjs",
     "vault:staging:verify-evidence-files": "node scripts/verify-vault-two-device-artifacts.mjs",
     "vault:quarantine:verify-two-reviewers": "node scripts/review-vault-quarantine-attestations.mjs",
-    "vault:quarantine:verify-artifact-hashes": "node scripts/verify-vault-quarantine-artifact-hashes.mjs"
+    "vault:quarantine:verify-artifact-hashes": "node scripts/verify-vault-quarantine-artifact-hashes.mjs",
+    "vault:quarantine:verify-producer-provenance": "node scripts/verify-vault-quarantine-producer-provenance.mjs"
   },
   "dependencies": {
     "mongodb": "^6.21.0",

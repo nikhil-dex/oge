@@ -469,3 +469,23 @@ Git ref writes, user Notes or Mongo mutations. **Exit 2 is still
 HOLD and grants NO fault-injection permission**; CLI has NOT been
 run on a real staging repository by CI. See
 `docs/OGE_VAULT_DISPOSABLE_FAULT_STAGING_PREFLIGHT_E18.md`.
+
+## E19 / Milestone #87 — Owner Recovery Center and staging handoff
+
+Added isolated signed-owner informational `/vault/recovery`
+page (separate default-OFF `OGE_VAULT_RECOVERY_CENTER_PREVIEW=false`)
+to make actual current GitHub backup **coverage and exclusions**
+clear: committed Notes, Quick Notes and AirNotes only, NOT
+uncommitted encrypted drafts, historical revisions, legacy Mongo
+Notes or Learning Tracks. Uses the backend-exported coverage
+contract and the existing authenticated resource snapshot download
+only when all its independent staging flags are enabled.
+No GitHub/Note content is fetched on page render, no restore
+form, automatic retry, import-lock release or full backup claim.
+All restore commit/write ACK, cutover and destructive flags must
+remain disabled; signed owner incarnation and private repo
+metadata are validated before display. The consolidated
+operator handoff lists B7/M61/M67-68/M77-86 safety gates,
+manual stop conditions, real physical-device/OAuth and provider
+fault signoff still pending. See
+`docs/OGE_VAULT_RECOVERY_CENTER_STAGING_HANDOFF_E19.md`.

@@ -47,6 +47,8 @@ test('M97 gates, owner fences, extension tab authority, and no legacy notes stor
   assert.match(worker, /sender\.tab\.url/);
   assert.match(worker, /CREATE_LEARNING_TRACK/);
   assert.match(db, /learningTracks.*createIndex\(\{ ownerId: 1, playlistId: 1 \}/);
+  const limiter = await read('../lib/rate-limit.js');
+  assert.match(limiter, /'learning-tracks'/);
   assert.match(deleteAccount, /'learningTracks'/);
   assert.doesNotMatch(page + extension, /collection\(['"]notes['"]\)/);
 });

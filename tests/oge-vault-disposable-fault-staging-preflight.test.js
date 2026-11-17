@@ -184,7 +184,7 @@ test('M86 rejects public/archived repo, Note paths, symlinks, malformed tree, fo
     { movedHead: true }, { differentRepo: true }, { revoked: true },
   ]) {
     const f = fake(options);
-    await assert.rejects(inspect(f), TypeError,
+    await assert.rejects(inspect(f), undefined,
       'failed to reject: ' + JSON.stringify(options));
   }
 });

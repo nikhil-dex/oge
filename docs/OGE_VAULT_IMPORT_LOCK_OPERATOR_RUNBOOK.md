@@ -383,3 +383,27 @@ provider 429/403/409/422/lost-ACK tests and security signoff remain
 PENDING. Even a positive observation cannot authorize restore,
 unlock, production cutover or merge.
 See docs/OGE_VAULT_SIGNED_TWO_DEVICE_ACCEPTANCE_E14.md.
+
+## E15 / Milestone #83 — M82 two-device observation pairing with M67/M68
+
+A distinct default-OFF **offline** command,
+`npm run vault:staging:review-signed-device-pair`, correlates the
+exact private M67 run UUID and M68 verified on-disk artifact hashes
+for the 12-scenario live-staging checklist with **two separately
+captured M82 redacted signed-in read-only response objects**. The
+original 32-byte random challenges for A and B and the M67 run UUID
+must come from an independent protected operator channel, NOT from
+the pair file. Rejects duplicated/swapped/cross-run device labels,
+wrong challenge fingerprints, fabricated positive acceptance flags,
+missing/failed scenarios, changed artifact file bytes and unsafe
+private paths. Uses the SAME validated M67 manifest object that M68
+used to verify all private scenario file bytes, preventing an
+intermediate re-read from mismatching observed run metadata.
+Even the best case yields **HOLD exit 2, indexed for MANUAL review**;
+incomplete is **HOLD exit 3**, malformed/unsafe is **exit 1**. No exit
+0, no network calls, GitHub/Mongo mutations, private Notes, OAuth
+or import-lock release. The M82 reports are not signed source
+proofs, and self-reported M67 session markers are NOT independently
+bound to real M82 devices. Real GitHub OAuth/App and two physical
+device acceptance remain unperformed.
+See docs/OGE_VAULT_SIGNED_TWO_DEVICE_ACCEPTANCE_PAIR_E15.md.

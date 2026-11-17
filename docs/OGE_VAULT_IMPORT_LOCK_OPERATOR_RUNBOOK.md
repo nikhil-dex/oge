@@ -282,3 +282,21 @@ automatic retry or unlock and DO NOT prove the original GitHub
 worker has stopped, authenticated source provenance, or operator
 release authority. The existing #47 prewrite-only release CAS still
 refuses any `github-write-possible` lock. All production flags OFF.
+
+## E10 / Milestone #78 — No-release quarantine recovery review
+
+A new independently default-OFF protected staging-only
+`POST /api/vault/backup-current-resources/recovery-review` correlates
+M77's exact signed-owner historical GitHub/lock/receipt proof with bounded
+owner/repo-scoped active draft writer counters, active subject writers,
+pending encrypted Notes/Quick Notes/AirNotes drafts and additional
+claimed/unresolved M76 receipts. It compares before/after metadata and
+rechecks signed owner and GitHub HEAD; inconsistencies fail closed.
+The redacted incident review fingerprint is **only for correlation, not
+a signature, approval or safe-release token**. Every outcome remains
+`HOLD_*` with detailed blockers, no Git/Mongo content writer, no
+automatic retry and **no postwrite lock release**.
+Even verified historical content does NOT prove a prior GitHub PATCH has
+stopped or establish archive-source provenance. The original M47 helper
+still releases ONLY `acquired` prewrite staging locks.
+See `docs/OGE_VAULT_STANDALONE_QUARANTINE_REVIEW_E10.md`.

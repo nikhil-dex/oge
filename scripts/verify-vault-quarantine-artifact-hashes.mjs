@@ -36,11 +36,11 @@ const allowed = env.OGE_VAULT_QUARANTINE_SIGNATURE_REVIEW ===
     'YES_OFFLINE_SIGNED_TWO_REVIEWERS_ONLY' &&
   env.OGE_VAULT_QUARANTINE_ARTIFACT_HASH_REVIEW ===
     'YES_OFFLINE_PRIVATE_SIGNED_THREE_ARTIFACTS_ONLY' &&
+  typeof file === 'string' && isAbsolute(file) &&
+  typeof reviewFile === 'string' && isAbsolute(reviewFile) &&
   typeof artifactsDirectory === 'string' && isAbsolute(artifactsDirectory) &&
   artifactsDirectory !== dirname(file) &&
   artifactsDirectory !== dirname(reviewFile) &&
-  typeof file === 'string' && isAbsolute(file) &&
-  typeof reviewFile === 'string' && isAbsolute(reviewFile) &&
   file !== reviewFile && originOk &&
   /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(env.MONGODB_DB || '') &&
   env.OGE_VAULT_STANDALONE_RESTORE_COMMIT_PREVIEW !== 'true' &&

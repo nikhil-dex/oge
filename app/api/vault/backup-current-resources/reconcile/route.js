@@ -1,4 +1,3 @@
-import { ownerMutationFilter } from '../../../../../lib/active-owner-mutation.js';
 import { readLimitedBody } from '../../../../../lib/read-limited-body.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../../lib/rate-limit.js';
 import { MAX_VAULT_RESOURCE_BACKUP_BYTES } from '../../../../../lib/oge-vault-backup-current-resources.js';
@@ -6,6 +5,9 @@ import { validateStandaloneRestoreSelection } from '../../../../../lib/oge-vault
 import {
   reconcileStandaloneRestoreReadOnly,
 } from '../../../../../lib/oge-vault-standalone-restore-reconcile.js';
+import {
+  standaloneRestoreIncidentReaders,
+} from '../../../../../lib/oge-vault-standalone-restore-incident-readers.js';
 import {
   standaloneRestoreStagingAllowed, signedStandaloneRestoreContext,
   standaloneRestoreSafeguards, standaloneRestoreHttpError,
@@ -52,47 +54,14 @@ export async function POST(request) {
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const safeguards = standaloneRestoreSafeguards(
       db, identity, readClient);
-    const ownerScope = {
-      ...ownerMutationFilter(identity.ownerId, {
-        sessionVersion: identity.sessionVersion,
-      }),
-      'vault.status': 'connected',
-      'vault.repoId': readClient.vault.repoId,
-      'vault.installationId': readClient.vault.installationId,
-      'vault.githubAccountId': readClient.vault.githubAccountId,
-      'vault.githubLogin': readClient.vault.githubLogin,
-      'vault.repoName': readClient.vault.repoName,
-    };
-    const ownerLockReader = async () => {
-      const owner = await db.collection('users').findOne(
-        ownerScope, {
-          projection: {
-            _id: 0, vaultImportLock: 1, vaultActiveDraftWriters: 1,
-          },
-        },
-      );
-      return owner ? {
-        lock: owner.vaultImportLock,
-        activeDraftWriters: owner.vaultActiveDraftWriters,
-      } : null;
-    };
-    const receiptReader = async (approvalHash) =>
-      db.collection('vault_standalone_restore_approvals').find({
-        ownerId: identity.ownerId,
-        sessionVersion: identity.sessionVersion,
-        repoId: readClient.vault.repoId,
-        installationId: readClient.vault.installationId,
-        approvalHash,
-        state: { $in: ['claimed', 'confirmed'] },
-      }, { projection: {
-        _id: 0, nonceHash: 1, approvalHash: 1, state: 1,
-      } }).limit(2).toArray();
+    const { lockReader, receiptReader } =
+      standaloneRestoreIncidentReaders(db, identity, readClient);
 
     const report = await reconcileStandaloneRestoreReadOnly(
       readClient, approved, {
         expectedOperationId,
         ownerVerifier: safeguards.ownerVerifier,
-        lockReader: ownerLockReader,
+        lockReader,
         receiptReader,
       },
     );

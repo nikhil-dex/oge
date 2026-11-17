@@ -47,8 +47,8 @@ export default function VaultRestorePreview() {
         disabled={busy} onChange={check} />
       <p className={styles.localHelper}>
         Exactly two JSON files, each at most 8 MiB. Your browser may sort
-        selected files differently; verify the displayed selection order before
-        trusting any comparison. Nothing is uploaded. Local embedded hashes do
+        selected files differently; treat add/preserve directions as uncertain
+        unless you can confirm the order from your file picker. Nothing is uploaded. Local embedded hashes do
         not prove either file is genuinely from the current private GitHub Vault.
       </p>
       {busy && <p role="status" className={styles.localStatus}>

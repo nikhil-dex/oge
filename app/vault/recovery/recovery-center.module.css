@@ -85,3 +85,50 @@
   }
   .exclusions li { align-items: flex-start; }
 }
+
+/* M88: bounded, client-only plaintext file verification. */
+.localChecker {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+}
+.localFileLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.localFileInput {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  color: var(--ink);
+  background: transparent;
+  font-size: 12px;
+}
+.localFileInput:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.localHelper, .localStatus, .localError, .localResult {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0;
+  color: var(--muted);
+}
+.localStatus {
+  padding: 12px;
+  border-left: 2px solid var(--green);
+}
+.localError {
+  padding: 12px;
+  border-left: 2px solid var(--line);
+}
+.localResult {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.localResult p { margin: 0; }
+.localResult strong { color: var(--ink); }

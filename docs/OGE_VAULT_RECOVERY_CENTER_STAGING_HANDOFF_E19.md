@@ -153,3 +153,22 @@ enable restoration, download automatically, establish real
 OAuth/device/provider acceptance, mutate a Git branch or permit
 quarantine release. Production flags remain OFF, no merge/deploy,
 and PR #35 stays DRAFT.
+
+## E20 / Milestone #88 — Browser-only local backup checksum inspection
+
+The existing default-OFF signed-owner `/vault/recovery` page now
+offers a user-selected private local JSON file picker. It verifies
+the exact M73 inventory SHA-256 and outer archive SHA-256 using
+browser WebCrypto, strict canonical record types and 8MiB size cap.
+No file is uploaded, no Note text/ID is returned in status, and no
+backup is fetched automatically; only bounded current counts for
+committed Notes, Quick Notes and AirNotes are displayed. Even a
+success is **LOCAL HASH AGREEMENT ONLY**: a forged archive can
+recompute its own SHA-256 values. No source identity/authentication,
+GitHub SHA/owner proof, complete account backup, encrypted drafts,
+historical revisions, Learning Tracks progress, restore/import
+grant or release of `github-write-possible` quarantine is implied.
+The page and local picker are still hidden outside owner-authenticated
+isolated staging. Real signed two-physical-device OAuth and provider
+fault acceptance remain unperformed. See
+`docs/OGE_VAULT_LOCAL_CURRENT_RESOURCE_BACKUP_CHECK_E20.md`.

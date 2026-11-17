@@ -16,6 +16,7 @@ import styles from './recovery-center.module.css';
  */
 export default function VaultRestorePreview({
   authenticateCurrent = false, authenticateHistory = false,
+  guardStaleState = false,
 }) {
   const backupInput = useRef(null);
   const currentInput = useRef(null);
@@ -42,7 +43,8 @@ export default function VaultRestorePreview({
     setReport(null);
     try {
       const result = authenticateHistory
-        ? await previewVaultHistoricallyAuthenticatedRecoveryFiles(backup, reference)
+        ? await previewVaultHistoricallyAuthenticatedRecoveryFiles(
+          backup, reference, { recheckCurrent: guardStaleState })
         : authenticateCurrent
           ? await previewVaultAuthenticatedRecoveryFiles(backup, reference)
           : await previewVaultRecoveryFiles([backup, reference]);
@@ -81,7 +83,9 @@ export default function VaultRestorePreview({
         Each JSON file must be at most 8 MiB. No private Note text,
         resource ID, title or file bytes are uploaded.
         {authenticateHistory
-          ? ' After both local checks, only fingerprints, Git snapshot identifiers and resource counts are sent separately to the M92 bounded-history and M89 current-source read-only verification endpoints. History supports at most 20 single-parent Git commits.'
+          ? guardStaleState
+            ? ' After local checks, the historical candidate is authenticated and the current reference is independently checked twice with the M89 endpoint. Only fingerprints, Git snapshot identifiers and counts are sent. Two of the three permitted hourly current-source checks are consumed per preview; no lock or lasting freshness guarantee is created.'
+            : ' After both local checks, only fingerprints, Git snapshot identifiers and resource counts are sent separately to the M92 bounded-history and M89 current-source read-only verification endpoints. History supports at most 20 single-parent Git commits.'
           : authenticateCurrent
             ? ' After both local checks, only the reference fingerprint, Git snapshot identifiers and three resource counts are sent to the independently authenticated, rate-limited M89 current GitHub source checker.'
             : ' Offline comparison only: neither backup is independently authenticated to GitHub because live source verification is disabled.'}
@@ -89,7 +93,9 @@ export default function VaultRestorePreview({
       <button type="button" className="oge-primary-link" disabled={busy}
         onClick={check}>
         {authenticateHistory
-          ? 'Verify private GitHub history and current reference'
+          ? guardStaleState
+            ? 'Check history and current Vault freshness twice'
+            : 'Verify private GitHub history and current reference'
           : authenticateCurrent
             ? 'Verify current GitHub reference and preview'
             : 'Compare both files locally'}
@@ -103,12 +109,14 @@ export default function VaultRestorePreview({
       </p>}
       {error && <p role="alert" className={styles.localError}>{error}</p>}
       {['HISTORICAL_PRIVATE_GITHUB_SOURCE_DIFFERS_HOLD',
-        'CURRENT_PRIVATE_GITHUB_SOURCE_DIFFERS_HOLD'].includes(report?.status) && (
+        'CURRENT_PRIVATE_GITHUB_SOURCE_DIFFERS_HOLD',
+        'CURRENT_PRIVATE_GITHUB_RECHECK_STALE_HOLD'].includes(report?.status) && (
         <p role="alert" className={styles.localError}>
           The selected archive could not be matched to the signed private
-          GitHub source. It may be outside the bounded history or the
-          reference may have changed. No authenticated plan is displayed;
-          there is no permission to restore or automatically retry.
+          GitHub source at every required inspection. The source may be
+          outside bounded history or the current reference may have changed
+          between checks. HOLD: no conflict counts or restore authorization.
+          Do not automatically retry or release a quarantined write.
         </p>
       )}
       {report?.status === 'CURRENT_GITHUB_REFERENCE_DIFFERED_HOLD' && (
@@ -126,6 +134,18 @@ export default function VaultRestorePreview({
           : report.currentSnapshotAuthenticatedAtCheck
             ? 'Reference matched authenticated current private GitHub at inspection time.'
             : 'Local-only file comparison — reference not source-authenticated.'}</strong></p>
+        {report.finalCurrentSourceRecheckPassedAtInspection && (
+          <p><strong>Final read-only current-source recheck passed.</strong>
+            {' '}This confirms a second point-in-time match, not writer quiescence,
+            a persistent restore authorization, or a guaranteed unchanged HEAD.</p>
+        )}
+        {report.reviewState && <p>Owner decision state: <strong>
+          {report.reviewState === 'MANUAL_CONFLICT_REVIEW_REQUIRED_NO_RESTORE'
+            ? 'Conflicts require manual review; restoration disabled'
+            : report.reviewState === 'MANUAL_ADDITION_REVIEW_REQUIRED_NO_RESTORE'
+              ? 'Potential additions require manual review; restoration disabled'
+              : 'Read-only review; restoration disabled'}
+        </strong></p>}
         <p>Would add: <strong>{report.totalAdd}</strong>
           {' '}· Conflicting: <strong>{report.totalConflict}</strong>
           {' '}· Unchanged: <strong>{report.totalUnchanged}</strong>

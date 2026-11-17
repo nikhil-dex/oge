@@ -119,8 +119,8 @@ test('M84 failed M82 response, redirects, denied permissions, malformed JSON and
     }),
   ];
   for (const response of badResponses) {
-    let calls = 0;
-    const nonceSource = () => Buffer.alloc(32, calls === 0 ? 1 : 2);
+    let calls = 0, issued = 0;
+    const nonceSource = () => Buffer.alloc(32, ++issued);
     await assert.rejects(executeVaultLiveAcceptanceReadOnlyDrill({
       env: safeEnv, nonceSource,
       invoke: async (slot, nonce) => {
@@ -128,7 +128,7 @@ test('M84 failed M82 response, redirects, denied permissions, malformed JSON and
         return response(slot, nonce);
       },
     }), TypeError);
-    assert.ok(calls <= 1, 'provider response failure must never retry');
+    assert.equal(calls, 1, 'provider response failure must never retry');
   }
 });
 

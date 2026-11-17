@@ -21,6 +21,7 @@ export default function LearningTracksPage() {
   const [startDate, setStartDate] = useState('');
   const [noteLinkingEnabled, setNoteLinkingEnabled] = useState(false);
   const [lessonLinks, setLessonLinks] = useState({});
+  const [linkChecks, setLinkChecks] = useState({});
   const [chooser, setChooser] = useState(null);
   const [noteOptions, setNoteOptions] = useState([]);
   const [noteCursor, setNoteCursor] = useState(null);
@@ -74,6 +75,8 @@ export default function LearningTracksPage() {
     try {
       const data = await read(await fetch('/api/learning-tracks/discover?id=' + encodeURIComponent(track.id), { cache: 'no-store' }));
       setDiscovered((current) => ({ ...current, [track.id]: data }));
+      setLinkChecks((current) => Object.fromEntries(Object.entries(current)
+        .filter(([key]) => !key.startsWith(track.id + ':'))));
       if (noteLinkingEnabled) {
         const linked = await read(await fetch('/api/learning-tracks/note-links?trackId=' + encodeURIComponent(track.id), { cache: 'no-store' }));
         setLessonLinks((current) => ({ ...current, [track.id]: linked.links }));
@@ -95,6 +98,8 @@ export default function LearningTracksPage() {
         const next = { ...current }; delete next[track.id]; return next;
       });
       setChooser(null);
+      setLinkChecks((current) => Object.fromEntries(Object.entries(current)
+        .filter(([key]) => !key.startsWith(track.id + ':'))));
       setMessage('Learning track removed.');
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -126,6 +131,7 @@ export default function LearningTracksPage() {
         ...current, [chooser.trackId]: [...(current[chooser.trackId] || []), link],
       }));
       setChooser(null);
+      setLinkChecks((current) => ({ ...current, [link.trackId + ':' + link.videoId]: undefined }));
       setMessage('The lesson now points to your existing private GitHub Note; no Note content was copied.');
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -140,9 +146,37 @@ export default function LearningTracksPage() {
         ...current, [link.trackId]: (current[link.trackId] || []).filter((item) =>
           item.videoId !== link.videoId),
       }));
+      setLinkChecks((current) => ({ ...current, [link.trackId + ':' + link.videoId]: undefined }));
       setMessage('Lesson link removed. GitHub Note was not deleted.');
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
+  }
+  async function refreshLinks(track) {
+    if (busy) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const data = await read(await fetch('/api/learning-tracks/note-links?trackId=' +
+        encodeURIComponent(track.id), { cache: 'no-store' }));
+      setLessonLinks((current) => ({ ...current, [track.id]: data.links }));
+      setLinkChecks((current) => Object.fromEntries(Object.entries(current)
+        .filter(([key]) => !key.startsWith(track.id + ':'))));
+      setMessage('Links refreshed. Existing associations are not proof that GitHub Notes still exist.');
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
+  async function verifyNote(link) {
+    if (busy) return;
+    setBusy(true); setError(''); setMessage('');
+    const key = link.trackId + ':' + link.videoId;
+    setLinkChecks((current) => ({ ...current, [key]: undefined }));
+    try {
+      const data = await read(await fetch('/api/learning-tracks/note-links?' +
+        new URLSearchParams({ mode: 'verify', trackId: link.trackId, videoId: link.videoId }),
+      { cache: 'no-store' }));
+      setLinkChecks((current) => ({ ...current, [key]: data.status }));
+    } catch (err) {
+      setError(err.message);
+    } finally { setBusy(false); }
   }
   async function copyStarter(video) {
     try {
@@ -178,6 +212,9 @@ export default function LearningTracksPage() {
           const days = validProgress ? buildDailyLessons(snapshot.videos, track.videosPerDay, track.completedVideos, startDate) : [];
           const currentDay = Math.floor(track.completedVideos / track.videosPerDay);
           const upcoming = days.slice(currentDay, currentDay + 7);
+          const unavailableVideos = snapshot && noteLinkingEnabled
+            ? (lessonLinks[track.id] || []).filter((link) =>
+              !snapshot.videos.some((video) => video.videoId === link.videoId)).length : 0;
           return <article key={track.id} className={styles.track}>
             <h3>{track.title}</h3>
             <p>{track.videosPerDay} video{track.videosPerDay === 1 ? '' : 's'} per day · {track.completedVideos}{track.totalVideos == null ? ' completed (total unknown)' : ' / ' + track.totalVideos + ' completed'}</p>
@@ -187,10 +224,12 @@ export default function LearningTracksPage() {
               <button type="button" disabled={busy} onClick={() => discover(track)}>{snapshot ? 'Refresh lessons' : 'Discover lessons'}</button>
               <button type="button" disabled={busy || track.completedVideos <= 0} onClick={() => progress(track, -1)}>Undo one</button>
               <button type="button" disabled={busy || (track.totalVideos !== null && track.completedVideos >= track.totalVideos)} onClick={() => progress(track, 1)}>Completed one +</button>
+              {noteLinkingEnabled && snapshot && <button type="button" disabled={busy} onClick={() => refreshLinks(track)}>Refresh Note links</button>}
               <button type="button" disabled={busy} onClick={() => remove(track)}>Remove</button>
             </div>
             {snapshot && <section className={styles.lessons} aria-label={'Lessons for ' + track.title}>
               <p>Snapshot: {snapshot.totalVideos} public playlist entries. Read-only discovery; titles and order can change. Completed count follows playlist order, not video identity.</p>
+              {unavailableVideos > 0 && <p className={styles.error}>{unavailableVideos} saved Note link(s) are absent from this playlist snapshot. Check manually; no links or Notes were changed.</p>}
               {track.totalVideos !== null && track.totalVideos !== snapshot.totalVideos &&
                 <p className={styles.error}>Your manually recorded total ({track.totalVideos}) differs from the discovered count ({snapshot.totalVideos}). This does not overwrite your saved total.</p>}
               {!validProgress ? <p className={styles.error}>Recorded progress exceeds discovered videos. Schedule hidden until the data is reconciled.</p> :
@@ -206,7 +245,13 @@ export default function LearningTracksPage() {
                         {noteLinkingEnabled && <>
                           {(lessonLinks[track.id] || []).some((link) => link.videoId === video.videoId) ?
                             <span className={styles.noteActions}>
-                              <span>Linked to private Note</span>
+                              <span>Linked to private Note (not automatically reverified)</span>
+                              <button type="button" disabled={busy} onClick={() => verifyNote(
+                                lessonLinks[track.id].find((link) => link.videoId === video.videoId))}>Verify linked Note</button>
+                              {linkChecks[track.id + ':' + video.videoId] === 'present' &&
+                                <span role="status">Present in your Vault at check time</span>}
+                              {linkChecks[track.id + ':' + video.videoId] === 'missing' &&
+                                <span role="status">No longer found in your current Vault; link remains unchanged</span>}
                               <button type="button" disabled={busy} onClick={() => unlinkNote(
                                 lessonLinks[track.id].find((link) => link.videoId === video.videoId))}>Unlink</button>
                             </span> :

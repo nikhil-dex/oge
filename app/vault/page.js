@@ -5,6 +5,7 @@ import { getDatabase } from '../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import { vaultConfigured } from '../../lib/oge-vault-github.js';
 import { checkVaultStagingReadiness } from '../../lib/oge-vault-staging-preflight.js';
+import { vaultRecoveryCenterStagingAllowed } from '../../lib/oge-vault-recovery-center.js';
 import SiteNavbar from '../components/site-navbar';
 
 export const metadata = { title: 'Oge Vault' };
@@ -40,6 +41,7 @@ export default async function VaultPage({ searchParams }) {
   const result = (await searchParams)?.result;
   const vault = user.vault?.status === 'connected' ? user.vault : null;
   const configured = vaultConfigured();
+  const recoveryCenterVisible = vaultRecoveryCenterStagingAllowed(process.env);
   const previewEnabled = process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true';
   const mainPreviewEnabled = process.env.OGE_VAULT_MAIN_PREVIEW === 'true';
   const standaloneEditorVisible =
@@ -113,6 +115,7 @@ export default async function VaultPage({ searchParams }) {
             {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open familiar Notes interface (GitHub-only) →</Link>}
             {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Quick Capture to GitHub Vault (staging preview) →</Link>}
             {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}
+            {recoveryCenterVisible && <Link className="oge-primary-link" href="/vault/recovery">Recovery Center — coverage and safety status →</Link>}
             {currentResourceBackupVisible && <>
               <p className="oge-settings-note">Staging three-resource current snapshot backup includes private plaintext committed Notes, Quick Notes and AirNotes. Secure the downloaded JSON. Historical revisions, drafts and other account data are NOT included, and this file cannot be imported yet.</p>
               <a className="oge-primary-link" href="/api/vault/backup-current-resources" download="oge-vault-current-resources.json">Download current committed Vault resources (staging only) ↓</a>

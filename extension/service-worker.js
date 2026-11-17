@@ -1,7 +1,7 @@
 // All OgeNotes requests are made from the extension service worker.
 // The floating content script never receives the bearer token or app origin.
 const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
-const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME']);
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK']);
 const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
 
 function normalizeBase(value) {
@@ -79,6 +79,22 @@ async function handleAction(message, sender) {
       method: 'POST', body: JSON.stringify({ content, subjectSlug }),
     });
     return { title: data.title, destination: data.destination, subject: data.subject || null };
+  }
+  if (message.type === 'CREATE_LEARNING_TRACK') {
+    // A malicious web page cannot choose a different URL; use the browser's tab.
+    const title = message.title;
+    if (typeof title !== 'string' || !title.trim() || title.length > 120)
+      throw new Error('Enter a learning track name (up to 120 characters).');
+    const videosPerDay = message.videosPerDay;
+    const totalVideos = message.totalVideos;
+    if (!Number.isInteger(videosPerDay) || videosPerDay < 1 || videosPerDay > 20 ||
+        (totalVideos !== null && (!Number.isInteger(totalVideos) || totalVideos < 1 || totalVideos > 10000)))
+      throw new Error('Choose valid daily and total video counts.');
+    const data = await apiRequest('/api/extension/learning-track', {
+      method: 'POST',
+      body: JSON.stringify({ url: sender.tab.url, title, videosPerDay, totalVideos }),
+    });
+    return { title: data.track.title };
   }
   if (message.type === 'SAVE_CURRENT_TAB') {
     const url = sender.tab.url;

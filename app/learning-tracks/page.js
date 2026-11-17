@@ -22,7 +22,11 @@ export default function LearningTracksPage() {
     catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => { if (active) void load(); });
+    return () => { active = false; };
+  }, [load]);
   async function create(event) {
     event.preventDefault();
     if (busy) return;

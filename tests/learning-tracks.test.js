@@ -40,6 +40,7 @@ test('M97 gates, owner fences, extension tab authority, and no legacy notes stor
   const worker = await read('../extension/service-worker.js');
   const db = await read('../lib/mongodb.js');
   const deleteAccount = await read('../lib/account-deletion-transaction.js');
+  const home = await read('../app/page.js');
   assert.match(page, /OGE_LEARNING_TRACKS_PREVIEW/);
   assert.match(extension, /OGE_LEARNING_TRACKS_PREVIEW/);
   assert.match(page, /withActiveOwnerMutation/);
@@ -50,5 +51,7 @@ test('M97 gates, owner fences, extension tab authority, and no legacy notes stor
   const limiter = await read('../lib/rate-limit.js');
   assert.match(limiter, /'learning-tracks'/);
   assert.match(deleteAccount, /'learningTracks'/);
+  assert.match(home, /OGE_LEARNING_TRACKS_PREVIEW === 'true'/);
+  assert.match(home, /href: '\/learning-tracks'/);
   assert.doesNotMatch(page + extension, /collection\(['"]notes['"]\)/);
 });

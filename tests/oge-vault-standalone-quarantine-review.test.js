@@ -43,7 +43,7 @@ function fixture({
       refReads++;
       assert.equal(path, '/git/ref/heads/main');
       return { object: {
-        sha: movingHead && refReads > 1 ? 'c'.repeat(40) : HEAD,
+        sha: movingHead && refReads >= 1 ? 'c'.repeat(40) : HEAD,
       } };
     },
   };

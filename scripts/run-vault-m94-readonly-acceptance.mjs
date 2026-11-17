@@ -23,8 +23,25 @@ import {
 
 const env = process.env;
 const BLOCK = () => { throw new TypeError('Unsafe M94 read-only staging input'); };
+// M95: optional private REDACTED report artifact. Never persist tokens,
+// raw challenges, private archives or provider response bodies.
+const privateReportPath = env.OGE_VAULT_M94_PRIVATE_REPORT_FILE;
 const owned = s => Boolean(s && (s.mode & 0o077) === 0 &&
   (typeof process.getuid !== 'function' || s.uid === process.getuid()));
+async function privateReport(result) {
+  if (privateReportPath === undefined || privateReportPath === '') return;
+  if (!isAbsolute(privateReportPath)) BLOCK();
+  const parent = await lstat(dirname(privateReportPath));
+  if (!parent.isDirectory() || !owned(parent)) BLOCK();
+  const out = await open(privateReportPath, constants.O_CREAT | constants.O_EXCL |
+    constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
+  try {
+    const raw = JSON.stringify(result, null, 2) + '\n';
+    if (Buffer.byteLength(raw) > 8192) BLOCK();
+    await out.writeFile(raw);
+    await out.sync();
+  } finally { await out.close(); }
+}
 async function privateRegular(path, min, max) {
   if (typeof path !== 'string' || !isAbsolute(path)) BLOCK();
   const dir = await lstat(dirname(path));
@@ -93,7 +110,9 @@ async function readBounded(response, maxBytes) {
   };
 }
 async function run() {
-  if (!checkVaultM94ReadOnlyAcceptanceGuard(env)) BLOCK();
+  if (!checkVaultM94ReadOnlyAcceptanceGuard(env) ||
+      (privateReportPath !== undefined && privateReportPath !== '' &&
+        !isAbsolute(privateReportPath))) BLOCK();
   const paths = [
     env.OGE_VAULT_M94_DEVICE_A_STORAGE_STATE,
     env.OGE_VAULT_M94_DEVICE_B_STORAGE_STATE,
@@ -173,6 +192,7 @@ async function run() {
       referenceFile: localFile(current),
       invokeSignedRead, invokeSourceRead,
     });
+    await privateReport(result);
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await Promise.all(Object.values(contexts).map(c => c.dispose()));

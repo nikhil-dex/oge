@@ -266,3 +266,19 @@ independently reviewed maintenance and recovery process exists.
 - No note content imported to MongoDB
 - No receipt/draft deletion or GitHub write from this operator inspection
 - PR #35 stays draft and unmerged until security review and live acceptance
+
+## E9 / Milestone #77: standalone restore uncertain-write inspection
+
+A new **read-only** protected-staging endpoint for **uncertain M75/M76
+Quick Notes or AirNotes restore attempts** is documented in
+`docs/OGE_VAULT_STANDALONE_RESTORE_RECONCILE_E9.md`. It validates the
+exact signed account, owner lock operation ID/marker/approved target HEAD/
+selected UUIDs, matching claimed or confirmed M76 receipt, then walks
+at most 20 immutable single-parent Git commits and compares complete
+before/after leaf diffs and every selected canonical private blob against
+the original archived source (held only in memory). It distinguishes
+historical creation from later edits/deletions. All reports forbid
+automatic retry or unlock and DO NOT prove the original GitHub
+worker has stopped, authenticated source provenance, or operator
+release authority. The existing #47 prewrite-only release CAS still
+refuses any `github-write-possible` lock. All production flags OFF.

@@ -13,6 +13,7 @@ import VaultCurrentSourceCheck from './vault-current-source-check.js';
 import VaultRestorePreview from './vault-restore-preview.js';
 import { vaultCurrentResourceSourceCheckAllowed } from '../../../lib/oge-vault-current-resource-source-verify.js';
 import { vaultHistoricalResourceSourceCheckAllowed } from '../../../lib/oge-vault-historical-resource-source-verify.js';
+import { vaultRecoveryStaleRecheckAllowed } from '../../../lib/oge-vault-recovery-stale-guard.js';
 import styles from './recovery-center.module.css';
 
 export const metadata = {
@@ -51,6 +52,7 @@ export default async function VaultRecoveryCenterPage() {
     process.env.OGE_VAULT_RESTORE_SOURCE_PREVIEW === 'true';
   const historicalRestorePreviewEnabled =
     vaultHistoricalResourceSourceCheckAllowed(process.env);
+  const staleRecheckEnabled = vaultRecoveryStaleRecheckAllowed(process.env);
 
   return (
     <main className={'shell oge-shell oge-retro-workspace ' + styles.page}>
@@ -153,7 +155,8 @@ export default async function VaultRecoveryCenterPage() {
           <span className="oge-settings-pill">Read-only · no restore</span>
         </div>
         <VaultRestorePreview authenticateCurrent={authenticatedRestorePreviewEnabled}
-          authenticateHistory={historicalRestorePreviewEnabled} />
+          authenticateHistory={historicalRestorePreviewEnabled}
+          guardStaleState={staleRecheckEnabled} />
       </section>
       <section className="oge-settings-card oge-vault-card"
         aria-labelledby="excluded-heading">

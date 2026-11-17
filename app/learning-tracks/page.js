@@ -219,7 +219,7 @@ export default function LearningTracksPage() {
                   </ol>
                   {chooser?.trackId === track.id && <section className={styles.notePicker} aria-label="Choose a committed private GitHub Note">
                     <strong>Choose a private GitHub Note for this video</strong>
-                    <p>Read-only owner-verified picker (8 per page). Titles stay in browser memory; only Note ID is linked. Do not link Notes from another user's Vault.</p>
+                    <p>Read-only owner-verified picker (8 per page). Titles stay in browser memory; only Note ID is linked. Do not link Notes from a different Vault.</p>
                     {noteOptions.length === 0 && <p>No committed Notes found on this page.</p>}
                     {noteOptions.map((note) => <div className={styles.noteChoice} key={note.id}>
                       <span>{note.heading}</span>

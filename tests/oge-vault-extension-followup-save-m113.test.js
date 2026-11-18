@@ -1,0 +1,153 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+
+const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const firstSha = 'a'.repeat(40);
+const secondSha = 'b'.repeat(40);
+
+async function floatingEditor(send) {
+  const events = [];
+  let save;
+  const subjectSlug = randomUUID();
+  const note = { value: 'Machine learning task' };
+  const subjectSelect = { value: subjectSlug };
+  const noteSave = {
+    disabled: false,
+    addEventListener(type, listener) {
+      assert.equal(type, 'click');
+      save = listener;
+    },
+  };
+  const ctx = {
+    note, subjectSelect, noteSave,
+    noteOpenSaved: { hidden: true },
+    lastSavedVaultNoteId: null,
+    vaultReady: true,
+    savingCapture: false,
+    pendingVaultCapture: null,
+    pendingSavedUpdate: null,
+    setStatus: (message, error) => events.push({ message, error }),
+    createCaptureId: () => randomUUID(),
+    send,
+  };
+  const src = await read('../extension/content.js');
+  const from = src.indexOf("  noteSave.addEventListener('click', async () => {");
+  const to = src.indexOf('  const urlSave = ', from);
+  assert.ok(from >= 0 && to > from);
+  vm.runInNewContext(src.slice(from, to), ctx, { timeout: 2000 });
+  return { ctx, note, subjectSelect, events, save: () => save() };
+}
+
+test('M113 typing during Save updates the SAME GitHub Note on next Save', async () => {
+  const seen = [];
+  let acknowledge;
+  const editor = await floatingEditor(async (action, payload) => {
+    seen.push({ action, payload });
+    if (action === 'CREATE_VAULT_NOTE')
+      return new Promise((resolve) => { acknowledge = resolve; });
+    if (action === 'UPDATE_VAULT_NOTE')
+      return {
+        destination: 'vault', confirmed: true,
+        id: payload.captureId, sha: secondSha,
+        title: 'Machine learning task', subject: 'AI',
+      };
+    throw Error('Unexpected extension action');
+  });
+  const first = editor.save();
+  const originalId = seen[0].payload.captureId;
+  editor.note.value = 'Machine learning task and read chapter two';
+  acknowledge({ destination: 'vault', confirmed: true,
+    id: originalId, sha: firstSha,
+    title: 'Machine learning task', subject: 'AI' });
+  await first;
+  assert.equal(editor.note.value, 'Machine learning task and read chapter two');
+  assert.equal(editor.ctx.pendingSavedUpdate.id, originalId);
+  assert.equal(editor.ctx.pendingSavedUpdate.sha, firstSha);
+  assert.match(editor.events.at(-1).message, /update the same GitHub Note/);
+
+  await editor.save();
+  assert.deepEqual(seen.map((call) => call.action),
+    ['CREATE_VAULT_NOTE', 'UPDATE_VAULT_NOTE']);
+  assert.equal(seen[1].payload.captureId, originalId);
+  assert.equal(seen[1].payload.sha, firstSha);
+  assert.equal(seen[1].payload.content, 'Machine learning task and read chapter two');
+  assert.equal(editor.note.value, '');
+  assert.equal(editor.ctx.pendingSavedUpdate, null);
+  assert.equal(editor.ctx.lastSavedVaultNoteId, originalId);
+  assert.equal(editor.ctx.noteOpenSaved.hidden, false);
+});
+
+test('M113 lost UPDATE response retains revision and retries same Note, never creates another', async () => {
+  let attempts = 0;
+  const calls = [];
+  let resolveFirst;
+  const editor = await floatingEditor(async (action, payload) => {
+    calls.push({ action, payload });
+    if (action === 'CREATE_VAULT_NOTE')
+      return new Promise((resolve) => { resolveFirst = resolve; });
+    if (action === 'UPDATE_VAULT_NOTE') {
+      attempts += 1;
+      if (attempts === 1) throw Error('Connection interrupted');
+      return { destination: 'vault', confirmed: true, id: payload.captureId,
+        sha: secondSha, title: 'Machine learning task', subject: 'AI', alreadySaved: true };
+    }
+    throw Error('Unexpected action');
+  });
+  const initial = editor.save();
+  const id = calls[0].payload.captureId;
+  editor.note.value = 'Machine learning task with follow-up';
+  resolveFirst({ destination: 'vault', confirmed: true,
+    id, sha: firstSha, title: 'Machine learning task', subject: 'AI' });
+  await initial;
+  await editor.save();
+  assert.equal(editor.note.value, 'Machine learning task with follow-up');
+  assert.equal(editor.ctx.pendingSavedUpdate.id, id);
+  assert.equal(editor.ctx.pendingSavedUpdate.sha, firstSha);
+  await editor.save();
+  assert.deepEqual(calls.map((call) => call.action),
+    ['CREATE_VAULT_NOTE', 'UPDATE_VAULT_NOTE', 'UPDATE_VAULT_NOTE']);
+  assert.equal(calls[1].payload.captureId, calls[2].payload.captureId);
+  assert.equal(calls[1].payload.sha, calls[2].payload.sha);
+  assert.equal(editor.note.value, '');
+});
+
+test('M113 changing subject after Save starts an independent new capture', async () => {
+  const calls = [];
+  let resolveFirst;
+  const editor = await floatingEditor(async (action, payload) => {
+    calls.push({ action, payload });
+    if (calls.length === 1)
+      return new Promise((resolve) => { resolveFirst = resolve; });
+    return { destination: 'vault', confirmed: true,
+      id: payload.captureId, sha: secondSha,
+      title: 'New subject thought', subject: 'Other' };
+  });
+  const first = editor.save();
+  const original = calls[0].payload.captureId;
+  editor.subjectSelect.value = randomUUID();
+  editor.note.value = 'New subject thought';
+  resolveFirst({ destination: 'vault', confirmed: true,
+    id: original, sha: firstSha, title: 'Machine learning task', subject: 'AI' });
+  await first;
+  await editor.save();
+  assert.deepEqual(calls.map((x) => x.action), ['CREATE_VAULT_NOTE', 'CREATE_VAULT_NOTE']);
+  assert.notEqual(calls[1].payload.captureId, original);
+});
+
+test('M113 API supports revision-aware updating and no permanent Mongo Note content', async () => {
+  const api = await read('../app/api/extension/vault-note/route.js');
+  const worker = await read('../extension/service-worker.js');
+  assert.match(api, /export const PUT = \(request\) => saveExtensionNote\(request, true\)/);
+  assert.match(api, /previous\.sha !== data\.sha\.toLowerCase\(\)/);
+  assert.match(api, /action: 'update', id, sha: previous\.sha, note: updatedNote/);
+  assert.match(api, /if \(matches\(previous\)\) return receipt\(previous, true\)/);
+  assert.match(api, /if \(matches\(recovered\)\) return receipt\(recovered, true\)/);
+  assert.match(api, /favorite: previous\.favorite, tags: previous\.tags/);
+  assert.doesNotMatch(api, /collection\(['"](?:notes|quickNotes|personalQuickNotes)['"]\)|insertOne\(/);
+  assert.match(worker, /'UPDATE_VAULT_NOTE'/);
+  assert.match(worker, /method: updating \? 'PUT' : 'POST'/);
+  assert.match(worker, /sha: data\.sha/);
+});

@@ -111,7 +111,11 @@ test('M69 client reuses existing temporary encrypted draft CAS and one explicit 
   assert.doesNotMatch(client,
     /\/api\/quick-notes|\/api\/personal-quick-notes|\/api\/extension\/quick-note/);
   assert.doesNotMatch(client,
-    /collection\('notes'\)|collection\('quickNotes'\)|collection\('personalQuickNotes'\)|Bearer |github\.com\/|localStorage/);
+    /collection\('notes'\)|collection\('quickNotes'\)|collection\('personalQuickNotes'\)|Bearer |github\.com\//);
+  // M111 uses localStorage exclusively for recent GitHub Note UUID hints,
+  // not draft bodies or permanent MongoDB Note content.
+  assert.match(client, /recentVaultNotesKey\(ownerId, repoId\)/);
+  assert.match(client, /rememberRecentVaultNote\(window\.localStorage/);
 });
 
 test('M69 Quick Notes, AirNotes, and extension legacy APIs are not silently rewritten', async () => {

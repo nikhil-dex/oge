@@ -8,6 +8,7 @@ import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
 import { loadVaultSearchPages } from '../../lib/oge-vault-search-pages.js';
 import { noteEditorFeedback, noteBodyMetrics } from '../../lib/oge-notes-editor-feedback.js';
+import { stageVaultFollowupSave } from '../../lib/oge-vault-followup-save.js';
 import {
   isVaultNoteId, recentVaultNotesKey, readRecentVaultNoteIds,
   rememberRecentVaultNote, mergeRecentVaultNotes, findLinkedVaultNote,
@@ -630,11 +631,23 @@ export default function NotesPage({
           (hybridDrafts ? { ...payload, id: newDraftId } : payload)),
       }));
       if (vaultMode) rememberSavedNote(note.id);
-      // If typing continued during Save, never clear the draft or close the
-      // editor: the confirmed GitHub commit covers only the submitted version.
-      if (hybridDrafts && JSON.stringify(liveEditorRef.current) !== submittedEditor) {
+      // The submitted revision really was committed, but newer keystrokes
+      // remain unsaved. Switch from "create this UUID" to "edit this UUID"
+      // and advance the GitHub SHA so the NEXT Save is PUT, never a second
+      // POST that conflicts with the already-created file.
+      if (hybridDrafts && vaultMode &&
+          JSON.stringify(liveEditorRef.current) !== submittedEditor) {
+        const followup = stageVaultFollowupSave(notes, note);
+        setNotes((existing) => stageVaultFollowupSave(existing, note).notes);
+        setEditingId(followup.editingId);
+        setNewDraftId(followup.newDraftId);
+        editorInitialRef.current = followup.baseline;
+        setEditorBaseline(followup.baseline);
+        // The editor's visible heading/body/tags are deliberately untouched.
+        // On the next autosave the draft's baseSha and revision correspond to
+        // this confirmed GitHub Note rather than its old create intent.
         setDraftStatus('Newer edits pending — earlier revision saved to GitHub');
-        setMessage('The submitted revision was saved to GitHub. Newer edits are still in this editor; review and save them separately.');
+        setMessage('The earlier version was saved to GitHub. Your newer text is still here; press Save again to update the same Note.');
         return;
       }
       if (hybridDrafts && draftNoteId) {

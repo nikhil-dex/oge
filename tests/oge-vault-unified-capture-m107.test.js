@@ -94,5 +94,8 @@ test('M107 existing Quick Capture begins an actual draft when selecting an empty
   assert.equal(validated.subjectId, subjectId);
   assert.equal(validated.heading, 'First note');
   assert.equal(validated.answer, 'Useful body');
-  assert.throws(() => vaultCaptureFields('One line only', subjectId), TypeError);
+  const quick = vaultCaptureFields('One line only', subjectId);
+  assert.equal(quick.heading, 'Quick note');
+  assert.equal(quick.answer, 'One line only');
+  assert.equal(validatedNote(quick).answer, 'One line only');
 });

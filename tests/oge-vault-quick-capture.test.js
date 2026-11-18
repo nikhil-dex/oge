@@ -31,14 +31,14 @@ test('M69 first line becomes GitHub note heading, rest is body and valid encrypt
 test('M108 single-line quick thoughts and body-only captures save as real Notes', () => {
   for (const content of ['Buy bread', 'Buy bread\n', '\nBuy bread']) {
     const draft = vaultCaptureFields(content, subject);
-    assert.equal(draft.heading, 'Quick note');
+    assert.equal(draft.heading, 'Buy bread');
     assert.equal(draft.answer, content.trim());
     assert.deepEqual(validatedHybridDraft(draft), draft);
     assert.equal(validatedNote(draft).answer, content.trim());
   }
   const longFirstLine = 'A'.repeat(161) + '\nMore thoughts';
   const draft = vaultCaptureFields(longFirstLine, subject);
-  assert.equal(draft.heading, 'Quick note');
+  assert.equal(draft.heading, 'A'.repeat(80));
   assert.equal(draft.answer, longFirstLine);
   assert.equal(validatedNote(draft).answer, longFirstLine);
 });

@@ -6,6 +6,7 @@ import {
   VAULT_CAPTURE_MAX_CHARS, vaultCaptureFields, vaultCaptureLocalKey,
   vaultCapturePointer, vaultCaptureRecoveryText, resolveBrowserOnlyCapture,
 } from '../../../lib/oge-vault-quick-capture.js';
+import { recentVaultNotesKey, rememberRecentVaultNote } from '../../../lib/oge-vault-recent-notes.js';
 
 async function responseJson(response) {
   const body = await response.json().catch(() => ({}));
@@ -362,6 +363,12 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         setError('Unverified GitHub Save response. Use read-only recovery.');
         return;
       }
+      // Remember only the committed UUID, never a Note body, so the full
+      // Notes page can show this capture even beyond its first UUID page.
+      try {
+        rememberRecentVaultNote(window.localStorage,
+          recentVaultNotesKey(ownerId, repoId), saved.id);
+      } catch { /* The GitHub Save is confirmed even without local storage. */ }
       try {
         await reconcile(noteId, rev, saved.sha);
         clearSaved(noteId, subjectId);
@@ -389,6 +396,10 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         return;
       }
       await reconcile(noteId, revisionRef.current, data.sha);
+      try {
+        rememberRecentVaultNote(window.localStorage,
+          recentVaultNotesKey(ownerId, repoId), noteId);
+      } catch { /* Optional browser navigation hint. */ }
       clearSaved(noteId, subjectId);
     } catch {
       setError('Read-only GitHub verification or cleanup unavailable. Keep the draft; no GitHub retry occurred.');

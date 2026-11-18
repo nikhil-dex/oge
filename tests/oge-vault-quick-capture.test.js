@@ -57,14 +57,13 @@ test('M69 new subject-specific browser pointers cannot alias another owner/repo/
   ]) assert.throws(value, TypeError);
 });
 
-test('M69 owner-server Quick Capture page is new opt-in staging-only and connected vault gated', async () => {
+test('M104 Quick Capture follows connected GitHub Notes and drafts without separate staging gate', async () => {
   const file = await readFile(new URL(
     '../app/vault/capture/page.js', import.meta.url), 'utf8');
-  assert.match(file, /OGE_VAULT_QUICK_CAPTURE_PREVIEW === 'true'/);
   assert.match(file, /OGE_VAULT_MAIN_PREVIEW === 'true'/);
   assert.match(file, /OGE_VAULT_NOTE_API_PREVIEW === 'true'/);
   assert.match(file, /OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true'/);
-  assert.match(file, /oge_vault_restore_staging_/);
+  assert.doesNotMatch(file, /OGE_VAULT_QUICK_CAPTURE_PREVIEW|oge_vault_restore_staging_|checkVaultStagingReadiness/);
   assert.match(file, /ownerMutationFilter\(session\.user\.id/);
   assert.match(file, /sessionVersion: session\.user\.sessionVersion/);
   assert.match(file, /user\?\.vault\?\.status !== 'connected'/);
@@ -78,6 +77,12 @@ test('M69 client reuses existing temporary encrypted draft CAS and one explicit 
     '../app/vault/capture/vault-quick-capture-client.js', import.meta.url),
     'utf8');
   assert.match(client, /vaultCaptureFields\(content, subjectId\)/);
+  assert.match(client, /async function createSubject\(event\)/);
+  assert.match(client, /fetch\('\/api\/subjects', \{/);
+  assert.match(client, /await choose\(created\.slug\)/);
+  assert.match(client, /setNoteId\(crypto\.randomUUID\(\)\)/);
+  assert.match(client, /!text\.trim\(\)/);
+  assert.match(client, /Saved to GitHub\. Ready for your next note/);
   assert.match(client, /\/api\/vault\/drafts\?new=true&subject=/);
   assert.match(client, /method: 'PUT', cache: 'no-store'/);
   assert.match(client, /savedTo !== 'temporary-draft'/);

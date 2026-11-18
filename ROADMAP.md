@@ -1,5 +1,37 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #108 — Quick Capture should work for a simple thought (18 Nov 2026)
+
+**Product usability improvement, not another release-gate milestone.**
+
+- **Single-line Note Save:** `vaultCaptureFields` now accepts one-line
+  thoughts without an artificially required second paragraph. It derives a
+  short recognizable title from the first nonempty line and preserves the
+  entire original input as the GitHub Note body. Existing explicit title+
+  body capture semantics remain unchanged.
+- **Single-subject convenience:** When exactly one subject is available,
+  Quick Capture selects it automatically and follows the normal unfinished-
+  draft recovery process before preparing a new note. A user with multiple
+  subjects still chooses where to save.
+- **Correct navigation:** The Quick Capture page's Notes navbar and
+  "All GitHub Notes" action open `/vault/notes`, not the older standalone
+  MongoDB editor. Updated in-app and browser-extension instructions to
+  explain quick single-line captures.
+- **Tests:** Updated the real conversion-to-valid-Vault-Note unit tests for
+  empty text, one-line, body-only, Unicode/long headings, and explicit
+  title/body; updated the existing first-subject and navigation contract
+  tests. CI is verified separately on the final exact commit.
+- **No new storage or migrations:** This uses the same encrypted temporary
+  draft and explicit GitHub Save process. Historical MongoDB Quick Notes
+  and AirNotes remain untouched. No new review/approval/security gates.
+- **Progress stays 8/10 implemented (80%), 0/3 real-account journeys
+  verified.** This improves existing checkpoint #5 rather than inventing
+  another "completed" feature. PR #35 remains draft/unmerged.
+- **Next #109:** Test the live GitHub Save/reload journey with a real
+  connected account and Chrome extension, or correct concrete bugs from
+  the actual browser. Production deployment remains last.
+
+
 ## Notes MVP progress — 8/10 implemented (80%), 0/3 real-account journeys verified
 
 **M107 update (18 Nov 2026).** This is a count of user-facing

@@ -23,15 +23,23 @@ export default async function HomePage() {
   const session = await auth();
   if (!session?.user?.id) redirect('/register');
   const db = await getDatabase();
-  const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1 } });
+  const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1, vault: 1 } });
   if (!account?.onboardingComplete) redirect('/onboarding');
+  // Once GitHub Notes is enabled for a connected owner, the main Notes card
+  // should open the actual GitHub-backed editor, not the older MongoDB UI.
+  const vaultNotesReady = process.env.OGE_VAULT_MAIN_PREVIEW === 'true' &&
+    account.vault?.status === 'connected' &&
+    Number.isSafeInteger(account.vault.repoId) &&
+    Number.isSafeInteger(account.vault.installationId) &&
+    account.vault.repoId > 0 && account.vault.installationId > 0;
+  const notesHref = vaultNotesReady ? '/vault/notes' : '/notes';
   const visibleModules = process.env.OGE_LEARNING_TRACKS_PREVIEW === 'true'
     ? [...modules, { number: '06', group: 'LEARN', title: 'Learning Tracks', description: 'Turn video playlists into daily learning goals.', href: '/learning-tracks', icon: '▷' }]
     : modules;
 
   return (
     <main className="shell hub-shell oge-shell">
-      <SiteNavbar actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
+      <SiteNavbar notesHref={notesHref} actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
 
       <HomeNewsFeed />
 
@@ -64,7 +72,7 @@ export default async function HomePage() {
         </div>
         <div className="hub-grid oge-module-grid">
           {visibleModules.map((item) => (
-            <a key={item.href} className={item.featured ? 'hub-card oge-module-card hub-card-featured' : 'hub-card oge-module-card'} href={item.href}>
+            <a key={item.href} className={item.featured ? 'hub-card oge-module-card hub-card-featured' : 'hub-card oge-module-card'} href={item.href === '/notes' ? notesHref : item.href}>
               <div className="oge-module-card-top"><span className="oge-module-icon" aria-hidden="true">{item.icon}</span><span className="hub-card-kicker">{item.number} · {item.group}</span></div>
               <h3>{item.title} <span aria-hidden="true">↗</span></h3>
               <p>{item.description}</p>

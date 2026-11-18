@@ -1,5 +1,52 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Notes MVP progress — 8/10 implemented (80%), 0/3 real-account journeys verified
+
+**M107 update (18 Nov 2026).** This is a count of user-facing
+implementation checkpoints, not production readiness or a historical
+prototype percentage. See `docs/OGE_NOTES_MVP_PROGRESS.md` for the ten
+exact checkpoints, outstanding real-account journeys, and exclusions.
+
+## Milestone #107 — New Quick Notes, AirNotes and extension saves use GitHub Vault
+
+- **One everyday writing destination:** When an owner has a connected
+  GitHub Vault with the existing Notes + hybrid-draft workspace enabled,
+  visiting `/quick-notes` or `/airnotes` now enters the already
+  functioning subject-based `/vault/capture` editor. Other accounts
+  keep the original standalone screens. No historical MongoDB records
+  were deleted, copied, or migrated.
+- **First-note bug fixed:** Picking a subject without a prior draft now
+  actually allocates a new capture UUID, so typing and autosave work
+  immediately. Previous logic displayed "ready" only in one stale-pointer
+  case while leaving the common new-subject state unwritable.
+- **Browser extension now has explicit GitHub Save:** New
+  `/api/extension/vault-note` POST reuses an existing extension token,
+  account Vault mapping, selected subject, and GitHub Note batch writer;
+  no permanent Note text in MongoDB. The extension's existing
+  `GET_SUBJECTS` response advertises whether GitHub capture is available.
+  Connected owners choose a subject (first subject is preselected) and
+  press Save to GitHub Vault.
+- **Lost-response usability:** The extension retains both text and a
+  stable capture UUID on uncertain Save. A repeated request checks the
+  exact GitHub Note UUID/content and returns confirmed success if the
+  earlier Save already committed; it does not blindly create another
+  Note. Compatible with HTTP browsing pages through getRandomValues.
+- **Old extension compatibility:** The legacy extension endpoint refuses
+  new permanent MongoDB Quick Notes for accounts using the enabled Vault
+  workflow and instructs the user to update the extension. Disconnected
+  users retain existing behavior. The old Quick Notes/AirNotes APIs are
+  left intact; no dual-write was added in the new paths.
+- **Known limits:** This milestone unifies **new captures**; it does not
+  migrate or surface previous MongoDB Quick Notes/AirNotes inside GitHub.
+  A manual real Chrome + connected owner/GitHub App Save/reload test is
+  still necessary. Implementation progress: **8/10 checkpoints (80%)**,
+  **0/3 real live journeys**. PR #35 remains draft/unmerged, production
+  deployment deferred until flows are confirmed.
+- **Next #108:** Run practical connected-account Save/reload tests,
+  correct any real browser/extension behavior, and address historical
+  note access only if needed. Avoid artificial security review milestones.
+
+
 ## Notes MVP delivery progress — 7/10 checkpoints implemented (70% of checklist), 0/3 live journeys proven
 
 **Updated 18 Nov 2026.** This is a count of concrete roadmap checkpoints, NOT production

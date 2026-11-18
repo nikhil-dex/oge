@@ -8,6 +8,10 @@ import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
 import { loadVaultSearchPages } from '../../lib/oge-vault-search-pages.js';
 import { noteEditorFeedback, noteBodyMetrics } from '../../lib/oge-notes-editor-feedback.js';
+import {
+  isVaultNoteId, recentVaultNotesKey, readRecentVaultNoteIds,
+  rememberRecentVaultNote, mergeRecentVaultNotes,
+} from '../../lib/oge-vault-recent-notes.js';
 
 async function responseJson(response) {
   const data = await response.json().catch(() => ({}));
@@ -217,6 +221,14 @@ export default function NotesPage({
   }
 
 
+  const rememberSavedNote = (id) => {
+    if (!vaultMode || !isVaultNoteId(id)) return;
+    try {
+      rememberRecentVaultNote(window.localStorage,
+        recentVaultNotesKey(vaultOwnerId, vaultRepoId), id);
+    } catch { /* Browser storage is optional; GitHub Save already succeeded. */ }
+  };
+
   const load = useCallback(async (preferredSubject = '') => {
     // A saved change or Refresh invalidates previous GitHub page cursors.
     // Abort in-progress read-only searches before replacing the list.
@@ -227,24 +239,50 @@ export default function NotesPage({
     setLoading(true);
     setError('');
     try {
-      const [subjectList, response] = await Promise.all([
+      let recentIds = [];
+      if (vaultMode) {
+        // GitHub's file tree is UUID-sorted, not chronological. A newly
+        // saved Note might not be within the first 20 on the next reload.
+        // Fetch a tiny list of UUIDs from THIS owner's browser, never
+        // cached bodies, and always re-read the Notes from GitHub.
+        try {
+          const key = recentVaultNotesKey(vaultOwnerId, vaultRepoId);
+          recentIds = readRecentVaultNoteIds(window.localStorage, key);
+        } catch { /* private storage disabled: normal pagination still works */ }
+        // Extension Save opens /vault/notes?note=<UUID> on demand.
+        const directId = new URLSearchParams(window.location.search).get('note');
+        if (isVaultNoteId(directId)) {
+          recentIds = [directId.toLowerCase(), ...recentIds.filter((id) => id !== directId.toLowerCase())]
+            .slice(0, 5);
+        }
+      }
+      const [subjectList, response, recentResults] = await Promise.all([
         responseJson(await fetch('/api/subjects', { cache: 'no-store' })),
         responseJson(await fetch(vaultMode ? notesApi + '?paged=true&limit=20' : notesApi, { cache: 'no-store' })),
+        Promise.allSettled(recentIds.map(async (id) =>
+          responseJson(await fetch(notesApi + '?id=' + encodeURIComponent(id),
+            { cache: 'no-store' })))),
       ]);
       const noteList = vaultMode ? response.notes : response;
       if (!Array.isArray(noteList)) throw new Error('Invalid GitHub notes response.');
+      const recentNotes = recentResults.filter((result) => result.status === 'fulfilled')
+        .map((result) => result.value);
+      const loadedNotes = vaultMode
+        ? mergeRecentVaultNotes(noteList, recentNotes) : noteList;
       const defaultSubject = subjectList[0]?.slug || '';
       setSubjects(subjectList);
-      setNotes(noteList);
+      setNotes(loadedNotes);
       setNextNotesCursor(vaultMode ? response.nextCursor || null : null);
       setTotalVaultNotes(vaultMode ? response.total : null);
-      setActiveSubject((current) => preferredSubject || current || defaultSubject);
+      const direct = recentNotes.find((note) =>
+        note.id === new URLSearchParams(window.location.search).get('note'));
+      setActiveSubject((current) => preferredSubject || direct?.subjectSlug || current || defaultSubject);
     } catch (err) {
       setError(err.message || 'Could not load your notes.');
     } finally {
       setLoading(false);
     }
-  }, [notesApi, vaultMode]);
+  }, [notesApi, vaultMode, vaultOwnerId, vaultRepoId]);
 
   async function loadMoreVaultNotes() {
     if (!vaultMode || !nextNotesCursor || loadingMoreNotes || loading || searchScanBusy) return;
@@ -559,6 +597,7 @@ export default function NotesPage({
           ...(vaultMode ? { sha: current.sha } : {}) } :
           (hybridDrafts ? { ...payload, id: newDraftId } : payload)),
       }));
+      if (vaultMode) rememberSavedNote(note.id);
       // If typing continued during Save, never clear the draft or close the
       // editor: the confirmed GitHub commit covers only the submitted version.
       if (hybridDrafts && JSON.stringify(liveEditorRef.current) !== submittedEditor) {
@@ -671,6 +710,7 @@ export default function NotesPage({
               }));
             } catch { /* A second network failure must retain every draft. */ }
             if (reconciled?.confirmed && reconciled.cleared) {
+              if (vaultMode && reconciled.note?.id) rememberSavedNote(reconciled.note.id);
               let safeLocalCopy = true;
               try {
                 const key = hybridKey(attemptedGitHubSave.noteId);

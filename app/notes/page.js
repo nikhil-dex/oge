@@ -656,10 +656,10 @@ export default function NotesPage({
         const submittedRevision = hybridRevisionRef.current;
         const cleanup = await retireSubmittedVaultDraft({
           id: note.id, revision: submittedRevision, sha: note.sha,
-          reconcile: (body) => responseJson(fetch('/api/vault/drafts', {
+          reconcile: async (body) => responseJson(await fetch('/api/vault/drafts', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             cache: 'no-store', body: JSON.stringify(body),
-          }).then((response) => response)),
+          })),
         });
         if (cleanup.cleared) {
           // A later autosave starts a new draft revision with this Note's
@@ -680,7 +680,7 @@ export default function NotesPage({
           : 'GitHub saved — previous draft cleanup pending; newer edits retained');
         setMessage(cleanup.cleared
           ? 'The earlier version was saved to GitHub. Your newer text is still here; press Save again to update the same Note.'
-          : 'The earlier version was saved to GitHub. Your newer text is intact; draft cleanup could not be confirmed.'); 
+          : 'The earlier version was saved to GitHub. Your newer text is intact; draft cleanup could not be confirmed.');
         return;
       }
       if (hybridDrafts && draftNoteId) {

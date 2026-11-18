@@ -40,11 +40,32 @@ open the Quick Capture page.
 | P0 | Add subject, type first note, Save to GitHub | Connected workflows wired; live GitHub verification pending |
 | P0 | Quick Capture automatically becomes writable and stays ready after Save | Implemented M104; live verification pending |
 | P0 | Clear error and recoverable draft on failed Save | Existing behavior; verify in browser |
-| P1 | Reliable search across larger collections | Needs product review; currently searches loaded pages only |
+| P1 | Reliable search across larger collections | M105: explicit on-demand search loads the remaining GitHub pages in batches (up to 300 notes per click), with Stop/Continue; real account test pending |
 | P1 | Unified Quick Notes / AirNotes / extension to GitHub | Not completed; existing legacy APIs remain separate |
 | P1 | Comfortable mobile editor and keyboard shortcuts | Needs interactive usability testing |
 | P2 | Learning Tracks: stable progress when playlist order changes | Planned |
 | P2 | Deployment and production cutover | Last, after real workflows work |
+
+## M105 — Everyday Notes search and keyboard Save
+
+When the GitHub workspace contains more than the first 20 displayed Notes,
+typing a search shows **Search remaining GitHub Notes**. Click it to load
+additional owner-owned Notes directly from GitHub and search them in the
+browser; no permanent note text is put into MongoDB. Progress is visible.
+Each click loads at most 12 pages of up to 25 Notes (300 more notes). For very
+large Vaults, select **Search remaining GitHub Notes** again to continue.
+**Stop search** pauses requests and preserves the last fully loaded page.
+Search only reports no matches for all Notes after all pages are loaded;
+until then, it says no matches in loaded Notes **yet**.
+
+In the Notes editor, use **Ctrl+Enter** on Windows/Linux or **⌘+Enter**
+on macOS to submit the current note through the existing Save handler.
+This does not skip draft recovery, GitHub Save confirmation or form
+validation.
+
+**Still to verify with a live account:** Create, edit, Save, reload, search
+beyond 20 Notes, Stop/Continue, keyboard Save, provider errors and mobile
+editor usability. Automated tests are not a substitute for the real flow.
 
 ## Explicitly not doing next
 

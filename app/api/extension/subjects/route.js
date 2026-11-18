@@ -1,4 +1,5 @@
 import { hashExtensionToken } from '../../../../lib/extension-token.js';
+import { vaultCaptureAvailable } from '../../../../lib/oge-vault-workspace-routing.js';
 import { getDatabase } from '../../../../lib/mongodb.js';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
 
@@ -28,13 +29,13 @@ export async function GET(request) {
     if (!limit.allowed) return rateLimitResponse(limit);
     const user = await db.collection('users').findOne(
       { extensionTokenHash: hash, extensionTokenExpiresAt: { $gt: new Date() } },
-      { projection: { googleSub: 1 } },
+      { projection: { googleSub: 1, vault: 1 } },
     );
     if (!user?.googleSub) return json({ error: 'Extension connection expired or revoked.' }, 401);
     const subjects = await db.collection('subjects')
       .find({ ownerId: user.googleSub }, { projection: { _id: 0, slug: 1, name: 1 } })
       .sort({ createdAt: 1 }).limit(1000).toArray();
-    return json({ subjects });
+    return json({ subjects, vaultReady: vaultCaptureAvailable(user) });
   } catch (error) {
     console.error('GET /api/extension/subjects failed:', error?.name);
     return json({ error: 'Could not load your subjects.' }, 500);

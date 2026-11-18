@@ -318,6 +318,16 @@
   // Wait for the owner's subject list to select the right writer.
   let vaultReady = null;
   let pendingVaultCapture = null;
+  // crypto.randomUUID() is absent in some HTTP page contexts where the
+  // extension can still run. getRandomValues() is available there.
+  function createCaptureId() {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    const hex = [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('');
+    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' +
+      hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+  }
   noteSave.disabled = true;
   async function loadSubjects() {
     const previous = subjectSelect.value;
@@ -374,7 +384,7 @@
         // capture reuses its UUID. No extra GitHub file is created.
         if (!pendingVaultCapture || pendingVaultCapture.content !== content ||
             pendingVaultCapture.subjectSlug !== subjectSlug) {
-          pendingVaultCapture = { id: crypto.randomUUID(), content, subjectSlug };
+          pendingVaultCapture = { id: createCaptureId(), content, subjectSlug };
         }
         result = await send('CREATE_VAULT_NOTE', {
           content, subjectSlug, captureId: pendingVaultCapture.id,

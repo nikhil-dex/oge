@@ -73,7 +73,8 @@ test('M107 extension explicitly selects GitHub destination without double MongoD
   assert.match(worker, /'\/api\/extension\/vault-note'/);
   assert.match(worker, /vaultReady: data\.vaultReady === true/);
   assert.match(widget, /send\('CREATE_VAULT_NOTE'/);
-  assert.match(widget, /pendingVaultCapture = \{ id: createCaptureId\(\), content, subjectSlug \}/);
+  assert.match(widget, /id: createCaptureId\(\), content: submittedContent/);
+  assert.match(widget, /subjectSlug: submittedSubject/);
   assert.match(widget, /crypto\.getRandomValues\(new Uint8Array\(16\)\)/);
   assert.match(widget, /noteSave\.disabled = true/);
   assert.match(widget, /vaultReady === null/);

@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #109 code changes.**
+**Updated 18 November 2026, after milestone #110 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -77,6 +77,34 @@ promise that all prior AirNotes and Quick Notes appear in the Vault.
 - **No change in the MVP checkpoint count:** 8/10 (80%) implemented,
   0/3 real connected-account journeys verified. This is an existing
   workflow correctness fix, not a new product feature or release gate.
+
+## Milestone #110 — Recover a browser-only note into a writable editor
+
+- **Bug fixed:** Previously, if sessionStorage held a locally typed Note but
+  the MongoDB temporary draft was not yet created (e.g. a page reload before
+  the 900 ms autosave), Quick Capture offered recovery but then *blocked
+  writing and Save indefinitely*. Now it restores a writable capture and
+  preserves the original local text.
+- **Read one GitHub Note by ID:** The already-authenticated
+  `/api/vault/notes-main?id=<note UUID>` GET checks whether a stale local
+  pointer was committed earlier. If yes and text matches, report the Note
+  already saved instead of creating a duplicate. If the Note differs,
+  preserve the newer local edits under a new UUID.
+- **Offline/unconfirmed read:** When GitHub cannot confirm the earlier ID,
+  retain the browser copy under a new UUID, allow editing, and warn the
+  user to check previously saved Notes before committing.
+- **Tests:** Executable unit scenarios in
+  `tests/oge-vault-browser-recovery-m110.test.js` for absent, saved,
+  edited-since-save, offline, mismatched subject, malformed and partial
+  drafts. The endpoint is read-only and uses the existing signed owner
+  Vault session.
+- **Practical live testing:** `docs/OGE_NOTES_LIVE_ACCEPTANCE.md`
+  documents the exact Save/reload, browser-only recovery and Chrome/
+  mobile tasks. They are **NOT RUN** against real credentials here;
+  browser access was unavailable from this conversation.
+- **Progress unchanged:** 8/10 (80%) implementation checkpoints built
+  and 0/3 real account journeys independently verified. This repairs
+  checkpoint #5's recovery UX; it does not satisfy checkpoint #9.
 
 ## The three mandatory live journeys
 

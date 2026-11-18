@@ -170,6 +170,26 @@ the Save/reload/draft-recovery journey as passed. Synthetic unit tests
 do not satisfy live acceptance. Progress remains **8/10 (80%) in code**,
 **0/3 real account journeys verified**.
 
+## M111 — Visible recently saved Notes
+
+- When the Vault contains over 20 Notes, Save a fresh Note from the main
+  editor. Reload the page and confirm it is still in the visible results,
+  even if its random UUID would place it outside GitHub's first file page.
+- Repeat with **Quick Capture**; the saved Note should appear in the
+  normal GitHub Notes workspace without requiring a full paginated scan.
+- From the floating browser extension, Save to GitHub and click
+  **View last saved GitHub Note**. It should open the specific Note in
+  the correct subject. The extension does not automatically open tabs.
+- On edit, verify a new reload shows the **current GitHub content**,
+  not a stale cached browser body. Browsers store only up to five UUID
+  navigation hints, not the Note text.
+- On another device, recent IDs are not synchronized; use
+  **Search remaining GitHub Notes** to find older/unloaded files.
+
+The provider fixture tests this create/reload/edit/reload path against a
+mock GitHub tree. Live owner account verification still must be done.
+**Implementation: 8/10 (80%); live journeys: 0/3.**
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

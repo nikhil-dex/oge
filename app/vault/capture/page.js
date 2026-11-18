@@ -16,7 +16,6 @@ function enabled(env = process.env) {
   // The regular connected GitHub Notes editor and its draft API are all
   // Quick Capture needs. A second staging-only opt-in made the button unusable.
   return env.OGE_VAULT_MAIN_PREVIEW === 'true' &&
-    env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
     env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
 }
 

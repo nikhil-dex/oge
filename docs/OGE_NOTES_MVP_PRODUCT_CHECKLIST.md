@@ -41,7 +41,7 @@ open the Quick Capture page.
 | P0 | Quick Capture automatically becomes writable and stays ready after Save | Implemented M104; live verification pending |
 | P0 | Clear error and recoverable draft on failed Save | Existing behavior; verify in browser |
 | P1 | Reliable search across larger collections | M105: explicit on-demand search loads the remaining GitHub pages in batches (up to 300 notes per click), with Stop/Continue; real account test pending |
-| P1 | Unified Quick Notes / AirNotes / extension to GitHub | Not completed; existing legacy APIs remain separate |
+| P1 | New Quick Notes / AirNotes / extension captures to one GitHub Vault | M107: implemented for connected owners; legacy historical records unchanged; real-account extension test pending |
 | P1 | Comfortable mobile editor and keyboard shortcuts | M106 code: sticky Save action, word count, explicit GitHub vs draft state, reader Edit, automatic title focus and Ctrl/⌘+Enter; live mobile test pending |
 | P2 | Learning Tracks: stable progress when playlist order changes | Planned |
 | P2 | Deployment and production cutover | Last, after real workflows work |
@@ -84,6 +84,30 @@ Progress and validation status: see
 `docs/OGE_NOTES_MVP_PROGRESS.md` for the explicit **7/10 (70%)
 implemented-checkpoint** measure and the separate **0/3 real live account
 journeys verified** measure. Passing CI does not prove live provider access.
+
+## M107 — Unified destination for new standalone and browser captures
+
+- **Connected GitHub Vault owners:** Opening Quick Notes or AirNotes uses
+  the same subject-based `/vault/capture` editor as the main Notes workspace
+  when both the existing Notes and hybrid-draft features are enabled.
+  Selecting a new subject starts a writable draft immediately (fixed an
+  overlooked empty-subject flow in M104).
+- **Connected extension:** The floating widget loads the user's existing
+  subject list, selects one when available, and sends an explicit Save to
+  `/api/extension/vault-note`. This uses the existing GitHub App-private
+  Vault Notes writer, **not** MongoDB permanent content storage. On an unknown
+  result, the widget keeps its note text and capture ID for a safe retry.
+- **Older extension builds:** A connected owner gets an update instruction
+  rather than accidentally writing another permanent MongoDB Quick Note.
+- **Disconnected users:** All existing Quick Notes, AirNotes and extension
+  functionality stays on its legacy API and data store.
+- **Not a migration:** Old Quick Notes and AirNotes remain in their existing
+  MongoDB records. No old records were deleted or copied automatically.
+  The new GitHub-based path is for **new captures only**.
+
+**Progress:** 8/10 (80%) implementation checkpoints after M107, 0/3
+required real-account workflows verified. These two numbers are independent.
+See `docs/OGE_NOTES_MVP_PROGRESS.md`.
 
 ## Explicitly not doing next
 

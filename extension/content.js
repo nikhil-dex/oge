@@ -318,6 +318,7 @@
   // Wait for the owner's subject list to select the right writer.
   let vaultReady = null;
   let pendingVaultCapture = null;
+  let savingCapture = false;
   // crypto.randomUUID() is absent in some HTTP page contexts where the
   // extension can still run. getRandomValues() is available there.
   function createCaptureId() {
@@ -352,7 +353,7 @@
         // Make the typical connected-owner path a single click.
         subjectSelect.value = subjectSelect.options[1].value;
       }
-      noteSave.disabled = false;
+      noteSave.disabled = savingCapture;
       updateNoteButton();
     } catch (error) {
       // Do not guess the storage destination after an API/network failure.
@@ -369,6 +370,7 @@
   subjectSelect.addEventListener('change', updateNoteButton);
 
   noteSave.addEventListener('click', async () => {
+    if (savingCapture) return;
     if (!note.value.trim()) return setStatus('Write something before saving.', true);
     if (vaultReady === null) return setStatus('Load your Oge Notes connection before saving.', true);
     if (vaultReady && !subjectSelect.value)
@@ -379,6 +381,7 @@
     const submittedContent = note.value;
     const submittedSubject = subjectSelect.value;
     const submittedToVault = vaultReady;
+    savingCapture = true;
     noteSave.disabled = true;
     setStatus(submittedToVault ? 'Saving to GitHub Vault…' : 'Saving note…');
     try {
@@ -419,7 +422,10 @@
       // Do not erase text or the retry UUID on an uncertain Save.
       setStatus((error.message || 'Save was not confirmed.') +
         ' Your note is still in the editor.', true);
-    } finally { noteSave.disabled = vaultReady === null; }
+    } finally {
+      savingCapture = false;
+      noteSave.disabled = vaultReady === null;
+    }
   });
   const urlSave = panel.querySelector('[data-save-url]');
   urlSave.addEventListener('click', async () => {

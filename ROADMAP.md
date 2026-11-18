@@ -1,5 +1,41 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #116 — Continue writing in the main GitHub Notes editor while Save is running (18 Nov 2026)
+
+**Correct a blocking everyday Save workflow, without new security gates.**
+
+- **Bug:** If the user kept typing during a newly created GitHub Note's
+  Save, the editor correctly retained the new text but stayed in
+  *new Note* mode with the same UUID. Pressing Save again issued POST
+  (create) for a file already committed by GitHub, causing a 409
+  conflict; for edits, the editor could retain a stale GitHub SHA.
+- **Fix:** When GitHub confirms the submitted revision and newer typing
+  exists, Oge promotes that open editor to an edit of the now-committed
+  Note: sets the confirmed ID/revision in the loaded library, moves
+  into PUT mode, updates the saved baseline, and leaves the user's
+  newer title/body/tags untouched. The next explicit Save updates
+  the same GitHub Note instead of attempting to create a duplicate.
+- **Fast reload recovery:** The browser's temporary sessionStorage
+  draft now immediately uses the newly confirmed GitHub SHA as its
+  base revision. A reload before the next autosave can recover the
+  newer text against the correct saved Note, rather than treating
+  it as a conflicting pre-create draft. Permanent Note content
+  remains solely in the private GitHub Vault.
+- **Regression:** `lib/oge-vault-followup-save.js` stages the
+  transition. `tests/oge-vault-followup-save-m116.test.js` uses
+  a fake GitHub provider for **create → type more → update → reload**,
+  checks the same Note ID and updated contents, and covers existing
+  Note revisions, browser draft baselines and actual UI wiring.
+  Simulated provider tests **do not** count as live-account acceptance.
+- **No release claim:** **8/10 implementation checkpoints (80%)**,
+  **0/3 real connected-account journeys independently verified**.
+  PR #35 is still draft/unmerged; deployment last.
+- **Next:** Real signed-in GitHub account + browser acceptance for the
+  committed Note roundtrip, draft interruptions and Chrome/mobile.
+  Fix real failures and then reconsider merging; no more
+  ceremonial security milestones.
+
+
 ## Milestone #115 — Find subject Notes beyond GitHub's first page (18 Nov 2026)
 
 **Practical library usability fix, not security hardening.**

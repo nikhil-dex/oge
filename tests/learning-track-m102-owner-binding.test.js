@@ -75,6 +75,7 @@ test('M102 remains independently default-off and refuses unsafe staging/invalid 
   for (const change of [
     { OGE_VAULT_CUTOVER_GUARD_PREVIEW: 'true' },
     { MONGODB_DB: 'oge_notes' },
+    { OGE_STAGING_URL: 'https://app.oge-example.org', AUTH_URL: 'https://app.oge-example.org', OGE_VAULT_BASE_URL: 'https://app.oge-example.org' },
     { AUTH_URL: 'https://other.example.org' },
     { OGE_LEARNING_TRACK_M101_OPERATOR_ACK: '' },
   ]) assert.equal(m102OwnerBindingServerEnabled({ ...env, ...change }, fakeReadiness), false);

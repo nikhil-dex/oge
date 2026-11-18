@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #113 code changes.**
+**Updated 18 November 2026, after milestone #114 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -153,6 +153,21 @@ sequence, a lost Update response, and subject changes.
 
 **No live account was tested here.** Implementation remains **8/10 (80%)**,
 and independent real-account journey verification remains **0/3**.
+
+## Milestone #114 — Explicit separate-Note option in the floating extension
+
+When the first GitHub Save finishes but the user has typed newer text,
+the extension now labels the main button **Update saved GitHub Note**
+and displays **Save this as a separate Note instead**. Selecting the
+second action preserves the newer text and makes the next Save create
+a distinct GitHub Note in the same subject. The earlier committed
+Note stays unchanged. No extra GitHub commit happens until Save.
+
+The updated VM test harness exercises the actual extension Save/button
+handlers and the new choice, including in-flight Save protection.
+Connected Chrome and live GitHub acceptance are still **NOT RUN**.
+The implementation score remains **8/10 (80%)**, with **0/3
+independent real-account user journeys verified**.
 
 ## The three mandatory live journeys
 

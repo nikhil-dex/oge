@@ -33,9 +33,21 @@ export default async function HomePage() {
     Number.isSafeInteger(account.vault.installationId) &&
     account.vault.repoId > 0 && account.vault.installationId > 0;
   const notesHref = vaultNotesReady ? '/vault/notes' : '/notes';
-  const visibleModules = process.env.OGE_LEARNING_TRACKS_PREVIEW === 'true'
-    ? [...modules, { number: '06', group: 'LEARN', title: 'Learning Tracks', description: 'Turn video playlists into daily learning goals.', href: '/learning-tracks', icon: '▷' }]
-    : modules;
+  const captureReady = vaultNotesReady &&
+    process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
+  const visibleModules = [
+    ...modules,
+    ...(captureReady ? [{
+      number: '06', group: 'CAPTURE', title: 'Quick Capture',
+      description: 'Write a note fast. Choose a subject and press Save.',
+      href: '/vault/capture', icon: '✎',
+    }] : []),
+    ...(process.env.OGE_LEARNING_TRACKS_PREVIEW === 'true' ? [{
+      number: captureReady ? '07' : '06', group: 'LEARN',
+      title: 'Learning Tracks', description: 'Turn video playlists into daily learning goals.',
+      href: '/learning-tracks', icon: '▷',
+    }] : []),
+  ];
 
   return (
     <main className="shell hub-shell oge-shell">

@@ -3,31 +3,25 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
-import { checkVaultStagingReadiness } from '../../../lib/oge-vault-staging-preflight.js';
 import SiteNavbar from '../../components/site-navbar.js';
 import VaultQuickCaptureClient from './vault-quick-capture-client.js';
 
 export const metadata = {
-  title: 'Oge Vault · Quick Capture staging preview',
+  title: 'Oge Vault · Quick Capture',
   robots: { index: false, follow: false },
 };
 export const dynamic = 'force-dynamic';
 
 function enabled(env = process.env) {
-  return env.OGE_VAULT_QUICK_CAPTURE_PREVIEW === 'true' &&
-    env.OGE_VAULT_MAIN_PREVIEW === 'true' &&
+  // The regular connected GitHub Notes editor and its draft API are all
+  // Quick Capture needs. A second staging-only opt-in made the button unusable.
+  return env.OGE_VAULT_MAIN_PREVIEW === 'true' &&
     env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
-    env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true' &&
-    /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(env.MONGODB_DB || '') &&
-    env.OGE_VAULT_CUTOVER_GUARD_PREVIEW !== 'true' &&
-    env.OGE_VAULT_DESTRUCTIVE_DELETE_INTERNAL !== 'true' &&
-    env.OGE_ACCOUNT_DELETION_ENABLED !== 'true' &&
-    checkVaultStagingReadiness(env).ok &&
-    env.OGE_STAGING_URL === env.AUTH_URL;
+    env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
 }
 
 /**
- * E1: isolated staging-only owner browser capture. Reuses existing
+ * E1: connected owner browser capture. Reuses existing
  * authenticated hybrid draft PUT and verified GitHub Notes-main POST.
  * NO new API endpoints, no extension token to GitHub authorization bridge.
  * The default production Quick Notes/AirNotes paths remain unchanged.
@@ -55,7 +49,7 @@ export default async function VaultQuickCapturePage() {
       } />
       <div className="oge-retro-workspace-ribbon" aria-hidden="true">
         <span>✳ OGE / QUICK CAPTURE</span>
-        <span>ISOLATED STAGING · EXPLICIT SAVE</span>
+        <span>CAPTURE · SAVE WHEN READY</span>
       </div>
       <section className="oge-settings-hero">
         <p className="oge-eyebrow"><span className="oge-status-dot" />
@@ -63,8 +57,7 @@ export default async function VaultQuickCapturePage() {
         </p>
         <h1>Capture<span>.</span></h1>
         <p>Fast, subject-based notes, with temporary encrypted drafts and
-          explicit GitHub-backed Save. This pilot does not change standalone
-          Quick Notes, AirNotes or the browser extension.</p>
+          explicit GitHub-backed Save. Start a note in a subject and press Save when ready.</p>
       </section>
       <VaultQuickCaptureClient
         ownerId={session.user.id} repoId={user.vault.repoId} />

@@ -1,5 +1,38 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Notes MVP delivery progress — 7/10 checkpoints implemented (70% of checklist), 0/3 live journeys proven
+
+**Updated 18 Nov 2026.** This is a count of concrete roadmap checkpoints, NOT production
+readiness or percent engineering effort. Historic ~96% is retired.
+The exact ten deliverables and three live-account scenarios are documented at
+`docs/OGE_NOTES_MVP_PROGRESS.md`.
+
+## Milestone #106 — Everyday Notes editor feedback and mobile writing ergonomics
+
+- **Implemented, CI to verify at final commit:** New pure UI helper
+  `lib/oge-notes-editor-feedback.js` distinguishes **unsaved changes**,
+  **temporary draft autosaved**, **GitHub Save in progress**, **confirmed GitHub
+  Save**, and **not confirmed / recovery needed**. The status display does not
+  claim that a temporary MongoDB draft was committed to GitHub.
+- **Visible writing controls:** The familiar Notes editor now displays an
+  inline word and character count and a sticky Save footer, including mobile
+  safe-area padding. The GitHub editor button explicitly says **Save to
+  GitHub**, while the legacy editor retains its own Save semantics.
+- **Less friction:** New/edit Notes focus the title only when the editor is
+  ready (after recovery completes); open Note reader has a direct **Edit note**
+  action. The existing Ctrl/⌘+Enter shortcut remains connected to the same
+  Save handler.
+- **No new auth/security/restore gates, migrations or deployment.** Existing
+  GitHub Notes API, temporary hybrid drafts and owner metadata architecture
+  unchanged. Live connected-account testing still needed.
+- **Next #107:** Make Quick Notes, AirNotes and extension capture work
+  through the GitHub Vault without duplicate permanent MongoDB Note bodies;
+  prioritize the shortest usable path and ensure drafts aren't lost.
+- **Current delivery:** PR #35 draft/unmerged; production release still last.
+  Implementation checklist **7/10**, actual independent deployed account
+  scenarios **0/3 verified**. Status may change only with concrete evidence.
+
+
 ## Milestone #105 — Working Notes search across GitHub pages + keyboard Save (18 Nov 2026)
 
 **Product milestone, not a security or attestation milestone.**

@@ -1059,6 +1059,10 @@ export default function NotesPage({
           <div className="reader-toolbar">
             <span className="reader-kicker">NOTE · {(subjects.find((item) => item.slug === readerNote.subjectSlug) || active)?.name || 'LIBRARY'}</span>
             <div className="reader-toolbar-actions">
+              <button type="button" className="note-share-button"
+                onClick={() => editNote(readerNote)} aria-label={'Edit note: ' + readerNote.heading}>
+                ✎ Edit note
+              </button>
               <div className="note-share-wrap">
                 <button type="button" className="note-share-button" aria-expanded={shareMenuOpen} onClick={() => setShareMenuOpen((open) => !open)}>↗ Share</button>
                 {shareMenuOpen && <div className="note-share-menu" role="menu">

@@ -8,7 +8,7 @@ import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
 import { loadVaultSearchPages } from '../../lib/oge-vault-search-pages.js';
 import { noteEditorFeedback, noteBodyMetrics } from '../../lib/oge-notes-editor-feedback.js';
-import { stageVaultFollowupSave } from '../../lib/oge-vault-followup-save.js';
+import { stageVaultFollowupSave, retireSubmittedVaultDraft } from '../../lib/oge-vault-followup-save.js';
 import {
   isVaultNoteId, recentVaultNotesKey, readRecentVaultNoteIds,
   rememberRecentVaultNote, mergeRecentVaultNotes, findLinkedVaultNote,
@@ -650,11 +650,37 @@ export default function NotesPage({
         setNewDraftId(followup.newDraftId);
         editorInitialRef.current = followup.baseline;
         setEditorBaseline(followup.baseline);
+        // The submitted temporary MongoDB draft still looks like a new,
+        // unfinished Note unless it is retired after GitHub confirmation.
+        // Retire only THAT revision; never remove the newer browser text.
+        const submittedRevision = hybridRevisionRef.current;
+        const cleanup = await retireSubmittedVaultDraft({
+          id: note.id, revision: submittedRevision, sha: note.sha,
+          reconcile: (body) => responseJson(fetch('/api/vault/drafts', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store', body: JSON.stringify(body),
+          }).then((response) => response)),
+        });
+        if (cleanup.cleared) {
+          // A later autosave starts a new draft revision with this Note's
+          // newly committed GitHub SHA as its base, not the old create SHA.
+          hybridRevisionRef.current = 0;
+          if (!editingId) {
+            try {
+              if (window.sessionStorage.getItem(newDraftPointerKey(activeSubject)) === draftNoteId)
+                window.sessionStorage.removeItem(newDraftPointerKey(activeSubject));
+            } catch { /* A blocked browser store must not block saving. */ }
+          }
+        }
         // The editor's visible heading/body/tags are deliberately untouched.
-        // On the next autosave the draft's baseSha and revision correspond to
-        // this confirmed GitHub Note rather than its old create intent.
-        setDraftStatus('Newer edits pending — earlier revision saved to GitHub');
-        setMessage('The earlier version was saved to GitHub. Your newer text is still here; press Save again to update the same Note.');
+        // On the next autosave the draft's baseSha corresponds to this
+        // confirmed GitHub Note rather than the old create intent.
+        setDraftStatus(cleanup.cleared
+          ? 'Newer edits pending — earlier revision saved to GitHub'
+          : 'GitHub saved — previous draft cleanup pending; newer edits retained');
+        setMessage(cleanup.cleared
+          ? 'The earlier version was saved to GitHub. Your newer text is still here; press Save again to update the same Note.'
+          : 'The earlier version was saved to GitHub. Your newer text is intact; draft cleanup could not be confirmed.'); 
         return;
       }
       if (hybridDrafts && draftNoteId) {

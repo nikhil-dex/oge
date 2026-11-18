@@ -45,7 +45,7 @@ export async function POST(request) {
     note = vaultCaptureFields(data?.content, data?.subjectSlug);
     noteFilePath(data?.captureId);
   } catch {
-    return json({ error: 'Choose a subject, put a title on the first line and write a note below it.' }, 400);
+    return json({ error: 'Choose a subject and write a note. A single-line thought is enough.' }, 400);
   }
   try {
     const db = await getDatabase();

@@ -130,6 +130,25 @@ See `docs/OGE_NOTES_MVP_PROGRESS.md`.
 user journeys independently verified. This fixes usability within an
 existing checkpoint; no new checkpoint is claimed.
 
+## M109 — Prevent accidental text loss in everyday capture
+
+- Write a single-line Note in GitHub Quick Capture and wait for temporary
+  draft autosave. Reload the same tab; choosing to recover its saved draft
+  should restore that exact single line, not two copies.
+- With the Chrome floating extension, enter a subject Note and press
+  **Save to GitHub Vault**. If the request is slow, typing something new
+  must not be erased by the previous Save response. The widget explains
+  that the new text still needs its own Save.
+- Retry the same unchanged capture after a connection error: the same
+  UUID is reused and the note text remains in the editor until confirmed.
+- Verify a rapid double-click or subject refresh during Save does not send
+  two simultaneous commits.
+
+**Implementation progress remains 8/10 (80%); real connected-account
+verification remains 0/3.** These improvements fix existing flows.
+CI tests exercise deterministic simulated responses, but live Chrome and
+GitHub App behavior still needs testing.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

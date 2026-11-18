@@ -1,12 +1,14 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #106 code changes.**
+**Updated 18 November 2026, after milestone #107 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
 ## Progress snapshot
 
-- **Implementation checkpoints: 7/10 (70%) implemented in the draft branch.**
+- **Implementation checkpoints: 8/10 (80%) implemented in the draft branch.**
+  Checkpoint #8 covers **new captures** from Quick Notes, AirNotes and
+  extension. It does NOT claim that historical MongoDB notes were migrated.
   This is a count of agreed deliverables, NOT a percentage estimate of
   engineering effort, production readiness, or operational reliability.
 - **Real-account end-to-end journeys independently verified here: 0/3 (0%).**
@@ -16,7 +18,7 @@ not the previous uncalibrated ~96% prototype number.
   is the last item. Check the current GitHub Actions run before declaring
   final CI success.
 
-## Exactly what 7/10 means
+## Exactly what 8/10 means
 
 | # | Concrete user outcome / delivery checkpoint | Implementation | Live connected-account proof |
 | --- | --- | --- | --- |
@@ -27,13 +29,16 @@ not the previous uncalibrated ~96% prototype number.
 | 5 | Quick Capture: first-line title, subject selector, ready next note | Built | Pending |
 | 6 | Find Notes beyond first 20 via progressive GitHub page loading | Built | Pending |
 | 7 | Visible draft-versus-GitHub Save state, word counts, direct reader Edit, accessible Save and keyboard shortcut | M106 implemented | Pending |
-| 8 | Quick Notes, AirNotes and browser extension converge on GitHub | Not yet | Pending |
+| 8 | **New** Quick Notes/AirNotes/extension captures use the GitHub Vault for connected owners | M107 built (legacy records not migrated) | Pending |
 | 9 | Real-account create/edit/save/reload/recover/search/mobile journeys verified | Not yet | Pending |
 | 10 | Production cutover, merge and deployment with no lost Notes | Not yet | Pending |
 
-The original Notes and independent Quick Notes/AirNotes/extension paths still
-exist. M106 is editor/UI development; it does not turn on deployment or
-migrate historical test notes.
+The original Notes and independent Quick Notes/AirNotes/extension endpoints
+still exist for unconnected accounts. M107 routes connected users' new
+standalone captures through the existing GitHub Quick Capture editor, and
+the updated extension uses a dedicated owner-connected GitHub writer.
+**Historical MongoDB records are untouched and not migrated.** This is not a
+promise that all prior AirNotes and Quick Notes appear in the Vault.
 
 ## The three mandatory live journeys
 
@@ -53,9 +58,13 @@ pass/fail for each live run. No extra cryptographic attestation required.
 
 1. Finish merging the everyday GitHub Notes paths from the existing feature
    branch after a successful live smoke run.
-2. Convert legacy Quick Notes, AirNotes and extension saves to the same
-   GitHub destination without duplicating permanent Note content in MongoDB.
-3. Fix genuine reported editor/mobile defects, then perform cutover last.
+2. Verify connected Quick Notes / AirNotes entry and extension subject Save
+   with a real account and browser; ensure old extension versions clearly
+   reject legacy writes for connected owners. Historical MongoDB records stay
+   intact unless a separately requested migration is needed.
+3. Fix genuine reported editor/mobile defects, and handle the existing
+   legacy-note history if it turns out not to be disposable test data.
+   Perform production cutover last.
 
 **Rule:** Do not inflate implementation progress after adding tests or
 documentation alone. Advance a checkpoint only after its user-facing

@@ -1,5 +1,43 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #110 — Unblock browser-only Note recovery and verify prior GitHub Save (18 Nov 2026)
+
+**Everyday user-flow fix. No extra security/attestation or release gate.**
+
+- **Fixed blocked editing after fast reload:** Previously, when a user
+  typed and reloaded before the temporary draft autosave reached MongoDB,
+  sessionStorage held a local capture pointer but the server had no draft.
+  Quick Capture offered local recovery yet marked the recovered editor
+  blocked, so the user could not finish or Save. It now restores the local
+  text to an editable capture.
+- **Avoid duplicate GitHub Notes:** Added owner-scoped read-one support
+  to the existing `/api/vault/notes-main?id=UUID` GET. The client checks
+  whether the old pointer refers to a committed Note. If its title/body
+  match, it explains that the Note is already in GitHub rather than
+  creating another copy. If GitHub confirms no Note, the original UUID
+  may be reused. For divergent older commits, it allocates a fresh UUID
+  while preserving the full browser text. Unknown offline results keep
+  the text under a fresh UUID and warn the user to check for a prior Save.
+- **Correct user messages:** The floating extension and API now accept
+  one-line thoughts and no longer incorrectly require a separate title
+  and body in validation error wording.
+- **Unit tests:** `tests/oge-vault-browser-recovery-m110.test.js` directly
+  exercises local recovery decisions for committed matches, updated text,
+  no prior GitHub Note, offline results, malformed scopes and partial text;
+  it also verifies the reader uses the existing signed owner Vault client.
+- **Real account acceptance:** `docs/OGE_NOTES_LIVE_ACCEPTANCE.md`
+  records three user-facing workflows. These have **not** yet been run
+  with a real authenticated GitHub App Vault; browser access from this
+  conversation was not available. Passing CI is not a substitute.
+- **Progress stays 8/10 implementation checkpoints (80%), 0/3 live
+  journeys passed.** This fixes an existing flow, not a new checkpoint.
+  PR #35 is still draft/unmerged; no production deployment.
+- **Next #111:** Run the live acceptance check in a connected environment
+  and fix any observed Save/reload or browser extension bugs. If no live
+  environment is available, prioritize runnable acceptance simulations
+  over another security/review milestone.
+
+
 ## Milestone #109 — Fix everyday capture data loss under recovery and slow saves (18 Nov 2026)
 
 **Product reliability milestone — no new security attestation or release gate.**

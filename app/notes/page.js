@@ -815,7 +815,7 @@ export default function NotesPage({
       {vaultMode && <div role="status" className="oge-vault-editor-notice">✳ GITHUB VAULT PREVIEW · {hybridDrafts
         ? 'Temporary encrypted drafts autosave to MongoDB. Press Save to commit to your private GitHub repository.'
         : 'Notes are written to your private GitHub repository. You must manually save changes.'}</div>}
-      <SiteNavbar actions={<ThemeToggle />} />
+      <SiteNavbar notesHref={vaultMode ? '/vault/notes' : '/notes'} actions={<ThemeToggle />} />
 
       <nav className="subject-nav" aria-label="Subjects">
         {subjects.map((subject) => (
@@ -848,6 +848,7 @@ export default function NotesPage({
         </div>
         <div className="intro-actions">
           <button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add a note</button>
+          {vaultMode && hybridDrafts && <a className="add-button" href="/vault/capture">Quick Capture →</a>}
         </div>
       </section>
 

@@ -8,7 +8,7 @@ import { getVaultNoteClient, listVaultNotePage, readVaultNote } from '../../../.
 import { VaultGitHubError } from '../../../../lib/oge-vault-github.js';
 import {
   learningTrackNoteLinksEnabled, validLearningTrackNoteSelection, publicLessonNoteLink,
-  verifyLessonNoteLinkReadOnly,
+  verifyLessonNoteLinkReadOnly, manualLearningTrackNoteCheckAllowed,
 } from '../../../../lib/oge-learning-track-note-links.js';
 
 export const runtime = 'nodejs';
@@ -57,12 +57,7 @@ export async function GET(request) {
       // token issuance or verification rate-limit consumption. The custom
       // header cannot be supplied by HTML navigation or a cross-site form;
       // browser cross-origin JS requires a CORS preflight (not granted here).
-      const origin = new URL(request.url).origin;
-      const suppliedOrigin = request.headers.get('origin');
-      const fetchSite = request.headers.get('sec-fetch-site');
-      if (request.headers.get('x-oge-verify-intent') !== 'manual' ||
-          (suppliedOrigin !== null && suppliedOrigin !== origin) ||
-          (fetchSite !== null && fetchSite !== 'same-origin'))
+      if (!manualLearningTrackNoteCheckAllowed(request))
         return json({ error: 'Verify Notes only from the current Learning Tracks page.' }, 403);
       // Deliberate owner action: one link per request, eight checks/owner/hour.
       // Never trust a browser-supplied Note ID or claim persistent existence.

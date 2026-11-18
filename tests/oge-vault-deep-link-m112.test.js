@@ -71,5 +71,6 @@ test('M112 extension passes only a validated note ID, and its shortcut is user-c
   assert.match(ui, /noteOpenSaved\.addEventListener\('click', async \(\) =>/);
   assert.match(ui, /send\('OPEN_VAULT_NOTE', \{ id: lastSavedVaultNoteId \}\)/);
   assert.match(ui, /noteOpenSaved\.hidden = false/);
-  assert.match(ui, /\[data-open-saved-vault-note\]\[hidden\]\{display:none\}/);
+  assert.match(ui, /\[data-open-saved-vault-note\]\[hidden\]/);
+  assert.match(ui, /\[data-new-vault-note\]\[hidden\]\{display:none\}/);
 });

@@ -81,6 +81,15 @@ export async function GET(request) {
     if (!ctx) return json({ error: 'Sign in before reading notes.' }, 401);
     const params = new URL(request.url).searchParams;
     const subject = params.get('subject');
+    // Quick Capture may have a local browser copy but no temporary draft.
+    // Check one owner-owned committed Note before deciding whether to
+    // recover as a fresh capture. Never enumerate the entire library.
+    if (params.has('id')) {
+      const id = params.get('id');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id || ''))
+        return json({ error: 'Invalid note ID.' }, 400);
+      return json(legacyVaultNote(await readVaultNote(ctx.client, id.toLowerCase())));
+    }
     if (params.get('paged') === 'true') {
       const limit = params.has('limit') ? Number(params.get('limit')) : 20;
       const page = await listVaultNotePage(ctx.client, { limit, cursor: params.get('cursor') });

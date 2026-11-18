@@ -1,5 +1,41 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #115 — Find subject Notes beyond GitHub's first page (18 Nov 2026)
+
+**Practical library usability fix, not security hardening.**
+
+- **User-facing bug:** The Notes UI initially loads the first 20 GitHub
+  filenames by UUID ordering, not study subject. If a user chooses a
+  subject whose committed Notes are all on later GitHub pages, Oge
+  incorrectly displays **Start your collection / Add your first note**,
+  even though those Notes already exist.
+- **Useful recovery action:** When the current subject has no displayed
+  Notes but the Vault has unread pages, the empty state now explains
+  that older GitHub pages may contain Notes and offers
+  **Find older Notes in this subject**. This does not create a Note,
+  alter GitHub content or require the user to guess a search phrase.
+- **Reuse existing paging:** The button uses the existing authenticated,
+  cursor-based `loadVaultSearchPages` with at most 12 pages per click.
+  It stops as soon as a Note in the selected subject has been loaded,
+  otherwise allows another click to resume if more GitHub pages remain.
+  It continues to support aborting, deduplication and total-note counts.
+- **Honest empty state:** Only after all remaining pages are checked
+  without a match can the UI report that no older Notes exist in the
+  subject. The same first-page fix works for Quick Capture/extension
+  Notes, which already use the regular GitHub Notes library.
+- **Runnable tests:** `tests/oge-vault-find-subject-m115.test.js`
+  exercises a subject hidden beyond the first page, no match,
+  bounded/resumable scanning in a large library and correct UI wiring.
+- **Limitations:** This does not replace the existing later-page
+  search or give a live GitHub login/browser acceptance result. The
+  connected browser is still unavailable here; score stays
+  **8/10 MVP implemented (80%)** and **0/3 live journeys verified**.
+  PR #35 is draft/unmerged; production remains last.
+- **Next:** Live owner-connected GitHub Save/reload/draft/Chrome/mobile
+  acceptance according to `docs/OGE_NOTES_LIVE_ACCEPTANCE.md` and
+  repair concrete issues found there before merge/deployment.
+
+
 ## Milestone #114 — Choose update or a separate Note after continued typing (18 Nov 2026)
 
 **Fix a real extension workflow trap; no new security gates or release framework.**

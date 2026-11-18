@@ -13,7 +13,7 @@ const links = [
   { href: '/profile', label: 'Profile' },
 ];
 
-export default function SiteNavbar({ actions = null }) {
+export default function SiteNavbar({ actions = null, notesHref = '/notes' }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   return <><header className="site-navbar">
@@ -21,8 +21,10 @@ export default function SiteNavbar({ actions = null }) {
     <button className="site-navbar-toggle" type="button" aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={menuOpen} aria-controls="site-navbar-content" onClick={() => setMenuOpen((open) => !open)}><span aria-hidden="true">{menuOpen ? '×' : '☰'}</span></button>
     <div id="site-navbar-content" className={'site-navbar-content' + (menuOpen ? ' is-open' : '')}>
       <nav className="site-navbar-links" aria-label="Main navigation">{links.map((link) => {
-        const active = link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/');
-        return <a href={link.href} key={link.href} className={'site-navbar-link' + (active ? ' is-active' : '')} aria-current={active ? 'page' : undefined} onClick={() => setMenuOpen(false)}>{link.label}</a>;
+        const href = link.href === '/notes' ? notesHref : link.href;
+        const active = href === '/' ? pathname === '/' :
+          pathname === href || pathname.startsWith(href + '/');
+        return <a href={href} key={link.href} className={'site-navbar-link' + (active ? ' is-active' : '')} aria-current={active ? 'page' : undefined} onClick={() => setMenuOpen(false)}>{link.label}</a>;
       })}</nav>
       {actions && <div className="site-navbar-actions">{actions}</div>}
     </div>

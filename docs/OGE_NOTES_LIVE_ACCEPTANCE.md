@@ -66,7 +66,11 @@ commit/reload follows the recovery. Note failures and the browser behavior.
 5. Test continued typing while Save is pending. The newer text must
    remain and be labeled as needing a separate Save. Press Save again,
    then reload the linked Note: the same Note ID should contain the
-   updated text, with no second Note created.
+   updated text, with no second Note created. Repeat after starting
+   another Save and typing a different thought: choose **Save this as a
+   separate Note instead**, then Save. Confirm the second Note has a
+   different UUID, in the same subject, and the first Note was not
+   overwritten.
 6. Create or use at least 21 Notes; search for a later-page Note using
    **Search remaining GitHub Notes**.
 7. At a mobile viewport, open an existing Note, edit, Save and reload.

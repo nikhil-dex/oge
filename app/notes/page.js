@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import SiteNavbar from '../components/site-navbar';
 import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
@@ -848,7 +849,7 @@ export default function NotesPage({
         </div>
         <div className="intro-actions">
           <button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add a note</button>
-          {vaultMode && hybridDrafts && <a className="add-button" href="/vault/capture">Quick Capture →</a>}
+          {vaultMode && hybridDrafts && <Link className="add-button" href="/vault/capture">Quick Capture →</Link>}
         </div>
       </section>
 

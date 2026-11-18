@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #115 code changes.**
+**Updated 18 November 2026, after milestone #116 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -182,6 +182,25 @@ Runnable tests cover a subject hidden on later pages, no-match results,
 and bounded/resumable scanning. This is a product usability fix, not
 a real connected-account test. **8/10 (80%) implemented, 0/3 live
 journeys verified; no production deployment.**
+
+## Milestone #116 — Main Notes Save while continuing to write
+
+Previously, if typing continued while a **new** GitHub Note was being
+saved, the editor preserved the newer words but still treated the
+next Save as **Create**. GitHub then rejected the duplicate Note ID.
+Editing an existing Note during Save could similarly reuse its old SHA.
+
+Now a confirmed Save stages the open editor as an edit of that same
+committed Note, with the fresh GitHub revision and saved-text baseline.
+The newer text remains in the editor, and pressing Save again uses
+**Update** rather than a duplicate Create. The fast-reload browser
+recovery copy also adopts the newly confirmed base SHA immediately.
+
+The regression exercises a simulated GitHub create/edit/read roundtrip,
+different revisions and source integration. **No real signed-in GitHub
+or Chrome acceptance was possible from this conversation.** The
+score remains **8/10 implementation checkpoints (80%)** and
+**0/3 independently verified live journeys**; no production release.
 
 ## The three mandatory live journeys
 

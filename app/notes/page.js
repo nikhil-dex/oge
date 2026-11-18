@@ -401,13 +401,13 @@ export default function NotesPage({
     if (hybridDrafts) void recoverHybridDraft(note, generation);
   }
 
-  // Focus new/edit Note titles once when the editor opens. Do not refocus
-  // during an asynchronous draft recovery while the user is typing.
+  // Focus the title when the editor opens and when draft recovery finishes.
+  // An editor in recovery has disabled inputs, so wait until it becomes ready.
   useEffect(() => {
-    if (!noteDialog) return undefined;
+    if (!noteDialog || (hybridDrafts && !hybridReady)) return undefined;
     const frame = window.requestAnimationFrame(() => headingRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [noteDialog]);
+  }, [noteDialog, hybridDrafts, hybridReady]);
 
   const hasUnsavedEditorChanges = useCallback(() => {
     if (!vaultMode || !noteDialog || !editorInitialRef.current) return false;

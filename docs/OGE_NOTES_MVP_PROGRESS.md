@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #108 code changes.**
+**Updated 18 November 2026, after milestone #109 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -54,6 +54,29 @@ promise that all prior AirNotes and Quick Notes appear in the Vault.
 - Real GitHub and Chrome verification remains pending. This is polish on
   existing checkpoint #5, so the implementation score remains **8/10 (80%)**
   and real account verification remains **0/3**.
+
+## Milestone #109 — Do not lose text during Save or draft recovery
+
+- **Quick Capture draft recovery:** Preserve the exact text typed in the
+  browser, including a one-line capture, when its normalized heading/body
+  matches the acknowledged temporary encrypted draft. Previously a one-line
+  capture could be reconstructed as two duplicate lines after reopening.
+  Divergent browser text still requires an explicit recovery choice.
+- **Extension Save response:** Snapshot submitted text and subject at the
+  moment of clicking Save. A slow GitHub response cannot erase newer typing
+  or a changed subject. Show that the earlier version was saved and newer
+  edits still need Save; failed responses preserve the editor copy.
+- **Duplicate click prevention:** A concurrent click during an in-flight
+  request is ignored, including if subject reload inadvertently reenables
+  the button. Unconfirmed GitHub Save retains the original capture UUID for
+  a retry with unchanged input.
+- **Executable regression tests:** Use a Node VM harness to execute the
+  extension's real click handler under delayed, failed and duplicate
+  response scenarios. Test one-line/two-line/whitespace draft recovery
+  equivalence and divergent local copies.
+- **No change in the MVP checkpoint count:** 8/10 (80%) implemented,
+  0/3 real connected-account journeys verified. This is an existing
+  workflow correctness fix, not a new product feature or release gate.
 
 ## The three mandatory live journeys
 

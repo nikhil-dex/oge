@@ -325,24 +325,34 @@ export default function NotesPage({
     }
   }
 
-  async function scanRemainingVaultNotes() {
-    if (!vaultMode || !query.trim() || !nextNotesCursor || loading ||
+  async function scanRemainingVaultNotes({ subjectOnly = false } = {}) {
+    // On a UUID-sorted first page, a subject may look empty even though
+    // its Notes exist on later GitHub pages. Let users discover them
+    // without having to guess a heading to search for.
+    if (!vaultMode || (!subjectOnly && !query.trim()) ||
+        (subjectOnly && !activeSubject) || !nextNotesCursor || loading ||
         loadingMoreNotes || searchScanBusy || saving || noteDialog) return;
+    const targetSubject = subjectOnly ? activeSubject : null;
+    let foundSubjectNote = false;
     const controller = new AbortController();
     searchScanRef.current = controller;
     setSearchScanBusy(true);
-    setSearchScanStatus('Searching additional GitHub Notes…');
+    setSearchScanStatus(subjectOnly
+      ? 'Finding older GitHub Notes for this subject…'
+      : 'Searching additional GitHub Notes…');
     setError('');
     try {
       const result = await loadVaultSearchPages({
         cursor: nextNotesCursor,
-        shouldStop: () => controller.signal.aborted,
+        shouldStop: () => controller.signal.aborted || foundSubjectNote,
         fetchPage: async (cursor) => responseJson(await fetch(
           notesApi + '?paged=true&limit=25&cursor=' + encodeURIComponent(cursor),
           { cache: 'no-store', signal: controller.signal },
         )),
         onPage: (incoming, page) => {
           if (controller.signal.aborted) return;
+          if (targetSubject)
+            foundSubjectNote = incoming.some((note) => note.subjectSlug === targetSubject);
           setNotes((existing) => {
             const seen = new Set(existing.map((note) => note.id));
             return [...existing, ...incoming.filter((note) => !seen.has(note.id))];
@@ -352,11 +362,17 @@ export default function NotesPage({
         },
       });
       if (searchScanRef.current !== controller) return;
-      setSearchScanStatus(result.stopped
-        ? 'Search paused. You can continue from the next page.'
-        : result.complete
-          ? 'All GitHub Notes loaded. Search now covers your full Vault.'
-          : 'Loaded ' + result.loaded + ' more notes. Select Continue search to scan the rest.');
+      setSearchScanStatus(foundSubjectNote
+        ? 'Found older Notes for this subject. Load more if you need the rest.'
+        : result.stopped
+          ? 'Search paused. You can continue from the next page.'
+          : result.complete
+            ? subjectOnly
+              ? 'All GitHub Notes checked. There are no older Notes for this subject.'
+              : 'All GitHub Notes loaded. Search now covers your full Vault.'
+            : subjectOnly
+              ? 'Checked ' + result.loaded + ' more Notes. Select Find older Notes again to continue.'
+              : 'Loaded ' + result.loaded + ' more notes. Select Continue search to scan the rest.');
     } catch (err) {
       if (searchScanRef.current !== controller || controller.signal.aborted) return;
       setSearchScanStatus('Search stopped at the last loaded page.');
@@ -1049,10 +1065,24 @@ export default function NotesPage({
                 <button type="button" className="delete-note" onClick={() => deleteNote(note)} aria-label={`Delete note: ${note.heading}`} title="Delete note">×</button>
               </div>
             </article>
-          ))}</div> : <div className="empty-state"><span className="empty-icon">⌕</span><h3>{query ? (vaultMode && nextNotesCursor ? 'No matches in loaded notes yet' : 'No notes found') : 'Start your collection'}</h3><p>{query ? (vaultMode && nextNotesCursor
+          ))}</div> : <div className="empty-state"><span className="empty-icon">⌕</span><h3>{query ? (vaultMode && nextNotesCursor ? 'No matches in loaded notes yet' : 'No notes found')
+              : vaultMode && nextNotesCursor && !globalSearch && !favoritesOnly && !selectedTag
+                ? 'No Notes from this subject loaded yet' : 'Start your collection'}</h3>
+              <p>{query ? (vaultMode && nextNotesCursor
                 ? 'Use Search remaining GitHub Notes above to check older pages.'
                 : 'Try another search, or clear the filters.')
-                : 'Add a note to this subject, then come back to study it.'}</p><button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add your first note</button></div>}
+                : vaultMode && nextNotesCursor && !globalSearch && !favoritesOnly && !selectedTag
+                  ? 'Your GitHub library has more pages. Notes for this subject may be farther down.'
+                  : 'Add a note to this subject, then come back to study it.'}</p>
+              {vaultMode && nextNotesCursor && !query.trim() && !globalSearch &&
+                !favoritesOnly && !selectedTag && activeSubject && <button
+                  className="add-button" type="button"
+                  onClick={() => void scanRemainingVaultNotes({ subjectOnly: true })}
+                  disabled={searchScanBusy || loadingMoreNotes || saving || noteDialog}>
+                  {searchScanBusy ? 'Finding…' : 'Find older Notes in this subject'}
+                </button>}
+              <button className="add-button" type="button" onClick={openNewNote}
+                disabled={!activeSubject}><span>＋</span> Add a note</button></div>}
         {vaultMode && <div className="oge-vault-notes-pagination">
           <p role="status">Showing {notes.length} of {totalVaultNotes ?? notes.length} GitHub notes. Search, filters and sorting apply to loaded notes. Use Search remaining GitHub Notes to include older pages.</p>
           {nextNotesCursor && <button type="button" className="add-button" onClick={() => void loadMoreVaultNotes()}

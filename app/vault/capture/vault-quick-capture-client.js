@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   VAULT_CAPTURE_MAX_CHARS, vaultCaptureFields, vaultCaptureLocalKey,
-  vaultCapturePointer,
+  vaultCapturePointer, vaultCaptureRecoveryText,
 } from '../../../lib/oge-vault-quick-capture.js';
 
 async function responseJson(response) {
@@ -12,7 +12,6 @@ async function responseJson(response) {
   if (!response.ok) throw new Error(body?.error || 'Request not confirmed.');
   return body;
 }
-const textFromDraft = (draft) => draft.heading + '\n' + draft.answer;
 
 /**
  * E1: owner-browser short capture to encrypted temporary Vault drafts.
@@ -119,18 +118,23 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         return;
       }
       if (candidate && window.confirm('Recover your unfinished Vault capture in this subject?')) {
-        const remoteText = textFromDraft(candidate.draft);
         let local = null;
         try { local = sessionStorage.getItem(vaultCaptureLocalKey(ownerId, repoId, candidate.id)); }
         catch { /* harmless */ }
-        const selectedText = local !== null && local !== remoteText &&
-          window.confirm('Your browser copy differs from the encrypted server draft. Restore the browser copy?')
-          ? local : remoteText;
+        const recovered = vaultCaptureRecoveryText(candidate.draft, local);
+        // Equal heading+body means the user's exact local formatting is
+        // already acknowledged by the temporary server draft. Restoring it
+        // must not invent a duplicate first line or trigger another autosave.
+        const selectedText = recovered.matchesBrowserCopy ? recovered.text
+          : local !== null && local !== recovered.serverText &&
+            window.confirm('Your browser copy differs from the encrypted server draft. Restore the browser copy?')
+            ? local : recovered.serverText;
         setNoteId(candidate.id); setContent(selectedText);
         revisionRef.current = candidate.revision;
         setRevision(candidate.revision);
-        savedSnapshotRef.current = remoteText;
-        setStatus('Recovered encrypted draft. Review before GitHub Save.');
+        savedSnapshotRef.current = recovered.matchesBrowserCopy
+          ? recovered.text : recovered.serverText;
+        setStatus('Recovered temporary draft. Review before GitHub Save.');
       } else if (pointer && !candidate) {
         let local = null;
         try { local = sessionStorage.getItem(vaultCaptureLocalKey(ownerId, repoId, pointer)); }

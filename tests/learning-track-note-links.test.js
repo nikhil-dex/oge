@@ -25,9 +25,9 @@ test('M99 link metadata contains only owner-selected IDs, never private content'
     { ...sel, noteId: 'not-a-uuid' }, { ...sel, videoId: '../private' },
     { trackId, videoId: 'abc12345678' },
   ]) assert.equal(validLearningTrackNoteSelection(invalid), false);
-  assert.deepEqual(publicLessonNoteLink({ ...sel, ownerId: 'secret-owner',
+  assert.deepEqual(publicLessonNoteLink({ ...sel, _id: 'c6301c51-af70-4824-a540-12909c47ffec', ownerId: 'secret-owner',
     heading: 'PRIVATE TITLE', answer: 'PRIVATE BODY', linkedAt: 'today' }),
-  { ...sel, linkedAt: 'today' });
+  { ...sel, linkId: 'c6301c51-af70-4824-a540-12909c47ffec', linkedAt: 'today' });
 });
 test('M99 route requires owner session, read-only GitHub verified Note, active owner transaction', async () => {
   const route = await read('../app/api/learning-tracks/note-links/route.js');

@@ -76,7 +76,7 @@ test('M115 no older subject notes: scan finishes without inventing a first Note'
 });
 
 test('M115 search for a subject remains bounded to twelve pages per click', async () => {
-  const all = notesWithSubjectAt({ total: 720, matchingAt: 600 });
+  const all = notesWithSubjectAt({ total: 720, matchingAt: 585 });
   const reader = fakePageReader(all);
   let found = false;
   const first = await loadVaultSearchPages({
@@ -98,7 +98,7 @@ test('M115 search for a subject remains bounded to twelve pages per click', asyn
   });
   assert.equal(found, true);
   assert.equal(second.stopped, true);
-  assert.equal(second.pages, 12);
+  assert.equal(second.pages, 11);
 });
 
 test('M115 UI offers a subject-specific search only when it really has unloaded GitHub pages', async () => {

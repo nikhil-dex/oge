@@ -1,0 +1,4 @@
+# Known Gitleaks false positive: ordinary documentation sentence about
+# synthetic reviewer/producer signing keys, not an API token or credential.
+# Ignore only this historical commit/file/rule/line fingerprint.
+4f3c8afa724ffbb45f2227c3da8d1c59b93e6d29:docs/OGE_VAULT_QUARANTINE_PRODUCER_ATTESTATIONS_E13.md:generic-api-key:171

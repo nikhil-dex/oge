@@ -144,12 +144,12 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
           // The previous pointer was stale or empty; do not silently reuse
           // an unknown draft revision. Begin a separate new note.
           setNoteId(crypto.randomUUID());
-          setStatus('Ready to write. Your first line becomes the title.');
+          setStatus('Ready to write. A single thought works, or write a title and body.');
         }
       } else {
         // A fresh subject with no pending draft should be writable immediately.
         setNoteId(crypto.randomUUID());
-        setStatus('Ready to write. Your first line becomes the title.');
+        setStatus('Ready to write. A single thought works, or write a title and body.');
       }
     } catch {
       if (generation === generationRef.current) {
@@ -205,7 +205,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
     revisionRef.current = 0; setRevision(0);
     savedSnapshotRef.current = '';
     setError('');
-    setStatus('Ready. Your first line becomes the title.');
+    setStatus('Ready to write. A single thought works, or write a title and body.');
     blockedRef.current = false; setBlocked(false);
     uncertainRef.current = false; setUncertain(false);
     busyRef.current = false; setBusy(false);
@@ -357,9 +357,9 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         <span className="oge-settings-pill">Private GitHub on Save</span>
       </div>
       <p className="oge-settings-description">
-        Choose a subject. Write a title on the first line and your note below.
-        Complete edits autosave only as temporary encrypted drafts. The Save button
-        commits the selected note to your private GitHub Vault.
+        Choose a subject and write a quick thought. For a longer note, put a title
+        on the first line and the details below. Your draft autosaves temporarily;
+        press Save to commit the finished Note to your private GitHub Vault.
       </p>
       <form onSubmit={createSubject} className="oge-note-editor-actions">
         <label htmlFor="vault-capture-new-subject">New subject</label>

@@ -1,5 +1,43 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #117 — Clear the already-committed draft when typing continues during GitHub Save (19 Nov 2026)
+
+**Everyday Note recovery cleanup, no new approval/security milestones.**
+
+- **Problem found after #116:** If a user saved a new GitHub Note but
+  continued typing, the editor correctly switched into *edit the committed
+  Note* mode, yet its previous temporary MongoDB draft could remain tagged
+  `isNew`. Opening **New Note** could consequently offer to restore an
+  already-committed Note as though it had never been saved.
+- **Fix:** After GitHub confirms the submitted revision and the editor
+  retains newer text, the UI now calls the EXISTING authenticated
+  `POST /api/vault/drafts` reconciliation for **the exact submitted
+  revision and confirmed GitHub SHA**. Only that older temporary draft
+  is eligible for verified cleanup. The live editor and newer browser
+  recovery copy are never deleted by this reconciliation.
+- **Fresh autosave state:** On confirmed cleanup, the client resets the
+  now-retired draft revision to zero, removes the *new Note* recovery
+  pointer if it still identifies the committed Note, and lets the next
+  autosave start a fresh temporary edit-draft against the committed
+  GitHub SHA. No extra GitHub commit is triggered by cleanup.
+- **Failure handling:** If the cleanup endpoint cannot confirm success,
+  Oge preserves the current draft revision and newer text; it reports
+  cleanup pending instead of declaring a nonexistent cleanup. If there
+  was never a server draft (revision zero), it skips the network request.
+- **Tests:** `tests/oge-vault-followup-draft-m117.test.js` covers
+  successful exact-revision cleanup, rejected or network-failed cleanup,
+  no-server-draft skips, invalid requests, and wiring through the
+  existing authenticated GitHub verification endpoint. Synthetic
+  tests do NOT prove real connected account Save/reload.
+- **Status:** **8/10 MVP implementation checkpoints (80%)**, **0/3
+  independently verified connected-account journeys**. Browser
+  automation from Chat mode still lacks the signed-in browser context.
+  PR #35 stays draft/unmerged; deployment stays last.
+- **Next action:** Perform the existing live owner-connected acceptance
+  checklist for GitHub Notes, recovery, Chrome extension and mobile.
+  Fix actual failures rather than creating more ceremonial milestones.
+
+
 ## Milestone #116 — Continue writing in the main GitHub Notes editor while Save is running (18 Nov 2026)
 
 **Correct a blocking everyday Save workflow, without new security gates.**

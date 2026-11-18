@@ -28,10 +28,24 @@ test('M69 first line becomes GitHub note heading, rest is body and valid encrypt
   assert.ok(Object.isFrozen(draft));
 });
 
-test('M69 capture refuses unowned/invalid subject syntax, missing heading/body and long content', () => {
+test('M108 single-line quick thoughts and body-only captures save as real Notes', () => {
+  for (const content of ['Buy bread', 'Buy bread\n', '\nBuy bread']) {
+    const draft = vaultCaptureFields(content, subject);
+    assert.equal(draft.heading, 'Quick note');
+    assert.equal(draft.answer, content.trim());
+    assert.deepEqual(validatedHybridDraft(draft), draft);
+    assert.equal(validatedNote(draft).answer, content.trim());
+  }
+  const longFirstLine = 'A'.repeat(161) + '\nMore thoughts';
+  const draft = vaultCaptureFields(longFirstLine, subject);
+  assert.equal(draft.heading, 'Quick note');
+  assert.equal(draft.answer, longFirstLine);
+  assert.equal(validatedNote(draft).answer, longFirstLine);
+});
+
+test('M69 capture refuses invalid subjects, empty text, or long content', () => {
   for (const input of [
-    ['', subject], ['One line only', subject], ['\nBody only', subject],
-    ['Title\n \n ', subject], ['A'.repeat(161) + '\nBody', subject],
+    ['', subject], [' \n\t ', subject], ['\n\n', subject],
     ['Title\nAnswer', 'not-a-subject'], ['Title\nBody', ''],
     ['Title\nBody', undefined], [null, subject], [33, subject],
     ['Title\nBody'.repeat(5000), subject],

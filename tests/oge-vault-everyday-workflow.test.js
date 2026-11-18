@@ -51,7 +51,8 @@ test('M104 quick capture lets new users create a subject and write immediately',
   assert.match(client, /await choose\(created\.slug\)/);
   assert.match(client, /setNoteId\(crypto\.randomUUID\(\)\)/);
   assert.match(client, /Start by adding a subject above/);
-  assert.match(client, /Ready to write\. Your first line becomes the title/);
+  assert.match(client, /Ready to write\. A single thought works, or write a title and body/);
+  assert.match(page, /notesHref="\/vault\/notes"/);
   assert.match(client, /Saved to GitHub\. Ready for your next note/);
   assert.match(client, /!text\.trim\(\)/);
   assert.match(client, /\/api\/vault\/notes-main/);

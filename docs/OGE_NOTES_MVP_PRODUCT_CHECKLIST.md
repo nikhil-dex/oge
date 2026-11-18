@@ -149,6 +149,27 @@ verification remains 0/3.** These improvements fix existing flows.
 CI tests exercise deterministic simulated responses, but live Chrome and
 GitHub App behavior still needs testing.
 
+## M110 — Finish browser-only note recovery and provider Save check
+
+1. Open Quick Capture, type an unfinished Note, then reload immediately
+   before the normal 900 ms encrypted autosave.
+2. Recover the browser-only copy. It should be **editable** and allow an
+   explicit GitHub Save; the old flow blocked further editing.
+3. If the previous capture was already committed to GitHub, the
+   owner-scoped `/api/vault/notes-main?id=...` check prevents treating a
+   confirmed same-content Save as a new Note.
+4. If that UUID holds an older/different saved Note, the browser text
+   becomes a new capture while the earlier Note remains untouched.
+5. If GitHub is temporarily unreachable, the browser text remains
+   available for editing. The UI warns that a previous Save cannot be
+   ruled out until GitHub is available.
+
+**Acceptance remains unproven on a live account.** Follow the
+step-by-step test in `docs/OGE_NOTES_LIVE_ACCEPTANCE.md` before marking
+the Save/reload/draft-recovery journey as passed. Synthetic unit tests
+do not satisfy live acceptance. Progress remains **8/10 (80%) in code**,
+**0/3 real account journeys verified**.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

@@ -1,5 +1,42 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #113 — Continue editing the same extension Note after Save (18 Nov 2026)
+
+**Practical Notes workflow fix, no extra security or approval milestones.**
+
+- **Bug fixed:** A user could continue typing in the floating extension
+  while a GitHub Save was in progress. Oge kept the new text as intended,
+  but pressing Save again submitted a *new* Note UUID, making two Notes
+  instead of updating the one the user was writing.
+- **Same Note on the next Save:** The extension now retains the confirmed
+  GitHub Note UUID, its blob SHA revision, and the selected subject *only
+  while unsaved newer edits remain*. Pressing Save again issues
+  `UPDATE_VAULT_NOTE` to the existing Note, not another Create.
+- **Backend:** The existing owner-linked
+  `/api/extension/vault-note` route now supports explicit `PUT`
+  with the Note ID and original GitHub revision. It preserves existing
+  tags/favorite metadata, rejects stale edits, and reads the existing
+  Note after uncertain network results before confirming a Save.
+  Successful Create and Update return the actual GitHub Note SHA.
+- **No accidental cross-subject overwrite:** Changing the subject
+  while a Save is in progress intentionally starts a different Note;
+  the original saved Note remains untouched.
+- **Focused regression:** A new VM-executed extension Save test covers
+  create/continue typing/update, a lost Update response followed by
+  same-ID retry, switching subjects, and the owner-backed PUT route
+  wiring. The existing older extension regression fixtures now include
+  actual-shaped GitHub Save receipts.
+- **Limits and progress:** CI verifies scripted behavior, but no
+  signed-in Chrome/GitHub account was accessible in this chat. Thus
+  checkpoint #9 is **not** claimed. **8/10 implementation checkpoints
+  (80%)** and **0/3 live real-account journeys verified** remain.
+  PR #35 stays draft/unmerged, production deployment stays last.
+- **Next #114:** Run `docs/OGE_NOTES_LIVE_ACCEPTANCE.md` using
+  a real connected Chrome/GitHub owner; fix observed issues, then
+  reassess the merge and deployment. No extra cryptographic review
+  or fabricated percentage updates.
+
+
 ## Milestone #112 — Extension saved-Note link now opens the actual Note (18 Nov 2026)
 
 **Product usability fix, not another security or release-gate phase.**

@@ -42,7 +42,7 @@ open the Quick Capture page.
 | P0 | Clear error and recoverable draft on failed Save | Existing behavior; verify in browser |
 | P1 | Reliable search across larger collections | M105: explicit on-demand search loads the remaining GitHub pages in batches (up to 300 notes per click), with Stop/Continue; real account test pending |
 | P1 | Unified Quick Notes / AirNotes / extension to GitHub | Not completed; existing legacy APIs remain separate |
-| P1 | Comfortable mobile editor and keyboard shortcuts | Needs interactive usability testing |
+| P1 | Comfortable mobile editor and keyboard shortcuts | M106 code: sticky Save action, word count, explicit GitHub vs draft state, reader Edit, automatic title focus and Ctrl/⌘+Enter; live mobile test pending |
 | P2 | Learning Tracks: stable progress when playlist order changes | Planned |
 | P2 | Deployment and production cutover | Last, after real workflows work |
 
@@ -66,6 +66,24 @@ validation.
 **Still to verify with a live account:** Create, edit, Save, reload, search
 beyond 20 Notes, Stop/Continue, keyboard Save, provider errors and mobile
 editor usability. Automated tests are not a substitute for the real flow.
+
+## M106 — Notes editor usability and explicit Save feedback
+
+The existing modal now shows a message for unsaved changes, temporarily
+autosaved drafts, GitHub Save in progress, a confirmed saved version or an
+error. A MongoDB/sessionStorage draft is not called a GitHub Save. A sticky
+footer on long or mobile Notes keeps the **Save to GitHub** button visible,
+along with a word/character count. On opening a note, the heading receives
+keyboard focus after temporary draft recovery finishes.
+
+The read-only Note viewer now offers **Edit note** directly, avoiding the
+need to find the card again. Existing Ctrl/⌘+Enter Save is preserved. No
+new content store, extra security gate or GitHub commit path was added.
+
+Progress and validation status: see
+`docs/OGE_NOTES_MVP_PROGRESS.md` for the explicit **7/10 (70%)
+implemented-checkpoint** measure and the separate **0/3 real live account
+journeys verified** measure. Passing CI does not prove live provider access.
 
 ## Explicitly not doing next
 

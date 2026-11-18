@@ -48,7 +48,8 @@ function simulateFloatingSave({
   let handler;
   const statuses = [];
   const note = { value: initial };
-  const subjectSelect = { value: subject };
+  const subjectSelect = { value: subject, addEventListener() {} };
+  const noteNewCapture = { hidden: true, addEventListener() {} };
   const noteSave = {
     disabled: false,
     addEventListener(type, action) {
@@ -57,7 +58,7 @@ function simulateFloatingSave({
     },
   };
   const ctx = {
-    noteSave, note, subjectSelect, vaultReady,
+    noteSave, noteNewCapture, note, subjectSelect, vaultReady,
     savingCapture: false,
     pendingVaultCapture: null,
     pendingSavedUpdate: null,
@@ -67,10 +68,10 @@ function simulateFloatingSave({
     setStatus: (...args) => statuses.push(args),
     send,
   };
-  return { ctx, statuses, note, subjectSelect, noteSave,
+  return { ctx, statuses, note, subjectSelect, noteSave, noteNewCapture,
     async mount() {
       const source = await read('../extension/content.js');
-      const start = source.indexOf("  noteSave.addEventListener('click', async () => {");
+      const start = source.indexOf('  function updateNoteButton() {');
       const end = source.indexOf("  const urlSave = ", start);
       assert.ok(start > 0 && end > start, 'Save handler must be discoverable in the actual extension');
       vm.runInNewContext(source.slice(start, end), ctx, { timeout: 2000 });

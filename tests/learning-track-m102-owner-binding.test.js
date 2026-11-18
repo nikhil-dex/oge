@@ -10,6 +10,7 @@ import { executeM101ReadOnlyStagingObservation } from '../lib/oge-learning-track
 const trackId = '9b044299-28c7-44ad-9d66-3f6b77e956a4';
 const videoId = 'abc12345678';
 const noteId = 'c96a716d-125b-43e9-96dc-992a9b6d34cf';
+const linkId = '17c44540-fd34-465c-946e-a1e1def5ff3c';
 const version = '78435e38-57a7-4e7b-8dc0-c0eaa942788d';
 const env = {
   OGE_LEARNING_TRACK_M101_READ_ONLY_ACCEPTANCE: 'YES_ISOLATED_TWO_SESSION_READS_NO_WRITES',
@@ -102,7 +103,7 @@ test('M102 compares same-owner proof before and after M101 eight read-only check
         status: 'present', warning: 'Point-in-time private GitHub read only.',
       } };
     return { status: 200, noStore: true, data: {
-      links: [{ trackId, videoId, noteId }], warning: 'Stale links can remain.',
+      links: [{ trackId, videoId, noteId, linkId }], warning: 'Stale links can remain.',
     } };
   };
   const report = await run(binding, () => executeM101ReadOnlyStagingObservation({
@@ -118,7 +119,7 @@ test('M102 compares same-owner proof before and after M101 eight read-only check
   assert.equal(report.actualOAuthIssuerVerified, false);
   assert.equal(report.twoPhysicalDevicesIndependentlyVerified, false);
   assert.equal(report.independentSecurityReviewCompleted, false);
-  for (const secret of [identity.ownerId, noteId, trackId, videoId,
+  for (const secret of [identity.ownerId, noteId, linkId, trackId, videoId,
     owner.vault.githubLogin, tag, env.OGE_LEARNING_TRACK_M102_OWNER_BINDING_KEY])
     assert.ok(!JSON.stringify(report).includes(secret));
 });

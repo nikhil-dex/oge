@@ -61,6 +61,7 @@ export default function NotesPage({
   const answerRef = useRef(null);
   const headingRef = useRef(null);
   const editorInitialRef = useRef(null);
+  const [editorBaseline, setEditorBaseline] = useState(null);
   const hybridRevisionRef = useRef(0);
   const hybridPendingRef = useRef(Promise.resolve());
   const hybridGenerationRef = useRef(0);
@@ -346,9 +347,8 @@ export default function NotesPage({
   const editorMetrics = noteBodyMetrics(answer);
   const editorFeedback = noteEditorFeedback({
     vaultMode, hybridDrafts, saving, hybridReady, editingId,
-    changed: Boolean(heading !== editorInitialRef.current?.heading ||
-      answer !== editorInitialRef.current?.answer ||
-      tagsText !== editorInitialRef.current?.tags),
+    changed: Boolean(editorBaseline && (heading !== editorBaseline.heading ||
+      answer !== editorBaseline.answer || tagsText !== editorBaseline.tags)),
     draftStatus, hybridError, error, message,
   });
 
@@ -362,6 +362,7 @@ export default function NotesPage({
     setHybridError('');
     hybridConflictRef.current = false;
     editorInitialRef.current = { heading: '', answer: '', tags: '' };
+    setEditorBaseline({ heading: '', answer: '', tags: '' });
     setEditingId('');
     setHeading('');
     setAnswer('');
@@ -383,6 +384,9 @@ export default function NotesPage({
     editorInitialRef.current = {
       heading: note.heading, answer: note.answer, tags: (note.tags || []).join(', '),
     };
+    setEditorBaseline({
+      heading: note.heading, answer: note.answer, tags: (note.tags || []).join(', '),
+    });
     setEditingId(note.id);
     setHeading(note.heading);
     setAnswer(note.answer);
@@ -636,6 +640,7 @@ export default function NotesPage({
       hybridGenerationRef.current += 1;
       setNewDraftId('');
       editorInitialRef.current = null;
+      setEditorBaseline(null);
       setNoteDialog(false);
       setAnswerFullscreen(false);
       setPreview(false);
@@ -688,6 +693,7 @@ export default function NotesPage({
                 hybridGenerationRef.current += 1;
                 setNewDraftId('');
                 editorInitialRef.current = null;
+                setEditorBaseline(null);
                 setNoteDialog(false);
                 setAnswerFullscreen(false);
                 setPreview(false);

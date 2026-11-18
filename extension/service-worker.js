@@ -1,7 +1,7 @@
 // All OgeNotes requests are made from the extension service worker.
 // The floating content script never receives the bearer token or app origin.
 const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
-const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'CREATE_VAULT_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK', 'OPEN_LEARNING_TRACKS']);
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'CREATE_VAULT_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK', 'OPEN_LEARNING_TRACKS', 'OPEN_VAULT_NOTE']);
 const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
 
 function normalizeBase(value) {
@@ -99,8 +99,18 @@ async function handleAction(message, sender) {
     });
     if (data.confirmed !== true || data.destination !== 'vault')
       throw new Error('GitHub Save was not confirmed. Keep your editor copy.');
-    return { title: data.title, subject: data.subject, destination: 'vault',
+    return { id: data.id, title: data.title, subject: data.subject, destination: 'vault',
       confirmed: true, alreadySaved: data.alreadySaved === true };
+  }
+  if (message.type === 'OPEN_VAULT_NOTE') {
+    // A user-clicked shortcut, never an automatic new tab after Save.
+    const id = message.id;
+    if (typeof id !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))
+      throw new Error('Invalid saved Note link.');
+    const { origin } = await getConnection();
+    await chrome.tabs.create({ url: origin + '/vault/notes?note=' + encodeURIComponent(id.toLowerCase()) });
+    return { opened: true };
   }
   if (message.type === 'CREATE_LEARNING_TRACK') {
     // A malicious web page cannot choose a different URL; use the browser's tab.

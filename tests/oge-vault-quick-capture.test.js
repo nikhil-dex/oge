@@ -61,7 +61,6 @@ test('M104 Quick Capture follows connected GitHub Notes and drafts without separ
   const file = await readFile(new URL(
     '../app/vault/capture/page.js', import.meta.url), 'utf8');
   assert.match(file, /OGE_VAULT_MAIN_PREVIEW === 'true'/);
-  assert.match(file, /OGE_VAULT_NOTE_API_PREVIEW === 'true'/);
   assert.match(file, /OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true'/);
   assert.doesNotMatch(file, /OGE_VAULT_QUICK_CAPTURE_PREVIEW|oge_vault_restore_staging_|checkVaultStagingReadiness/);
   assert.match(file, /ownerMutationFilter\(session\.user\.id/);

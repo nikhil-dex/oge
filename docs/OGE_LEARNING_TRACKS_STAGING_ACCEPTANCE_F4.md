@@ -8,6 +8,14 @@ automatic GitHub retries, quarantine unlock, merge, or production deployment.
 
 - The owner explicitly links an existing private committed Note to a YouTube video ID.
 - A separate owner-clicked **Verify linked Note** requests one read-only GitHub check.
+- M103 requires an explicit `X-Oge-Verify-Intent: manual` same-origin
+  scripted request (and rejects an inconsistent Origin/Fetch Metadata) so
+  ambient cross-site navigations cannot consume the private GitHub read budget.
+  The browser UI and signed-session operator CLI supply this header.
+- Each returned metadata link now includes a random opaque `linkId` (MongoDB
+  link record UUID). Replacing a link with another link to the SAME Note ID
+  rotates `linkId`; M101/M102 compare BOTH IDs across session reads without
+  emitting them in reports. It is NOT a bearer credential or authorization.
 - A check returns only `present` or `missing` at that moment, not Note contents.
 - Unknown provider failures show an error; they are not proof of deletion.
 - No automatic retries, polling, auto-linking, Note mutations, or MongoDB content copies.

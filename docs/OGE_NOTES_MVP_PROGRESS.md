@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #112 code changes.**
+**Updated 18 November 2026, after milestone #113 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -137,6 +137,22 @@ be retrieved, the Notes page shows an actionable message.
 This adds a deterministic link-resolution and reader-wiring regression
 test; it does **not** prove real connected account behavior. **Progress
 stays 8/10 (80%) implemented and 0/3 live user journeys verified.**
+
+## Milestone #113 — Follow-up extension Save updates the original Note
+
+Previously, if someone continued typing while a floating-widget Save was
+in progress, pressing Save again created a *second* GitHub Note.
+The extension now keeps the confirmed Note's ID and GitHub SHA while the
+newer text remains unsaved; a subsequent Save updates that Note instead.
+The existing GitHub Note metadata is preserved, and a failed response
+retains the same ID/revision so a retry does not create another file.
+
+The backend gained a selected-owner `PUT /api/extension/vault-note`
+operation. New executable simulated widget tests cover the two-Save
+sequence, a lost Update response, and subject changes.
+
+**No live account was tested here.** Implementation remains **8/10 (80%)**,
+and independent real-account journey verification remains **0/3**.
 
 ## The three mandatory live journeys
 

@@ -1,7 +1,7 @@
 // All OgeNotes requests are made from the extension service worker.
 // The floating content script never receives the bearer token or app origin.
 const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
-const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'CREATE_VAULT_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK', 'OPEN_LEARNING_TRACKS', 'OPEN_VAULT_NOTE']);
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'CREATE_VAULT_NOTE', 'UPDATE_VAULT_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK', 'OPEN_LEARNING_TRACKS', 'OPEN_VAULT_NOTE']);
 const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
 
 function normalizeBase(value) {
@@ -80,7 +80,7 @@ async function handleAction(message, sender) {
     });
     return { title: data.title, destination: data.destination, subject: data.subject || null };
   }
-  if (message.type === 'CREATE_VAULT_NOTE') {
+  if (message.type === 'CREATE_VAULT_NOTE' || message.type === 'UPDATE_VAULT_NOTE') {
     // The explicit GitHub destination is selected only after the subject
     // service reports a connected owner. Keep a stable ID across retries.
     if (typeof message.content !== 'string' || !message.content.trim() ||
@@ -91,15 +91,23 @@ async function handleAction(message, sender) {
         !/^[a-f0-9-]{36}$/i.test(message.captureId)) {
       throw new Error('Select a subject and write a note of up to 20,000 characters.');
     }
+    const updating = message.type === 'UPDATE_VAULT_NOTE';
+    if (updating && !/^[a-f0-9]{40}$/i.test(message.sha || ''))
+      throw new Error('The saved Note revision is missing. Open the Note in Oge to edit it.');
     const data = await apiRequest('/api/extension/vault-note', {
-      method: 'POST', body: JSON.stringify({
+      method: updating ? 'PUT' : 'POST',
+      body: JSON.stringify({
         content: message.content, subjectSlug: message.subjectSlug,
         captureId: message.captureId,
+        ...(updating ? { sha: message.sha } : {}),
       }),
     });
     if (data.confirmed !== true || data.destination !== 'vault')
       throw new Error('GitHub Save was not confirmed. Keep your editor copy.');
-    return { id: data.id, title: data.title, subject: data.subject, destination: 'vault',
+    if (!/^[a-f0-9]{40}$/i.test(data.sha || ''))
+      throw new Error('GitHub Save returned no revision. Your editor copy is retained.');
+    return { id: data.id, sha: data.sha, title: data.title,
+      subject: data.subject, destination: 'vault',
       confirmed: true, alreadySaved: data.alreadySaved === true };
   }
   if (message.type === 'OPEN_VAULT_NOTE') {

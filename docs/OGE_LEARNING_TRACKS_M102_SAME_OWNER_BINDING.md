@@ -78,3 +78,14 @@ Do not invent PASS outcomes or mark real acceptance complete from synthetic CI.
 
 **Production readiness: BLOCKED.** No restoration, merge, deployment,
 quarantine unlock, or automatic GitHub retry is authorized.
+
+## Milestone #103 request and revision hardening
+
+The M101 runner now requires an explicit staging/preview hostname, not just
+HTTPS. The manual linked Note verification GET is accepted only with a custom
+same-origin intent header; ordinary cross-site navigation and mismatched
+Origin/Fetch Metadata are rejected BEFORE provider reads or rate-limit use.
+Both M101 and M102 observation flows compare a random link-record UUID as
+well as the selected Note UUID, rejecting unlink/relink to the same Note
+across devices. The extra link ID is owner-scoped link metadata, never a
+secret and never a proof of current Note existence. Reports remain redacted.

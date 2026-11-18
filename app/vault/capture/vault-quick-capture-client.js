@@ -22,6 +22,8 @@ const textFromDraft = (draft) => draft.heading + '\n' + draft.answer;
  */
 export default function VaultQuickCaptureClient({ ownerId, repoId }) {
   const [subjects, setSubjects] = useState([]);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [creatingSubject, setCreatingSubject] = useState(false);
   const [subjectId, setSubjectId] = useState('');
   const [content, setContent] = useState('');
   const [noteId, setNoteId] = useState('');
@@ -138,7 +140,12 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
           // Do not guess remote CAS revision. Block writes until reviewed.
           setBlocked(true); blockedRef.current = true;
           setStatus('Local copy preserved. Server draft revision unknown; use Vault Notes recovery.');
-        } else setStatus('Start a new capture to write.');
+        } else {
+        // The first-time flow should be immediately writable after choosing
+        // a subject; no extra "New capture" click is necessary.
+        setNoteId(crypto.randomUUID());
+        setStatus('Ready to write. Your first line becomes the title.');
+      }
       } else setStatus('Start a new capture to write.');
     } catch {
       if (generation === generationRef.current) {
@@ -152,6 +159,30 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
       }
     }
   }, [ownerId, repoId, content]);
+
+  async function createSubject(event) {
+    event.preventDefault();
+    const name = newSubjectName.trim();
+    if (!name || creatingSubject || busyRef.current || uncertainRef.current) return;
+    setCreatingSubject(true);
+    setError('');
+    try {
+      const created = await responseJson(await fetch('/api/subjects', {
+        method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      }));
+      if (!created?.slug || !created?.name)
+        throw new Error('Subject was not returned after creation.');
+      setSubjects((current) => [...current, created]);
+      setNewSubjectName('');
+      await choose(created.slug);
+    } catch (err) {
+      setError(err.message || 'Could not add subject.');
+    } finally {
+      setCreatingSubject(false);
+    }
+  }
 
   const newCapture = async () => {
     if (!subjectId || busyRef.current || blockedRef.current || uncertainRef.current) return;
@@ -241,11 +272,13 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
       if (sessionStorage.getItem(vaultCapturePointer(ownerId, repoId, subject)) === id)
         sessionStorage.removeItem(vaultCapturePointer(ownerId, repoId, subject));
     } catch { /* success was verified remotely; local cleanup is best effort */ }
-    setNoteId(''); setContent(''); setRevision(0);
+    // Keep the same subject selected and prepare an empty new note.
+    // No GitHub commit or MongoDB draft is created until the user writes.
+    setNoteId(crypto.randomUUID()); setContent(''); setRevision(0);
     revisionRef.current = 0; savedSnapshotRef.current = '';
     setBlocked(false); blockedRef.current = false;
     setUncertain(false); uncertainRef.current = false;
-    setStatus('Saved to your private GitHub Vault. You can open it in Notes.');
+    setStatus('Saved to GitHub. Ready for your next note in this subject.');
   }
 
   async function commit(event) {
@@ -315,7 +348,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
   return (
     <section className="oge-settings-card" aria-labelledby="vault-capture-title">
       <div className="oge-settings-card-heading">
-        <div><span className="oge-section-kicker">PHASE E1 · STAGING PREVIEW</span>
+        <div><span className="oge-section-kicker">WRITE A NOTE</span>
           <h2 id="vault-capture-title">Quick Capture → Vault</h2></div>
         <span className="oge-settings-pill">Private GitHub on Save</span>
       </div>
@@ -324,6 +357,19 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         Complete edits autosave only as temporary encrypted drafts. The Save button
         commits the selected note to your private GitHub Vault.
       </p>
+      <form onSubmit={createSubject} className="oge-note-editor-actions">
+        <label htmlFor="vault-capture-new-subject">New subject</label>
+        <input id="vault-capture-new-subject" value={newSubjectName}
+          maxLength={60} placeholder="e.g. Machine Learning"
+          onChange={(event) => setNewSubjectName(event.target.value)}
+          disabled={busy || uncertain || creatingSubject} />
+        <button type="submit" className="oge-primary-link"
+          disabled={busy || uncertain || creatingSubject || !newSubjectName.trim()}>
+          {creatingSubject ? 'Adding…' : 'Add subject'}
+        </button>
+      </form>
+      {loaded && subjects.length === 0 && !error &&
+        <p role="status">Start by adding a subject above. Then write your first note.</p>}
       <label htmlFor="vault-capture-subject">Subject</label>
       <select id="vault-capture-subject" value={subjectId}
         onChange={(event) => { void choose(event.target.value); }}

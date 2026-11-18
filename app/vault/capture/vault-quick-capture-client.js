@@ -164,6 +164,18 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
     }
   }, [ownerId, repoId, content]);
 
+  // A connected student with just one subject can start writing immediately.
+  // Let the ordinary recovery path run, so existing unfinished drafts still
+  // get their usual recovery prompt before a fresh capture is allocated.
+  useEffect(() => {
+    if (!loaded || subjects.length !== 1 || subjectId || noteId ||
+        busyRef.current || blockedRef.current || uncertainRef.current) return;
+    Promise.resolve().then(() => {
+      if (!busyRef.current && !blockedRef.current && !uncertainRef.current)
+        void choose(subjects[0].slug);
+    });
+  }, [loaded, subjects, subjectId, noteId, choose]);
+
   async function createSubject(event) {
     event.preventDefault();
     const name = newSubjectName.trim();

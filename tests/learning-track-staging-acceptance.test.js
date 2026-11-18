@@ -69,7 +69,7 @@ test('M100 explicit endpoint bounds owner reads, rejects stale session and never
   const route = await readFile(new URL('../app/api/learning-tracks/note-links/route.js', import.meta.url), 'utf8');
   const page = await readFile(new URL('../app/learning-tracks/page.js', import.meta.url), 'utf8');
   assert.match(route, /q\.get\('mode'\) === 'verify'/);
-  assert.match(route, /manualLearningTrackNoteCheckAllowed\\(request\\)/);
+  assert.ok(route.includes('manualLearningTrackNoteCheckAllowed(request)'));
   assert.match(page, /'X-Oge-Verify-Intent': 'manual'/);
   assert.match(route, /scope: 'learning-track-note-check'/);
   assert.match(route, /limit: 8, windowMs: 3600000/);

@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #114 code changes.**
+**Updated 18 November 2026, after milestone #115 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -168,6 +168,20 @@ handlers and the new choice, including in-flight Save protection.
 Connected Chrome and live GitHub acceptance are still **NOT RUN**.
 The implementation score remains **8/10 (80%)**, with **0/3
 independent real-account user journeys verified**.
+
+## Milestone #115 — Find existing subject Notes across GitHub pages
+
+A subject may appear empty when its Notes are not in the initial first
+20 UUID-ordered GitHub files. The Notes page now explains that there
+may be older pages and offers **Find older Notes in this subject**.
+The button scans additional pages, stops when a Note in that subject
+is found, and can be used again for large Vaults. It does not create
+Notes or save any content automatically.
+
+Runnable tests cover a subject hidden on later pages, no-match results,
+and bounded/resumable scanning. This is a product usability fix, not
+a real connected-account test. **8/10 (80%) implemented, 0/3 live
+journeys verified; no production deployment.**
 
 ## The three mandatory live journeys
 

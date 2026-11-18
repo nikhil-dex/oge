@@ -17,7 +17,7 @@
     '.body{padding:11px 12px}.body[hidden]{display:none}.hint{margin:0 0 9px;color:#6b7b70;font-size:10px;line-height:1.45}',
     'textarea{display:block;width:100%;height:116px;min-height:75px;padding:10px;resize:vertical;border:1px solid #d5e0d8;border-radius:8px;color:#15251b;background:#fff;font:12px/1.5 ui-monospace,monospace;outline-color:#40795e}',
     '.primary{display:block;width:100%;margin-top:9px;padding:9px;border:0;border-radius:8px;background:#316b50;color:white;font-size:11px;font-weight:750;cursor:pointer}.primary:hover{background:#23563d}',
-    '.body [data-open-saved-vault-note]{display:block;width:100%;margin-top:6px;padding:8px;border:1px solid #b6d8bf;border-radius:8px;background:#e9f5ec;color:#245b38;font-size:11px;cursor:pointer}.body [data-open-saved-vault-note][hidden]{display:none}',
+    '.body [data-open-saved-vault-note],.body [data-new-vault-note]{display:block;width:100%;margin-top:6px;padding:8px;border:1px solid #b6d8bf;border-radius:8px;background:#e9f5ec;color:#245b38;font-size:11px;cursor:pointer}.body [data-open-saved-vault-note][hidden],.body [data-new-vault-note][hidden]{display:none}',
     'button:disabled{opacity:.65;cursor:wait}.status{min-height:0;margin:0 12px;color:#316b50;font-size:10px;overflow-wrap:anywhere}.status:not(:empty){padding:6px 0}.error{color:#b42318}',
     '.belt{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:7px 10px;border-top:1px solid #e7eee8;background:#fafcfb}',
     '.belt button{padding:7px 2px;border:1px solid transparent;border-radius:7px;background:transparent;color:#52685a;font-size:10px;font-weight:600;cursor:pointer}',
@@ -47,7 +47,7 @@
   // HTML is static extension-owned markup; user content uses textContent.
   panel.innerHTML = [
     '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="corner-button" type="button" aria-label="Move widget to top-right corner" title="Move to top-right corner">⌖</button><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
-    '<div class="body" data-panel="note"><p class="hint">Write a quick thought, or a title followed by details. Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Write a thought, or a title&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button><button type="button" data-open-saved-vault-note hidden>View last saved GitHub Note ↗</button></div>',
+    '<div class="body" data-panel="note"><p class="hint">Write a quick thought, or a title followed by details. Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Write a thought, or a title&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button><button type="button" data-new-vault-note hidden>Save this as a separate Note instead</button><button type="button" data-open-saved-vault-note hidden>View last saved GitHub Note ↗</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your GitHub, LinkedIn and portfolio links.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div><button class="primary" type="button" data-save-url>＋ Save current page to Saved Links</button></div>',
     '<div class="body" data-panel="tracks" hidden><p class="hint">Open a YouTube playlist or a video inside one. This adds a playlist tracker, not video notes.</p><label class="subject-label">Track name<input class="track-input" data-track-title maxlength="120" placeholder="Machine learning course"></label><label class="subject-label">Videos per day<input class="track-input" data-track-daily type="number" min="1" max="20" value="2"></label><label class="subject-label">Total videos (optional)<input class="track-input" data-track-total type="number" min="1" max="10000" placeholder="Unknown"></label><button class="primary" type="button" data-save-track>Create learning track</button><button type="button" data-open-learning-tracks>Open Learning Tracks in Oge</button></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
@@ -315,6 +315,7 @@
   wake();
 
   const noteSave = panel.querySelector('[data-save-note]');
+  const noteNewCapture = panel.querySelector('[data-new-vault-note]');
   const noteOpenSaved = panel.querySelector('[data-open-saved-vault-note]');
   let lastSavedVaultNoteId = null;
   noteOpenSaved.addEventListener('click', async () => {
@@ -378,8 +379,13 @@
     }
   }
   function updateNoteButton() {
+    const continuing = vaultReady === true && pendingSavedUpdate &&
+      pendingSavedUpdate.subjectSlug === subjectSelect.value;
+    noteNewCapture.hidden = !continuing;
     noteSave.textContent = vaultReady === null ? 'Loading destination…'
-      : vaultReady ? (subjectSelect.value ? 'Save to GitHub Vault →' : 'Choose a Vault subject')
+      : vaultReady ? (subjectSelect.value
+        ? continuing ? 'Update saved GitHub Note →' : 'Save to GitHub Vault →'
+        : 'Choose a Vault subject')
         : subjectSelect.value ? 'Save to selected subject →' : 'Save to Quick Notes';
   }
   subjectSelect.addEventListener('change', updateNoteButton);
@@ -461,7 +467,18 @@
     } finally {
       savingCapture = false;
       noteSave.disabled = vaultReady === null;
+      updateNoteButton();
     }
+  });
+  // M114: The user may want to turn the remaining text into a different
+  // note, not append it to the Note saved while they were still typing.
+  // Keep their text intact; the next Save will create a new UUID.
+  noteNewCapture.addEventListener('click', () => {
+    if (savingCapture || !pendingSavedUpdate) return;
+    pendingSavedUpdate = null;
+    pendingVaultCapture = null;
+    updateNoteButton();
+    setStatus('Ready to save this text as a separate Note. Your earlier GitHub Note is unchanged.');
   });
   const urlSave = panel.querySelector('[data-save-url]');
   urlSave.addEventListener('click', async () => {

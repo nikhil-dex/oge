@@ -89,7 +89,7 @@ async function handleAction(message, sender) {
         !/^[a-f0-9-]{36}$/i.test(message.subjectSlug) ||
         typeof message.captureId !== 'string' ||
         !/^[a-f0-9-]{36}$/i.test(message.captureId)) {
-      throw new Error('Select a subject and enter a title followed by note content.');
+      throw new Error('Select a subject and write a note of up to 20,000 characters.');
     }
     const data = await apiRequest('/api/extension/vault-note', {
       method: 'POST', body: JSON.stringify({

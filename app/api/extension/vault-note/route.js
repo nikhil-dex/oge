@@ -15,7 +15,7 @@ const TOKEN = /^oge_[A-Za-z0-9_-]{40,60}$/;
 const HEADERS = {
   'Cache-Control': 'private, no-store',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, PUT, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
   'Vary': 'Origin',
 };
@@ -30,7 +30,10 @@ export const OPTIONS = () => new Response(null, { status: 204, headers: HEADERS 
  * The browser supplies a stable captureId so a lost response cannot create
  * multiple independent Notes when the user tries the same Save again.
  */
-export async function POST(request) {
+export const POST = (request) => saveExtensionNote(request, false);
+export const PUT = (request) => saveExtensionNote(request, true);
+
+async function saveExtensionNote(request, updateExisting) {
   const authorization = request.headers.get('authorization') || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
   if (!TOKEN.test(token)) return json({ error: 'Connect the OgeNotes extension first.' }, 401);
@@ -44,8 +47,12 @@ export async function POST(request) {
   try {
     note = vaultCaptureFields(data?.content, data?.subjectSlug);
     noteFilePath(data?.captureId);
+    if (updateExisting && !/^[a-f0-9]{40}$/i.test(data?.sha || ''))
+      throw new TypeError('Missing GitHub revision');
   } catch {
-    return json({ error: 'Choose a subject and write a note. A single-line thought is enough.' }, 400);
+    return json({ error: updateExisting
+      ? 'Select a saved Note with a valid GitHub revision before updating.'
+      : 'Choose a subject and write a note. A single-line thought is enough.' }, 400);
   }
   try {
     const db = await getDatabase();
@@ -72,6 +79,37 @@ export async function POST(request) {
       ownerId: owner.googleSub, sessionVersion: owner.sessionVersion ?? 0,
     });
     const id = data.captureId.toLowerCase();
+    if (updateExisting) {
+      const previous = await readVaultNote(client, id);
+      if (previous.subjectId !== note.subjectId)
+        return json({ error: 'The saved Note belongs to another subject. Open Oge Notes to edit it.' }, 409);
+      const matches = (existing) => existing &&
+        existing.subjectId === note.subjectId &&
+        existing.heading === note.heading &&
+        existing.answer === note.answer;
+      const receipt = (saved, recovered = false) => json({
+        id, sha: saved.sha, title: saved.heading, subject: subject.name,
+        destination: 'vault', confirmed: true, alreadySaved: recovered,
+      });
+      // A response can be lost after the UPDATE commit. Retrying the same
+      // text must confirm that saved revision, never create a new Note.
+      if (matches(previous)) return receipt(previous, true);
+      if (previous.sha !== data.sha.toLowerCase())
+        return json({ error: 'This Note changed in GitHub. Open the saved Note to review edits before saving.' }, 409);
+      try {
+        const updatedNote = { ...note,
+          favorite: previous.favorite, tags: previous.tags };
+        const result = await withVaultSubjectWrite(db, owner.googleSub, note.subjectId, () =>
+          commitVaultNoteBatch(client, [{
+            action: 'update', id, sha: previous.sha, note: updatedNote,
+          }]));
+        return receipt(result.results[0]);
+      } catch (error) {
+        const recovered = await readVaultNote(client, id).catch(() => null);
+        if (matches(recovered)) return receipt(recovered, true);
+        throw error;
+      }
+    }
     const alreadySaved = async () => {
       try {
         const existing = await readVaultNote(client, id);
@@ -82,7 +120,7 @@ export async function POST(request) {
             existing.tags.length !== 0)
           return json({ error: 'A different Note already uses this capture. Start a new capture.' }, 409);
         return json({
-          id, title: existing.heading, subject: subject.name,
+          id, sha: existing.sha, title: existing.heading, subject: subject.name,
           destination: 'vault', confirmed: true, alreadySaved: true,
         });
       } catch (error) {
@@ -96,8 +134,8 @@ export async function POST(request) {
       const result = await withVaultSubjectWrite(db, owner.googleSub, note.subjectId, () =>
         commitVaultNoteBatch(client, [{ action: 'create', id, note }]));
       return json({
-        id, title: result.results[0].heading, subject: subject.name,
-        destination: 'vault', confirmed: true,
+        id, sha: result.results[0].sha, title: result.results[0].heading,
+        subject: subject.name, destination: 'vault', confirmed: true,
       }, 201);
     } catch (error) {
       // A network error may occur after GitHub updated its branch. Only an
@@ -112,7 +150,7 @@ export async function POST(request) {
     if (error instanceof VaultGitHubError)
       return json({ error: error.message }, error.status === 401 ? 401 :
         error.status === 409 || error.status === 422 ? 409 : 503);
-    console.error('POST /api/extension/vault-note failed:', error?.name);
+    console.error('Extension Vault Note Save failed:', error?.name);
     return json({ error: 'GitHub Save could not be confirmed. Your extension note is still in the editor.' }, 503);
   }
 }

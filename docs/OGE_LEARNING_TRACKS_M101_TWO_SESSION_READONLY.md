@@ -12,10 +12,17 @@ owner, it performs exactly eight bounded HTTPS GET requests and nothing else:
 1. GET `/api/learning-tracks` from session A and B; both must see the chosen track,
    with linking enabled.
 2. GET the chosen track's `/api/learning-tracks/note-links` from A and B. Both
-   must see the **same exact selected video-to-committed-Note ID association**.
+   must see the **same exact selected video-to-committed-Note ID association**,
+   including its opaque link revision. An unlink/relink to the SAME Note
+   rotates the link revision and blocks a stale read report.
 3. GET the owner-clicked M100 read-only `mode=verify` endpoint once from A,
    then B. Both must report the Note `present` at check time.
 4. Repeat link reads from A and B; the Note ID must be unchanged.
+
+The verification GET requires `X-Oge-Verify-Intent: manual`, and any
+present request Origin/Fetch Metadata must reflect same-origin use.
+The operator CLI sends the explicit header only for verification GETs;
+normal browser navigation cannot request this check by accident.
 
 The verification endpoint obtains the private owner-scoped GitHub App
 `contents:read` token on the server and consumes 2 of the 8/owner/hour

@@ -68,7 +68,8 @@ After a confirmed GitHub Vault Save, the floating widget shows
 **View last saved GitHub Note ↗**. Clicking it opens the connected Oge
 site at `/vault/notes?note=<saved-UUID>`; the regular signed-in Notes
 page fetches that specific Note from GitHub even if it is not in the
-initial 20-file page, and selects the Note's subject.
+initial 20-file page, selects its subject, and opens the Note reader
+automatically. Tap **Edit note** to continue writing.
 
 This is an explicit click, not an automatic new tab. Only the
 validated UUID is passed in the URL; Note contents and extension tokens

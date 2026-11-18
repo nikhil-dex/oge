@@ -25,6 +25,9 @@ Green CI verifies code tests, not this live journey.
    request is pending, then press Save again and confirm GitHub updates
    **the same Note ID** without a duplicate or 409 conflict. Retry
    with an existing Note and a fast reload to check newer browser text.
+   After a confirmed Save with more typing, also open **New Note**:
+   the already-committed draft should not appear as an unfinished new
+   Note, while the newer text remains recoverable from the saved Note.
 5. Open it, choose **Edit note**, update its body and Save.
 6. Reload again, verify the updated text, and inspect the private GitHub
    repository to confirm the file exists.

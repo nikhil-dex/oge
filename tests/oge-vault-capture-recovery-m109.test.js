@@ -58,6 +58,7 @@ function simulateFloatingSave({
   };
   const ctx = {
     noteSave, note, subjectSelect, vaultReady,
+    savingCapture: false,
     pendingVaultCapture: null,
     createCaptureId: () => randomUUID(),
     setStatus: (...args) => statuses.push(args),
@@ -127,6 +128,27 @@ test('M109 uncertain extension response retains exact text and UUID for an uncha
   await save();
   assert.equal(ui.note.value, '');
   assert.equal(captureIds[0], captureIds[1]);
+});
+
+test('M109 extension ignores a concurrent Save even if the button is reenabled', async () => {
+  let finish;
+  let requests = 0;
+  const ui = simulateFloatingSave({
+    send: async () => {
+      requests += 1;
+      return new Promise((resolve) => { finish = resolve; });
+    },
+  });
+  const save = await ui.mount();
+  const first = save();
+  ui.noteSave.disabled = false; // concurrent subject refresh or UI update
+  await save();
+  assert.equal(requests, 1);
+  assert.equal(ui.ctx.savingCapture, true);
+  finish({ destination: 'vault', confirmed: true, title: 'Buy groceries', subject: 'General' });
+  await first;
+  assert.equal(ui.ctx.savingCapture, false);
+  assert.equal(ui.noteSave.disabled, false);
 });
 
 test('M109 legacy extension Save uses the captured text, not later edits', async () => {

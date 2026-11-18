@@ -10,10 +10,14 @@ const secondSha = 'b'.repeat(40);
 
 async function floatingEditor(send) {
   const events = [];
-  let save;
+  let save, startNew;
   const subjectSlug = randomUUID();
   const note = { value: 'Machine learning task' };
-  const subjectSelect = { value: subjectSlug };
+  const subjectSelect = { value: subjectSlug, addEventListener() {} };
+  const noteNewCapture = { hidden: true, addEventListener(type, listener) {
+    assert.equal(type, 'click');
+    startNew = listener;
+  } };
   const noteSave = {
     disabled: false,
     addEventListener(type, listener) {
@@ -22,7 +26,7 @@ async function floatingEditor(send) {
     },
   };
   const ctx = {
-    note, subjectSelect, noteSave,
+    note, subjectSelect, noteSave, noteNewCapture,
     noteOpenSaved: { hidden: true },
     lastSavedVaultNoteId: null,
     vaultReady: true,
@@ -34,11 +38,12 @@ async function floatingEditor(send) {
     send,
   };
   const src = await read('../extension/content.js');
-  const from = src.indexOf("  noteSave.addEventListener('click', async () => {");
+  const from = src.indexOf('  function updateNoteButton() {');
   const to = src.indexOf('  const urlSave = ', from);
   assert.ok(from >= 0 && to > from);
   vm.runInNewContext(src.slice(from, to), ctx, { timeout: 2000 });
-  return { ctx, note, subjectSelect, events, save: () => save() };
+  return { ctx, note, subjectSelect, events,
+    save: () => save(), startNew: () => startNew() };
 }
 
 test('M113 typing during Save updates the SAME GitHub Note on next Save', async () => {

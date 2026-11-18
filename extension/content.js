@@ -314,14 +314,20 @@
   wake();
 
   const noteSave = panel.querySelector('[data-save-note]');
+  // Unknown destination is NOT permission to fall back to MongoDB.
+  // Wait for the owner's subject list to select the right writer.
+  let vaultReady = null;
+  let pendingVaultCapture = null;
+  noteSave.disabled = true;
   async function loadSubjects() {
     const previous = subjectSelect.value;
     try {
       const result = await send('GET_SUBJECTS');
+      vaultReady = result.vaultReady === true;
       subjectSelect.replaceChildren();
       const quick = document.createElement('option');
       quick.value = '';
-      quick.textContent = 'Quick Notes (default)';
+      quick.textContent = vaultReady ? 'Choose a subject (GitHub Vault)' : 'Quick Notes (default)';
       subjectSelect.append(quick);
       for (const subject of result.subjects || []) {
         if (typeof subject.slug !== 'string' || typeof subject.name !== 'string') continue;
@@ -330,30 +336,66 @@
         option.textContent = subject.name;
         subjectSelect.append(option);
       }
-      if ([...subjectSelect.options].some((option) => option.value === previous)) {
+      if (previous && [...subjectSelect.options].some((option) => option.value === previous)) {
         subjectSelect.value = previous;
+      } else if (vaultReady && subjectSelect.options.length > 1) {
+        // Make the typical connected-owner path a single click.
+        subjectSelect.value = subjectSelect.options[1].value;
       }
+      noteSave.disabled = false;
       updateNoteButton();
     } catch (error) {
-      // Keep the default Quick Notes destination and any previously loaded subjects.
-      setStatus(error.message || 'Could not load subjects.', true);
+      // Do not guess the storage destination after an API/network failure.
+      vaultReady = null;
+      noteSave.disabled = true;
+      setStatus(error.message || 'Could not load subjects. Reopen this panel to retry.', true);
     }
   }
   function updateNoteButton() {
-    noteSave.textContent = subjectSelect.value ? 'Save to selected subject →' : 'Save to Quick Notes';
+    noteSave.textContent = vaultReady === null ? 'Loading destination…'
+      : vaultReady ? (subjectSelect.value ? 'Save to GitHub Vault →' : 'Choose a Vault subject')
+        : subjectSelect.value ? 'Save to selected subject →' : 'Save to Quick Notes';
   }
   subjectSelect.addEventListener('change', updateNoteButton);
 
   noteSave.addEventListener('click', async () => {
     if (!note.value.trim()) return setStatus('Write something before saving.', true);
+    if (vaultReady === null) return setStatus('Load your Oge Notes connection before saving.', true);
+    if (vaultReady && !subjectSelect.value)
+      return setStatus('Choose a subject first. Add one in Oge Quick Capture if needed.', true);
     noteSave.disabled = true;
-    setStatus('Saving note…');
+    setStatus(vaultReady ? 'Saving to GitHub Vault…' : 'Saving note…');
     try {
-      const result = await send('CREATE_QUICK_NOTE', { content: note.value, subjectSlug: subjectSelect.value });
+      let result;
+      if (vaultReady) {
+        const content = note.value;
+        const subjectSlug = subjectSelect.value;
+        // If the network response was lost, retrying the same unchanged
+        // capture reuses its UUID. No extra GitHub file is created.
+        if (!pendingVaultCapture || pendingVaultCapture.content !== content ||
+            pendingVaultCapture.subjectSlug !== subjectSlug) {
+          pendingVaultCapture = { id: crypto.randomUUID(), content, subjectSlug };
+        }
+        result = await send('CREATE_VAULT_NOTE', {
+          content, subjectSlug, captureId: pendingVaultCapture.id,
+        });
+        if (result.confirmed !== true) throw new Error('GitHub Save not confirmed.');
+        pendingVaultCapture = null;
+      } else {
+        result = await send('CREATE_QUICK_NOTE', {
+          content: note.value, subjectSlug: subjectSelect.value,
+        });
+      }
       note.value = '';
-      setStatus(result.destination === 'notes' ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.' : 'Saved “' + result.title + '” to Quick Notes.');
-    } catch (error) { setStatus(error.message, true); }
-    finally { noteSave.disabled = false; }
+      setStatus(result.destination === 'vault'
+        ? 'Saved “' + result.title + '” to GitHub Vault / ' + result.subject + '.'
+        : result.destination === 'notes'
+          ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.'
+          : 'Saved “' + result.title + '” to Quick Notes.');
+    } catch (error) {
+      // Do not erase either the content or its retry ID on an uncertain Save.
+      setStatus(error.message || 'Save was not confirmed. Your note is still here.', true);
+    } finally { noteSave.disabled = vaultReady === null; }
   });
   const urlSave = panel.querySelector('[data-save-url]');
   urlSave.addEventListener('click', async () => {

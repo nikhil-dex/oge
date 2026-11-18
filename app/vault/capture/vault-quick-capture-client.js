@@ -43,7 +43,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
   const generationRef = useRef(0);
 
   const preserveLocal = useCallback((id, subject, text) => {
-    if (!id || !subject) return;
+    if (!id || !subject || !text.trim()) return;
     try {
       sessionStorage.setItem(vaultCapturePointer(ownerId, repoId, subject), id);
       sessionStorage.setItem(vaultCaptureLocalKey(ownerId, repoId, id), text);

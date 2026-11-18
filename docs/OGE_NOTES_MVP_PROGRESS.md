@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #111 code changes.**
+**Updated 18 November 2026, after milestone #112 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -125,6 +125,18 @@ supported discovery path until a chronological provider index exists.
 **MVP score unchanged:** 8/10 checkpoints (80%) implemented; 0/3 real
 connected-account user journeys verified. Simulated GitHub provider tests
 are not live GitHub account acceptance.
+
+## Milestone #112 — Saved Note link opens the reader
+
+The Chrome extension's **View last saved GitHub Note** action now opens
+that Note in the actual reading panel, not merely the correct subject.
+The user can immediately tap **Edit note**. Reloading the list after Save
+does not reopen the same reader unexpectedly. If the requested UUID cannot
+be retrieved, the Notes page shows an actionable message.
+
+This adds a deterministic link-resolution and reader-wiring regression
+test; it does **not** prove real connected account behavior. **Progress
+stays 8/10 (80%) implemented and 0/3 live user journeys verified.**
 
 ## The three mandatory live journeys
 

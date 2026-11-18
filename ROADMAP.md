@@ -1,5 +1,18 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #105 — Working Notes search across GitHub pages + keyboard Save (18 Nov 2026)
+
+**Product milestone, not a security or attestation milestone.**
+
+- **Fixed misleading search:** The GitHub Notes editor initially loads 20 committed Notes; existing search filters only loaded Notes. When searching while other pages exist, the UI now says **No matches in loaded notes yet** instead of claiming a missing Note, and offers **Search remaining GitHub Notes** to continue fetching and searching the user's own GitHub Notes.
+- **Progressive, on-demand search:** Adds a small browser-only `loadVaultSearchPages` helper, using the existing `/api/vault/notes-main?paged=true&limit=25&cursor=...` endpoint. A click loads up to 12 additional pages / 300 Notes, deduplicates records, and shows the loaded count. Click again to scan more large Vaults; no new provider API, indexed MongoDB Note content, new credential, or always-on background search.
+- **Pause and resume:** A **Stop search** action aborts pending reads, preserves already accepted pages and the last confirmed cursor, and allows the user to resume. A Notes refresh/Save aborts ongoing searches before refreshing its GitHub snapshot. Invalid or stale pages show a recoverable error rather than pretending search is complete.
+- **Typing ergonomics:** Adds `Ctrl+Enter` / `⌘+Enter` Save from the modal or fullscreen editor via the existing native form `requestSubmit()`; all current Save/draft/revision/error handling stays in place.
+- **Tests:** New M105 pagination helper tests cover finding a result beyond page one, 900-note bounded/resumed scans, Stop before/after a response, invalid cursors/pages, UI integration and keyboard Save. Existing pagination, Notes adapter, MongoDB and desktop/mobile tests remain in CI.
+- **Readiness:** This is implemented on the existing draft feature branch; independent live account testing is still needed to confirm the actual GitHub and browser user journey. No change to GitHub Notes storage choice, no merge, no production deployment. Track by actual flows, **not the retired ~96% estimate**.
+- **Next:** #106 — real editor UX polish (clear Save feedback, full-screen/mobile behavior, efficient note access across larger libraries), then Quick Notes/AirNotes/extension convergence.
+
+
 ## PRODUCT DIRECTION CHANGE — practical Notes MVP first (18 Nov 2026)
 
 **User priority: make Oge a usable notes app. Stop adding extra security/attestation milestones.**

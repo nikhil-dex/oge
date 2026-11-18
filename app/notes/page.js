@@ -7,6 +7,7 @@ import SiteNavbar from '../components/site-navbar';
 import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
 import { loadVaultSearchPages } from '../../lib/oge-vault-search-pages.js';
+import { noteEditorFeedback, noteBodyMetrics } from '../../lib/oge-notes-editor-feedback.js';
 
 async function responseJson(response) {
   const data = await response.json().catch(() => ({}));
@@ -58,6 +59,7 @@ export default function NotesPage({
   const [draftStatus, setDraftStatus] = useState('');
   const [aiCleanupBusy, setAiCleanupBusy] = useState(false);
   const answerRef = useRef(null);
+  const headingRef = useRef(null);
   const editorInitialRef = useRef(null);
   const hybridRevisionRef = useRef(0);
   const hybridPendingRef = useRef(Promise.resolve());
@@ -341,6 +343,14 @@ export default function NotesPage({
   }, [notes, activeSubject, query, globalSearch, favoritesOnly, selectedTag, sortOrder]);
 
   const active = subjects.find((subject) => subject.slug === activeSubject);
+  const editorMetrics = noteBodyMetrics(answer);
+  const editorFeedback = noteEditorFeedback({
+    vaultMode, hybridDrafts, saving, hybridReady, editingId,
+    changed: Boolean(heading !== editorInitialRef.current?.heading ||
+      answer !== editorInitialRef.current?.answer ||
+      tagsText !== editorInitialRef.current?.tags),
+    draftStatus, hybridError, error, message,
+  });
 
   function openNewNote() {
     const generation = ++hybridGenerationRef.current;
@@ -386,6 +396,14 @@ export default function NotesPage({
     setNoteDialog(true);
     if (hybridDrafts) void recoverHybridDraft(note, generation);
   }
+
+  // Focus new/edit Note titles once when the editor opens. Do not refocus
+  // during an asynchronous draft recovery while the user is typing.
+  useEffect(() => {
+    if (!noteDialog) return undefined;
+    const frame = window.requestAnimationFrame(() => headingRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [noteDialog]);
 
   const hasUnsavedEditorChanges = useCallback(() => {
     if (!vaultMode || !noteDialog || !editorInitialRef.current) return false;
@@ -622,7 +640,7 @@ export default function NotesPage({
       setAnswerFullscreen(false);
       setPreview(false);
       setEditingId(note.id);
-      setMessage('Note saved successfully.');
+      setMessage(vaultMode ? 'Note saved to GitHub successfully.' : 'Note saved successfully.');
       await load(activeSubject);
     } catch (err) {
       if (attemptedGitHubSave && hybridDrafts && vaultMode) {
@@ -674,7 +692,7 @@ export default function NotesPage({
                 setAnswerFullscreen(false);
                 setPreview(false);
                 setEditingId(reconciled.note.id);
-                setMessage('Note saved successfully — GitHub commit recovered.');
+                setMessage('Note saved to GitHub successfully — commit recovered.');
                 await load(activeSubject);
                 return;
               }
@@ -992,7 +1010,7 @@ export default function NotesPage({
           <p className="form-subtitle">{editingId ? 'Update the heading, tags, or answer.' : 'Give it a clear heading and capture what you learned.'}</p>
           <form id="noteForm" onSubmit={saveNote}>
             <label htmlFor="heading">HEADING</label>
-            <input id="heading" maxLength={160} placeholder="e.g. What does chmod do?" value={heading} onChange={(event) => { setHeading(event.target.value); setDraftStatus('Unsaved changes'); }} disabled={hybridDrafts && (!hybridReady || saving)} required />
+            <input ref={headingRef} id="heading" maxLength={160} placeholder="e.g. What does chmod do?" value={heading} onChange={(event) => { setHeading(event.target.value); setDraftStatus('Unsaved changes'); }} disabled={hybridDrafts && (!hybridReady || saving)} required />
             <label htmlFor="noteTags">TAGS <span className="field-hint">comma-separated · up to 10</span></label>
             <input id="noteTags" maxLength={260} placeholder="e.g. arrays, exam, important" value={tagsText} onChange={(event) => { setTagsText(event.target.value); setDraftStatus('Unsaved changes'); }} disabled={hybridDrafts && (!hybridReady || saving)} />
             {answerFullscreen ? createPortal(
@@ -1009,8 +1027,10 @@ export default function NotesPage({
               <div className="editor-tabs"><button type="button" className={!preview ? 'active' : ''} onClick={() => setPreview(false)}>Write</button><button type="button" className={preview ? 'active' : ''} onClick={() => setPreview(true)}>Preview</button></div>
               {!preview ? <textarea ref={answerRef} id="answer" rows={8} maxLength={20000} placeholder="Write your explanation here…" value={answer} onChange={(event) => { setAnswer(event.target.value); setDraftStatus('Unsaved changes'); }} disabled={hybridDrafts && (!hybridReady || saving)} required /> : <div className="answer-preview">{answer ? <div dangerouslySetInnerHTML={{ __html: markdownHtml(answer) }} /> : <p className="preview-placeholder">Nothing to preview yet.</p>}</div>}
             </div>}
-            {hybridDrafts && <p role="status" className="draft-status">
-              {hybridReady ? draftStatus || 'Draft ready' : 'Checking saved drafts…'}
+            <p className={'oge-editor-feedback oge-editor-feedback--' + editorFeedback.kind}
+              role="status" aria-live="polite">{editorFeedback.label}</p>
+            {vaultMode && hybridDrafts && draftStatus && <p className="oge-editor-draft-detail">
+              {draftStatus === 'Draft saved' ? 'Temporary draft only — not yet committed.' : draftStatus}
             </p>}
             {hybridError && <p role="alert" className="form-error">{hybridError}</p>}
             {hybridDrafts && hybridReady && hybridError && !hybridError.startsWith('Draft conflict:') &&
@@ -1019,8 +1039,17 @@ export default function NotesPage({
                 setHybridRetryToken((token) => token + 1);
               }}>Retry draft autosave</button>}
             {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="submit-button" type="submit" disabled={saving || !activeSubject || (hybridDrafts && !hybridReady)}><span>{saving ? 'Saving…' : hybridDrafts ? 'Save' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
-            <p className="field-hint">Tip: press Ctrl+Enter (Windows) or ⌘+Enter (Mac) to Save.</p>
+            <div className="oge-editor-save-footer">
+              <div className="oge-editor-save-meta">
+                <span>{editorMetrics.words} {editorMetrics.words === 1 ? 'word' : 'words'} · {editorMetrics.characters.toLocaleString('en-IN')} / 20,000 characters</span>
+                <span>{vaultMode ? 'Saved to private GitHub only when you press Save' : 'Press Save to keep your changes'}</span>
+              </div>
+              <button className="submit-button" type="submit"
+                disabled={saving || !activeSubject || (hybridDrafts && !hybridReady)}>
+                <span>{saving ? 'Saving…' : vaultMode ? 'Save to GitHub' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span>
+              </button>
+              <p className="field-hint">Tip: press Ctrl+Enter (Windows) or ⌘+Enter (Mac) to Save.</p>
+            </div>
           </form>
         </section>
       </div>}

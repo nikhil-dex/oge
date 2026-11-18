@@ -62,6 +62,19 @@ The floating panel header has a **⌖ Position** control. Each click moves the *
 
 On an HTTPS YouTube playlist or a watch page with a playlist query, open the floating **O** and select **Tracks**. Enter your own track name, videos-per-day goal and optional total number of videos. The background worker takes the tab URL from Chrome (not from webpage messages), and posts only this metadata to a token-authenticated route. The feature is **default OFF** on the server (`OGE_LEARNING_TRACKS_PREVIEW=false`). It does not scrape playlists or transmit titles, transcripts, watch history or note bodies. View and manually advance tracks at `/learning-tracks` after enabling an isolated preview. No automatic lesson notes, GitHub note commits, notifications, or provider-backed playlist extraction are implemented yet. The server limits each owner to 100 tracks and validates the owner/token in a MongoDB transaction. Release still requires real Chrome and two-device staging tests.
 
+## M114 — Choose whether new text updates or creates a Note
+
+If you keep typing while a GitHub Note is being saved, the widget now
+offers **Update saved GitHub Note** for the default continuation or
+**Save this as a separate Note instead** for a completely new Note
+in the same subject. The latter leaves the text in the editor and
+does not change the already committed Note. Press Save after choosing
+to create the separate Note. Selecting the option itself does not
+send a GitHub request.
+
+This is currently covered by automated extension click tests; the
+live connected-account acceptance steps are still pending.
+
 ## M113 — One continued Note, not accidental duplicates
 
 If you continue typing while a GitHub Save is in progress, the earlier

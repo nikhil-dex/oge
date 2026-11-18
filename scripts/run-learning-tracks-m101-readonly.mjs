@@ -132,6 +132,10 @@ async function main() {
       if (!['device-a', 'device-b'].includes(slot) ||
           !allowedPaths.includes(path)) BLOCK();
       const response = await contexts[slot].get(path, {
+        // A private Note verification is a deliberate operator act, not an
+        // ambient cross-site GET. No other read endpoint receives this header.
+        headers: path.includes('mode=verify&')
+          ? { 'X-Oge-Verify-Intent': 'manual' } : {},
         maxRedirects: 0, failOnStatusCode: false, timeout: 15000,
       });
       if (response.url() !== env.OGE_STAGING_URL + path ||

@@ -72,7 +72,10 @@ commit/reload follows the recovery. Note failures and the browser behavior.
    different UUID, in the same subject, and the first Note was not
    overwritten.
 6. Create or use at least 21 Notes; search for a later-page Note using
-   **Search remaining GitHub Notes**.
+   **Search remaining GitHub Notes**. Also select a subject whose Notes
+   are absent from the initial 20 GitHub files: select
+   **Find older Notes in this subject** and confirm committed Notes
+   appear instead of being mistaken for an empty new subject.
 7. At a mobile viewport, open an existing Note, edit, Save and reload.
    The Save button should remain accessible.
 

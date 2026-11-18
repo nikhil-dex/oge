@@ -240,6 +240,23 @@ must be ignored. These cases have scripted tests; **real connected
 Chrome/GitHub verification remains pending**. MVP implementation is
 **8/10 (80%)**, live tests **0/3**.
 
+## M115 — Subject tabs must not hide older committed Notes
+
+In a private GitHub Vault with at least 21 Notes, create a subject
+whose Notes are not in the first loaded UUID-sorted page. Select
+that subject. Instead of incorrectly saying **Add your first note**,
+the empty state should explain that some Notes may be on later
+pages. Click **Find older Notes in this subject**; the Notes should
+appear without entering any search phrase.
+
+For larger libraries, search is bounded to 12 pages per click,
+with repeated clicks continuing the scan. If the subject genuinely
+has no committed Notes, the UI must not invent any.
+
+Simulated pagination tests cover this behavior; live GitHub/Chrome
+acceptance is **NOT RUN**. Progress remains **8/10 implemented,
+0/3 real-account journeys**.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

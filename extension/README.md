@@ -2,7 +2,7 @@
 
 The Chrome Manifest V3 extension now combines the original OgeNotes floating Quick Notes feature with the new Oge tools:
 
-- **Quick Note:** write while browsing; the first line becomes the title and content saves to the account's existing `quickNotes` collection.
+- **Quick Note:** write while browsing. When your GitHub Vault is connected, select a subject and press **Save to GitHub Vault**; otherwise the original Quick Notes behavior remains available.
 - **Save URL:** save the current page in Saved Links.
 - **My Links:** view the GitHub, LinkedIn and portfolio URLs saved in Profile, and copy or visit them.
 - A draggable **O** button appears at the bottom right of regular HTTP and HTTPS pages. The existing extension popup remains available for token setup, saving tabs, and profile links.
@@ -13,12 +13,12 @@ The Chrome Manifest V3 extension now combines the original OgeNotes floating Qui
 2. Sign in to your OgeNotes site and open **Browser Extension**. Generate an extension token.
 3. Open the Chrome extension popup, choose **Connect**, paste the site origin (such as `http://localhost:3000` for local development) and the token, and click **Save connection**. Approve host permission.
 4. **Reload existing website tabs** to inject the widget, click the floating **O** button, and use any of the three tools. The header can be dragged.
-5. Find saved notes in **Quick Notes** and saved tabs in **Saved Links**. Add My Links in **Profile**.
+5. Connected Vault captures appear in **GitHub Notes** under the selected subject; other accounts still use **Quick Notes**. Saved tabs appear in **Saved Links**.
 
 ## Security and limitations
 
 - The content script never reads or receives the connection token. The extension's background service worker reads the token from `chrome.storage.local` and talks to token-authenticated OgeNotes APIs.
-- The Quick Notes endpoint is write-only, scopes documents to the token owner, validates content length, rate limits writes, and rechecks token validity inside the account transaction.
+- The original Quick Notes endpoint remains available for accounts without a connected Vault. Connected accounts use a separate explicit `/api/extension/vault-note` route that saves directly to their existing private GitHub repository (no permanent Note body is stored in MongoDB).
 - This feature adds Chrome host-page content-script access so the floating widget can be injected. Chrome may display an updated permission notice when the extension reloads.
 - The floating widget is injected into the top document of ordinary HTTP/HTTPS websites, **not** browser-internal pages (`chrome://`), the Chrome Web Store, PDFs rendered in internal viewers, or sites where Chrome prevents injection.
 - It intentionally does not scrape or transmit web-page content. Only text you enter and the URL of a page you explicitly save are sent.
@@ -27,7 +27,7 @@ The Chrome Manifest V3 extension now combines the original OgeNotes floating Qui
 
 ## Choose a subject when capturing
 
-In the floating Quick Note editor, **Save to** defaults to **Quick Notes**. Select a subject from your existing Notes subjects to save there instead. The first line becomes the Notes heading, while the remaining text becomes the body. Subject notes require both a first-line heading and text below it. If no subject is selected, the original standalone Quick Notes behavior remains unchanged.
+In the floating Quick Note editor, **Save to** loads your available subjects. If your account has a connected Vault and the GitHub Notes editor is enabled, the widget chooses the first subject when available and displays **Save to GitHub Vault**. The first line becomes the heading; text below it becomes the body. **No subject is selected?** Add one in Oge's Quick Capture page. For accounts without a connected Vault, the original standalone Quick Notes and subject-based legacy behavior remains unchanged. An older extension build will receive an instruction to update instead of silently duplicating permanent MongoDB Notes for a connected Vault account.
 
 ## Reset the extension
 
@@ -61,3 +61,28 @@ The floating panel header has a **⌖ Position** control. Each click moves the *
 ## Learning Tracks preview (M97)
 
 On an HTTPS YouTube playlist or a watch page with a playlist query, open the floating **O** and select **Tracks**. Enter your own track name, videos-per-day goal and optional total number of videos. The background worker takes the tab URL from Chrome (not from webpage messages), and posts only this metadata to a token-authenticated route. The feature is **default OFF** on the server (`OGE_LEARNING_TRACKS_PREVIEW=false`). It does not scrape playlists or transmit titles, transcripts, watch history or note bodies. View and manually advance tracks at `/learning-tracks` after enabling an isolated preview. No automatic lesson notes, GitHub note commits, notifications, or provider-backed playlist extraction are implemented yet. The server limits each owner to 100 tracks and validates the owner/token in a MongoDB transaction. Release still requires real Chrome and two-device staging tests.
+
+## M107 — shared GitHub Note capture
+
+Connected users now open **Quick Notes** or **AirNotes** in the Oge website and
+arrive at the shared GitHub-backed **Quick Capture** editor. The old standalone
+screens and existing MongoDB APIs remain unchanged for unconnected accounts.
+This applies to **new captures**; existing historical standalone notes are
+**not migrated, deleted or copied** automatically.
+
+The updated floating extension asks the server whether the account is Vault-
+ready before enabling Save. When connected, its Save calls only the new Vault
+endpoint and uses the same private GitHub Notes repository as the full editor.
+If a response is lost, the widget retains the note and its original capture
+UUID. Selecting Save again rechecks that exact Note ID to avoid duplicate
+commits. The user must select an existing subject and supply title + body;
+the extension deliberately does not create subjects.
+
+Older builds that still call the legacy Quick Note API receive a clear
+**update extension** message for connected Vault users instead of creating a
+second permanent MongoDB Note. Loading failures never silently switch the
+updated widget back to old storage.
+
+**Live Chrome/GitHub testing still needed:** install the updated extension,
+connect a token, choose a subject, Save, reload Oge, check the Note, and
+simulate a lost Save response. CI alone does not prove that journey.

@@ -373,38 +373,52 @@
     if (vaultReady === null) return setStatus('Load your Oge Notes connection before saving.', true);
     if (vaultReady && !subjectSelect.value)
       return setStatus('Choose a subject first. Add one in Oge Quick Capture if needed.', true);
+    // Snapshot exactly what this request intends to commit. The user can
+    // keep typing while the network is slow; that newer text is NOT part
+    // of this Save and must never be erased by its eventual response.
+    const submittedContent = note.value;
+    const submittedSubject = subjectSelect.value;
+    const submittedToVault = vaultReady;
     noteSave.disabled = true;
-    setStatus(vaultReady ? 'Saving to GitHub Vault…' : 'Saving note…');
+    setStatus(submittedToVault ? 'Saving to GitHub Vault…' : 'Saving note…');
     try {
       let result;
-      if (vaultReady) {
-        const content = note.value;
-        const subjectSlug = subjectSelect.value;
-        // If the network response was lost, retrying the same unchanged
-        // capture reuses its UUID. No extra GitHub file is created.
-        if (!pendingVaultCapture || pendingVaultCapture.content !== content ||
-            pendingVaultCapture.subjectSlug !== subjectSlug) {
-          pendingVaultCapture = { id: createCaptureId(), content, subjectSlug };
+      if (submittedToVault) {
+        // If the response was lost, resubmitting the same unchanged capture
+        // reuses the UUID. Avoid a duplicate GitHub Note on a retry.
+        if (!pendingVaultCapture ||
+            pendingVaultCapture.content !== submittedContent ||
+            pendingVaultCapture.subjectSlug !== submittedSubject) {
+          pendingVaultCapture = {
+            id: createCaptureId(), content: submittedContent,
+            subjectSlug: submittedSubject,
+          };
         }
         result = await send('CREATE_VAULT_NOTE', {
-          content, subjectSlug, captureId: pendingVaultCapture.id,
+          content: submittedContent, subjectSlug: submittedSubject,
+          captureId: pendingVaultCapture.id,
         });
         if (result.confirmed !== true) throw new Error('GitHub Save not confirmed.');
         pendingVaultCapture = null;
       } else {
         result = await send('CREATE_QUICK_NOTE', {
-          content: note.value, subjectSlug: subjectSelect.value,
+          content: submittedContent, subjectSlug: submittedSubject,
         });
       }
-      note.value = '';
-      setStatus(result.destination === 'vault'
+      const unchanged = note.value === submittedContent &&
+        subjectSelect.value === submittedSubject;
+      if (unchanged) note.value = '';
+      const confirmation = result.destination === 'vault'
         ? 'Saved “' + result.title + '” to GitHub Vault / ' + result.subject + '.'
         : result.destination === 'notes'
           ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.'
-          : 'Saved “' + result.title + '” to Quick Notes.');
+          : 'Saved “' + result.title + '” to Quick Notes.';
+      setStatus(confirmation + (unchanged ? ''
+        : ' Newer edits are still in your editor; press Save again for them.'));
     } catch (error) {
-      // Do not erase either the content or its retry ID on an uncertain Save.
-      setStatus(error.message || 'Save was not confirmed. Your note is still here.', true);
+      // Do not erase text or the retry UUID on an uncertain Save.
+      setStatus((error.message || 'Save was not confirmed.') +
+        ' Your note is still in the editor.', true);
     } finally { noteSave.disabled = vaultReady === null; }
   });
   const urlSave = panel.querySelector('[data-save-url]');

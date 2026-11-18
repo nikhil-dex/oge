@@ -1,5 +1,47 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #111 — Recently saved GitHub Notes remain findable after reload
+
+- **Real user problem:** GitHub Note pagination currently reads the first
+  20 filenames by random UUID ordering, not most recent Save. A newly
+  committed Note can be outside page one immediately after the user presses
+  Save, making a successful Save look like a missing Note.
+- **Small practical solution:** The signed-in browser stores at most five
+  recently saved Note **IDs** in a local key scoped to the Oge account and
+  Vault repository. Each Notes page load fetches these IDs via the existing
+  authenticated GitHub Note read-one API and merges them ahead of the
+  initial page without duplicates. The browser does not cache Note bodies,
+  headings, tags, credentials or GitHub revision SHAs.
+- **Works across built-in editors:** Normal Notes Save and Quick Capture
+  record the newly confirmed UUID so reopening `/vault/notes` in the same
+  browser shows it even when the first UUID page omitted it. The feature
+  degrades gracefully when browser storage is unavailable.
+- **Extension shortcut:** After a confirmed GitHub Save, the floating Oge
+  extension offers **View last saved GitHub Note**. The owner-clicked
+  shortcut opens `/vault/notes?note=UUID`, where Notes fetches the exact
+  saved Note via its existing GitHub-backed GET and selects its subject.
+  No new permanent storage or background tab is created.
+- **Functional regression:** New executable
+  `tests/oge-vault-recent-notes-m111.test.js` models 25 private Notes
+  in a fake GitHub tree and tests **create → hard reload → edit → hard
+  reload** with a fresh provider read. It confirms the newest Note was
+  absent from page 1, becomes visible from the IDs-only hint, and
+  reloads the updated GitHub content. Also tests owner/repo scoping,
+  duplicate IDs, bounded storage and deep-link wiring.
+- **Known limit:** Browsers on different devices don't share these five
+  recent IDs; `Search remaining GitHub Notes` still handles a complete
+  library. A long-term chronological GitHub index is deferred until after
+  live acceptance, rather than expanding MVP scope.
+- **Readiness:** Automated tests and CI can confirm the implementation,
+  but real connected-account/Chrome Save-and-reload acceptance remains
+  unperformed. The scorecard stays **8/10 implemented (80%)** and
+  **0/3 live user journeys verified**. PR #35 remains draft/unmerged,
+  production deployment last.
+- **Next #112:** Prioritize live GitHub browser acceptance and fix
+  concrete user-reported problems. Avoid additional security-gate work.
+
+
+
 ## Milestone #110 — Unblock browser-only Note recovery and verify prior GitHub Save (18 Nov 2026)
 
 **Everyday user-flow fix. No extra security/attestation or release gate.**

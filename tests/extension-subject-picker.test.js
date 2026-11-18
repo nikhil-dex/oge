@@ -35,7 +35,9 @@ test('floating editor provides subject dropdown and preserves default Quick Note
   assert.match(content, /id="oge-note-subject"/);
   assert.match(content, /Quick Notes \(default\)/);
   assert.match(content, /send\('GET_SUBJECTS'\)/);
-  assert.match(content, /content: note\.value, subjectSlug: subjectSelect\.value/);
+  assert.match(content, /const submittedContent = note\.value/);
+  assert.match(content, /const submittedSubject = subjectSelect\.value/);
+  assert.match(content, /content: submittedContent, subjectSlug: submittedSubject/);
   assert.match(content, /option\.textContent = subject\.name/);
   assert.match(content, /option\.value = subject\.slug/);
   assert.match(worker, /'GET_SUBJECTS'/);

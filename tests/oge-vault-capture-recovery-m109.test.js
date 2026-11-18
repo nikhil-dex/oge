@@ -60,6 +60,9 @@ function simulateFloatingSave({
     noteSave, note, subjectSelect, vaultReady,
     savingCapture: false,
     pendingVaultCapture: null,
+    pendingSavedUpdate: null,
+    lastSavedVaultNoteId: null,
+    noteOpenSaved: { hidden: true },
     createCaptureId: () => randomUUID(),
     setStatus: (...args) => statuses.push(args),
     send,
@@ -89,19 +92,23 @@ test('M109 extension does not erase newer text typed while GitHub Save is pendin
   const running = save();
   assert.equal(ui.noteSave.disabled, true);
   ui.note.value = 'Buy groceries and eggs';
-  finish({ destination: 'vault', confirmed: true, title: 'Buy groceries', subject: 'General' });
+  finish({ destination: 'vault', confirmed: true,
+      id: 'f0000000-0000-4000-8000-000000000001',
+      sha: 'a'.repeat(40), title: 'Buy groceries', subject: 'General' });
   await running;
   assert.equal(submitted.length, 1);
   assert.equal(submitted[0].action, 'CREATE_VAULT_NOTE');
   assert.equal(submitted[0].payload.content, 'Buy groceries');
   assert.equal(ui.note.value, 'Buy groceries and eggs');
-  assert.match(ui.statuses.at(-1)[0], /Newer edits are still in your editor/);
+  assert.match(ui.statuses.at(-1)[0], /Newer edits are still here; press Save again to update/);
   assert.equal(ui.noteSave.disabled, false);
 });
 
 test('M109 extension clears only exactly submitted text on a confirmed Save', async () => {
   const ui = simulateFloatingSave({
-    send: async () => ({ destination: 'vault', confirmed: true, title: 'Buy groceries', subject: 'General' }),
+    send: async () => ({ destination: 'vault', confirmed: true,
+      id: 'f0000000-0000-4000-8000-000000000001',
+      sha: 'a'.repeat(40), title: 'Buy groceries', subject: 'General' }),
   });
   const save = await ui.mount();
   await save();
@@ -118,7 +125,9 @@ test('M109 uncertain extension response retains exact text and UUID for an uncha
       captureIds.push(payload.captureId);
       attempts += 1;
       if (attempts === 1) throw new Error('Connection interrupted');
-      return { destination: 'vault', confirmed: true, title: 'Buy groceries', subject: 'General' };
+      return { destination: 'vault', confirmed: true,
+      id: 'f0000000-0000-4000-8000-000000000001',
+      sha: 'a'.repeat(40), title: 'Buy groceries', subject: 'General' };
     },
   });
   const save = await ui.mount();
@@ -145,7 +154,9 @@ test('M109 extension ignores a concurrent Save even if the button is reenabled',
   await save();
   assert.equal(requests, 1);
   assert.equal(ui.ctx.savingCapture, true);
-  finish({ destination: 'vault', confirmed: true, title: 'Buy groceries', subject: 'General' });
+  finish({ destination: 'vault', confirmed: true,
+      id: 'f0000000-0000-4000-8000-000000000001',
+      sha: 'a'.repeat(40), title: 'Buy groceries', subject: 'General' });
   await first;
   assert.equal(ui.ctx.savingCapture, false);
   assert.equal(ui.noteSave.disabled, false);

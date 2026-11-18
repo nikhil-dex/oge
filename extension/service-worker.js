@@ -1,7 +1,7 @@
 // All OgeNotes requests are made from the extension service worker.
 // The floating content script never receives the bearer token or app origin.
 const TOKEN_PATTERN = /^oge_[A-Za-z0-9_-]{40,60}$/;
-const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK', 'OPEN_LEARNING_TRACKS']);
+const EXTENSION_ACTIONS = new Set(['CREATE_QUICK_NOTE', 'CREATE_VAULT_NOTE', 'SAVE_CURRENT_TAB', 'GET_PROFILE_LINKS', 'VISIT_PROFILE_LINK', 'GET_SUBJECTS', 'GET_THEME', 'SET_THEME', 'CREATE_LEARNING_TRACK', 'OPEN_LEARNING_TRACKS']);
 const LINK_KINDS = new Set(['github', 'linkedin', 'portfolio']);
 
 function normalizeBase(value) {
@@ -80,6 +80,28 @@ async function handleAction(message, sender) {
     });
     return { title: data.title, destination: data.destination, subject: data.subject || null };
   }
+  if (message.type === 'CREATE_VAULT_NOTE') {
+    // The explicit GitHub destination is selected only after the subject
+    // service reports a connected owner. Keep a stable ID across retries.
+    if (typeof message.content !== 'string' || !message.content.trim() ||
+        message.content.length > 20000 ||
+        typeof message.subjectSlug !== 'string' ||
+        !/^[a-f0-9-]{36}$/i.test(message.subjectSlug) ||
+        typeof message.captureId !== 'string' ||
+        !/^[a-f0-9-]{36}$/i.test(message.captureId)) {
+      throw new Error('Select a subject and enter a title followed by note content.');
+    }
+    const data = await apiRequest('/api/extension/vault-note', {
+      method: 'POST', body: JSON.stringify({
+        content: message.content, subjectSlug: message.subjectSlug,
+        captureId: message.captureId,
+      }),
+    });
+    if (data.confirmed !== true || data.destination !== 'vault')
+      throw new Error('GitHub Save was not confirmed. Keep your editor copy.');
+    return { title: data.title, subject: data.subject, destination: 'vault',
+      confirmed: true, alreadySaved: data.alreadySaved === true };
+  }
   if (message.type === 'CREATE_LEARNING_TRACK') {
     // A malicious web page cannot choose a different URL; use the browser's tab.
     const title = message.title;
@@ -115,7 +137,8 @@ async function handleAction(message, sender) {
   }
   if (message.type === 'GET_SUBJECTS') {
     const data = await apiRequest('/api/extension/subjects');
-    return { subjects: Array.isArray(data.subjects) ? data.subjects : [] };
+    return { subjects: Array.isArray(data.subjects) ? data.subjects : [],
+      vaultReady: data.vaultReady === true };
   }
   if (message.type === 'GET_PROFILE_LINKS') {
     const data = await apiRequest('/api/extension/profile-links');

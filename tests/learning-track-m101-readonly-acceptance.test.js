@@ -7,6 +7,7 @@ import {
 
 const trackId = '9b044299-28c7-44ad-9d66-3f6b77e956a4';
 const noteId = 'c96a716d-125b-43e9-96dc-992a9b6d34cf';
+const linkId = '17c44540-fd34-465c-946e-a1e1def5ff3c';
 const videoId = 'abc12345678';
 const env = {
   OGE_LEARNING_TRACK_M101_READ_ONLY_ACCEPTANCE: 'YES_ISOLATED_TWO_SESSION_READS_NO_WRITES',
@@ -35,7 +36,7 @@ function makeInvoke(overrides = {}) {
       status: 'present', warning: 'Point-in-time private GitHub read only.',
     };
     else data = {
-      links: [{ trackId, videoId, noteId }], warning: 'Stale links can remain.',
+      links: [{ trackId, videoId, noteId, linkId }], warning: 'Stale links can remain.',
     };
     if (overrides.replace && calls.length === overrides.at)
       data = overrides.replace;
@@ -57,6 +58,7 @@ test('M101 opt-in, isolated HTTPS staging and dangerous-write flags fail closed'
     { AUTH_URL: 'https://elsewhere.example' },
     { OGE_STAGING_URL: 'https://staging.oge-example.org/' },
     { OGE_STAGING_URL: 'https://localhost' },
+    { OGE_STAGING_URL: 'https://app.oge-example.org', AUTH_URL: 'https://app.oge-example.org', OGE_VAULT_BASE_URL: 'https://app.oge-example.org' },
     { MONGODB_DB: 'oge_notes' },
     { OGE_LEARNING_TRACK_M101_RUN_ID: 'not-a-uuid' },
     { OGE_LEARNING_TRACK_M101_TRACK_ID: 'invalid' },
@@ -90,16 +92,26 @@ test('M101 two distinct sessions require 8 strictly ordered GET observations, no
   assert.ok(!reportText.includes(noteId));
   assert.ok(!reportText.includes(trackId));
   assert.ok(!reportText.includes(videoId));
+  assert.ok(!reportText.includes(linkId));
   assert.ok(!reportText.includes('PRIVATE NOTE'));
 });
 
 test('M101 rejects another-device relink, missing Note and forged release fields', async () => {
   const changed = {
-    links: [{ trackId, videoId, noteId: '2ad62d6a-18e5-4af0-bc97-0dd85d6c2a4e' }],
+    links: [{ trackId, videoId, noteId: '2ad62d6a-18e5-4af0-bc97-0dd85d6c2a4e', linkId }],
     warning: 'Changed',
   };
   await assert.rejects(run(makeInvoke({ at: 4, replace: changed }).invoke), TypeError);
   await assert.rejects(run(makeInvoke({ at: 8, replace: changed }).invoke), TypeError);
+  // Unlink/relink of the very SAME Note must not masquerade as an unchanged link.
+  await assert.rejects(run(makeInvoke({ at: 4, replace: {
+    links: [{ trackId, videoId, noteId,
+      linkId: 'd97cde2d-01f4-41a3-8380-2a43e4b7256d' }], warning: 'Relinked',
+  } }).invoke), TypeError);
+  await assert.rejects(run(makeInvoke({ at: 8, replace: {
+    links: [{ trackId, videoId, noteId,
+      linkId: 'd97cde2d-01f4-41a3-8380-2a43e4b7256d' }], warning: 'Relinked',
+  } }).invoke), TypeError);
   await assert.rejects(run(makeInvoke({ at: 5,
     replace: { status: 'missing', warning: 'Point-in-time missing.' } }).invoke), TypeError);
   await assert.rejects(run(makeInvoke({ at: 5,
@@ -125,6 +137,7 @@ test('M101 operator CLI never uses HTTP writes and exits HOLD even after observe
   assert.match(cli, /ownerOnly/);
   assert.match(cli, /first\.fingerprint === second\.fingerprint/);
   assert.match(cli, /maxRedirects: 0/);
+  assert.match(cli, /'X-Oge-Verify-Intent': 'manual'/);
   assert.match(cli, /response\.url\(\) !== env\.OGE_STAGING_URL/);
   assert.match(cli, /redactedReport/);
   assert.match(cli, /process\.exitCode = 2/);

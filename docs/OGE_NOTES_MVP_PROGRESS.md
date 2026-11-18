@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #107 code changes.**
+**Updated 18 November 2026, after milestone #108 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -26,7 +26,7 @@ not the previous uncalibrated ~96% prototype number.
 | 2 | Create, read, edit, favorite and delete committed GitHub Notes | Built | Pending |
 | 3 | Create and select study subjects | Built | Pending |
 | 4 | Temporary draft autosave plus explicit GitHub Save | Built | Pending |
-| 5 | Quick Capture: first-line title, subject selector, ready next note | Built | Pending |
+| 5 | Quick Capture: single-line thoughts or title + body, auto-pick sole subject, ready next note | M108 usability improvements | Pending |
 | 6 | Find Notes beyond first 20 via progressive GitHub page loading | Built | Pending |
 | 7 | Visible draft-versus-GitHub Save state, word counts, direct reader Edit, accessible Save and keyboard shortcut | M106 implemented | Pending |
 | 8 | **New** Quick Notes/AirNotes/extension captures use the GitHub Vault for connected owners | M107 built (legacy records not migrated) | Pending |
@@ -39,6 +39,21 @@ standalone captures through the existing GitHub Quick Capture editor, and
 the updated extension uses a dedicated owner-connected GitHub writer.
 **Historical MongoDB records are untouched and not migrated.** This is not a
 promise that all prior AirNotes and Quick Notes appear in the Vault.
+
+## Milestone #108 usability improvements (does not increase the denominator)
+
+- A one-line thought is now enough to create a valid GitHub Note. Its
+  first nonempty line becomes a recognizable short title, while the full
+  original thought stays in the Note body. Explicit title + body still works.
+- For accounts with only one subject, Quick Capture automatically selects it,
+  while preserving the existing unfinished-draft recovery path.
+- Quick Capture's **Notes** navbar now points to the connected GitHub Notes
+  editor instead of the older MongoDB workspace.
+- The floating extension shares the same one-line conversion and now explains
+  it in the editor. No change to destination, authorization or data store.
+- Real GitHub and Chrome verification remains pending. This is polish on
+  existing checkpoint #5, so the implementation score remains **8/10 (80%)**
+  and real account verification remains **0/3**.
 
 ## The three mandatory live journeys
 

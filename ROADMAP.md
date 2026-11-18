@@ -1,5 +1,37 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #112 — Extension saved-Note link now opens the actual Note (18 Nov 2026)
+
+**Product usability fix, not another security or release-gate phase.**
+
+- **Corrected extension deep link:** M111 added the `View last saved GitHub Note`
+  shortcut and fetched the correct private Note by UUID, but only selected
+  its subject: the reader itself remained closed. Following
+  `/vault/notes?note=UUID` now opens the loaded GitHub Note directly in the
+  full reader, so users can actually read or tap **Edit note**.
+- **One-time opening:** When the user leaves the reader to edit or Save,
+  subsequent list reloads do not unexpectedly reopen the old reader because
+  the same `note=` URL remains in the address bar.
+- **Graceful missing link:** If a requested Note cannot be found/read,
+  the Notes page displays a useful error without claiming the Note was
+  deleted or creating an alternative file. UUIDs alone never authorize
+  Note content; the existing owner-bound GitHub API supplies the data.
+- **Automated regression:** `tests/oge-vault-deep-link-m112.test.js`
+  tests out-of-first-page links, missing/invalid IDs, repeat-load behavior,
+  source integration with the actual reader, and user-clicked extension
+  navigation. This is simulated and source-level coverage, **not** a live
+  connected Chrome/GitHub account acceptance test.
+- **No storage change:** GitHub remains the permanent Notes destination.
+  Only a few recent IDs are cached for navigation; no permanent Note text
+  added to MongoDB.
+- **MVP progress remains 8/10 (80%) built, 0/3 live-account journeys
+  verified.** This resolves an M111 workflow gap rather than adding an
+  invented ninth feature. PR #35 remains draft/unmerged; production last.
+- **Next #113:** Complete the three live acceptance journeys on a real
+  connected Oge/Chrome profile and fix any observed UX failures. Do not
+  add more security verification milestones.
+
+
 ## Milestone #111 — Recently saved GitHub Notes remain findable after reload
 
 - **Real user problem:** GitHub Note pagination currently reads the first

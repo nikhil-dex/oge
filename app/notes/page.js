@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SiteNavbar from '../components/site-navbar';
 import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
+import { loadVaultSearchPages } from '../../lib/oge-vault-search-pages.js';
 
 async function responseJson(response) {
   const data = await response.json().catch(() => ({}));
@@ -29,6 +30,9 @@ export default function NotesPage({
   const [nextNotesCursor, setNextNotesCursor] = useState(null);
   const [totalVaultNotes, setTotalVaultNotes] = useState(null);
   const [loadingMoreNotes, setLoadingMoreNotes] = useState(false);
+  const [searchScanBusy, setSearchScanBusy] = useState(false);
+  const [searchScanStatus, setSearchScanStatus] = useState('');
+  const searchScanRef = useRef(null);
   const [activeSubject, setActiveSubject] = useState('');
   const [query, setQuery] = useState('');
   const [globalSearch, setGlobalSearch] = useState(false);
@@ -211,6 +215,11 @@ export default function NotesPage({
 
 
   const load = useCallback(async (preferredSubject = '') => {
+    // A saved change or Refresh invalidates previous GitHub page cursors.
+    // Abort in-progress read-only searches before replacing the list.
+    searchScanRef.current?.abort();
+    searchScanRef.current = null;
+    setSearchScanStatus('');
     setLoading(true);
     setError('');
     try {
@@ -234,7 +243,7 @@ export default function NotesPage({
   }, [notesApi, vaultMode]);
 
   async function loadMoreVaultNotes() {
-    if (!vaultMode || !nextNotesCursor || loadingMoreNotes || loading) return;
+    if (!vaultMode || !nextNotesCursor || loadingMoreNotes || loading || searchScanBusy) return;
     setLoadingMoreNotes(true);
     setError('');
     try {
@@ -255,6 +264,50 @@ export default function NotesPage({
         : err.message || 'Could not load more GitHub notes.');
     } finally {
       setLoadingMoreNotes(false);
+    }
+  }
+
+  async function scanRemainingVaultNotes() {
+    if (!vaultMode || !query.trim() || !nextNotesCursor || loading ||
+        loadingMoreNotes || searchScanBusy || saving || noteDialog) return;
+    const controller = new AbortController();
+    searchScanRef.current = controller;
+    setSearchScanBusy(true);
+    setSearchScanStatus('Searching additional GitHub Notes…');
+    setError('');
+    try {
+      const result = await loadVaultSearchPages({
+        cursor: nextNotesCursor,
+        shouldStop: () => controller.signal.aborted,
+        fetchPage: (cursor) => responseJson(fetch(
+          notesApi + '?paged=true&limit=25&cursor=' + encodeURIComponent(cursor),
+          { cache: 'no-store', signal: controller.signal },
+        ).then((response) => response)),
+        onPage: (incoming, page) => {
+          if (controller.signal.aborted) return;
+          setNotes((existing) => {
+            const seen = new Set(existing.map((note) => note.id));
+            return [...existing, ...incoming.filter((note) => !seen.has(note.id))];
+          });
+          setNextNotesCursor(page.nextCursor);
+          setTotalVaultNotes(page.total);
+        },
+      });
+      if (searchScanRef.current !== controller) return;
+      setSearchScanStatus(result.stopped
+        ? 'Search paused. You can continue from the next page.'
+        : result.complete
+          ? 'All GitHub Notes loaded. Search now covers your full Vault.'
+          : 'Loaded ' + result.loaded + ' more notes. Select Continue search to scan the rest.');
+    } catch (err) {
+      if (searchScanRef.current !== controller || controller.signal.aborted) return;
+      setSearchScanStatus('Search stopped at the last loaded page.');
+      setError(err.message === 'vault-page-stale'
+        ? 'Your GitHub Notes changed while searching. Refresh your library to restart.'
+        : err.message || 'Could not load the remaining GitHub Notes.');
+    } finally {
+      if (searchScanRef.current === controller) searchScanRef.current = null;
+      setSearchScanBusy(false);
     }
   }
 
@@ -790,6 +843,18 @@ export default function NotesPage({
   }
 
   useEffect(() => {
+    if (!noteDialog) return undefined;
+    const saveShortcut = (event) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key !== 'Enter' ||
+          event.repeat || saving || (hybridDrafts && !hybridReady)) return;
+      event.preventDefault();
+      document.getElementById('noteForm')?.requestSubmit();
+    };
+    window.addEventListener('keydown', saveShortcut);
+    return () => window.removeEventListener('keydown', saveShortcut);
+  }, [noteDialog, saving, hybridDrafts, hybridReady]);
+
+  useEffect(() => {
     if (!vaultMode || !noteDialog || !hasUnsavedEditorChanges()) return undefined;
     const guard = (event) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', guard);
@@ -873,6 +938,16 @@ export default function NotesPage({
           {(query || globalSearch || favoritesOnly || selectedTag) && <button type="button" className="clear-filters" onClick={() => { setQuery(''); setGlobalSearch(false); setFavoritesOnly(false); setSelectedTag(''); }}>Clear all</button>}
         </div>
 
+        {vaultMode && query.trim() && nextNotesCursor && <div className="oge-vault-notes-pagination" role="group" aria-label="Search all GitHub Notes">
+          <p role="status">Searching {notes.length} of {totalVaultNotes ?? notes.length} loaded Notes. Older notes may be on other GitHub pages.</p>
+          <button type="button" className="add-button" onClick={() => void scanRemainingVaultNotes()}
+            disabled={searchScanBusy || loadingMoreNotes || loading || saving || noteDialog}>
+            {searchScanBusy ? 'Searching…' : 'Search remaining GitHub Notes'}
+          </button>
+          {searchScanBusy && <button type="button" className="text-button"
+            onClick={() => searchScanRef.current?.abort()}>Stop search</button>}
+        </div>}
+        {vaultMode && searchScanStatus && <p role="status">{searchScanStatus}</p>}
         {error && !noteDialog && <p className="page-error" role="alert">{error}</p>}
         {message && !noteDialog && <p className="form-success" role="status">{message}</p>}
         {loading ? <div className="empty-state" role="status"><span className="empty-icon">◌</span><h3>Loading notes…</h3><p>Getting your library ready.</p></div>
@@ -891,11 +966,14 @@ export default function NotesPage({
                 <button type="button" className="delete-note" onClick={() => deleteNote(note)} aria-label={`Delete note: ${note.heading}`} title="Delete note">×</button>
               </div>
             </article>
-          ))}</div> : <div className="empty-state"><span className="empty-icon">⌕</span><h3>{query ? 'No notes found' : 'Start your collection'}</h3><p>{query ? 'Try another search, or clear the filters.' : 'Add a note to this subject, then come back to study it.'}</p><button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add your first note</button></div>}
+          ))}</div> : <div className="empty-state"><span className="empty-icon">⌕</span><h3>{query ? (vaultMode && nextNotesCursor ? 'No matches in loaded notes yet' : 'No notes found') : 'Start your collection'}</h3><p>{query ? (vaultMode && nextNotesCursor
+                ? 'Use Search remaining GitHub Notes above to check older pages.'
+                : 'Try another search, or clear the filters.')
+                : 'Add a note to this subject, then come back to study it.'}</p><button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add your first note</button></div>}
         {vaultMode && <div className="oge-vault-notes-pagination">
-          <p role="status">Showing {notes.length} of {totalVaultNotes ?? notes.length} GitHub notes. Search, filters and sorting apply to loaded notes.</p>
+          <p role="status">Showing {notes.length} of {totalVaultNotes ?? notes.length} GitHub notes. Search, filters and sorting apply to loaded notes. Use Search remaining GitHub Notes to include older pages.</p>
           {nextNotesCursor && <button type="button" className="add-button" onClick={() => void loadMoreVaultNotes()}
-            disabled={loadingMoreNotes || saving || noteDialog}>
+            disabled={loadingMoreNotes || searchScanBusy || saving || noteDialog}>
             {loadingMoreNotes ? 'Loading…' : 'Load more GitHub notes'}
           </button>}
         </div>}
@@ -939,6 +1017,7 @@ export default function NotesPage({
               }}>Retry draft autosave</button>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="submit-button" type="submit" disabled={saving || !activeSubject || (hybridDrafts && !hybridReady)}><span>{saving ? 'Saving…' : hybridDrafts ? 'Save' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span></button>
+            <p className="field-hint">Tip: press Ctrl+Enter (Windows) or ⌘+Enter (Mac) to Save.</p>
           </form>
         </section>
       </div>}

@@ -222,6 +222,24 @@ Automated simulated extension tests cover these steps; the actual
 connected Chrome/GitHub test remains **NOT RUN**. Implementation remains
 **8/10 (80%)**; real-account verification remains **0/3**.
 
+## M114 — Keep writing or save a different Note
+
+In the floating extension, start a GitHub Vault Save and type more
+while it runs. After success, verify two distinct actions are offered:
+
+- **Update saved GitHub Note:** Pressing the primary Save updates the
+  original Note's GitHub content using its confirmed revision.
+- **Save this as a separate Note instead:** Select this action if the
+  newer text should be a second Note in the *same* subject. The text
+  must remain in the editor. Press Save once to create a distinct
+  Note ID; confirm the earlier Note is not overwritten.
+
+Neither option should issue a GitHub write until the user presses
+the actual Save button. While a request is in flight, switching intent
+must be ignored. These cases have scripted tests; **real connected
+Chrome/GitHub verification remains pending**. MVP implementation is
+**8/10 (80%)**, live tests **0/3**.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

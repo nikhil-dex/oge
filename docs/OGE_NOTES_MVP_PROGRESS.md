@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #110 code changes.**
+**Updated 18 November 2026, after milestone #111 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -105,6 +105,26 @@ promise that all prior AirNotes and Quick Notes appear in the Vault.
 - **Progress unchanged:** 8/10 (80%) implementation checkpoints built
   and 0/3 real account journeys independently verified. This repairs
   checkpoint #5's recovery UX; it does not satisfy checkpoint #9.
+
+## Milestone #111 — After Save, actually find your Note again
+
+The GitHub directory's paged list is ordered by filename UUID, so a newly
+saved Note could be absent from the first page immediately after Save.
+The Notes and Quick Capture editors now remember only the last five
+confirmed Note IDs in browser localStorage, scoped by owner and repository,
+and read the real Note contents from GitHub on reload. The Chrome widget
+also offers an explicit user-clicked **View last saved GitHub Note** action
+that opens the specific saved Note's deep link in Oge.
+
+The new test fixture exercises 25 GitHub Notes with the most recently saved
+Note outside page one, then verifies a fresh **create → reload → edit →
+reload** roundtrip. Local storage holds no permanent Note body or GitHub
+credentials. On a different device, full pagination/search remains the
+supported discovery path until a chronological provider index exists.
+
+**MVP score unchanged:** 8/10 checkpoints (80%) implemented; 0/3 real
+connected-account user journeys verified. Simulated GitHub provider tests
+are not live GitHub account acceptance.
 
 ## The three mandatory live journeys
 

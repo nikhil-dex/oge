@@ -13,11 +13,13 @@ works; do not mark unexecuted steps successful.
    the main Vault workspace is enabled for that account.
 4. **Add subject** (e.g. Machine Learning). Create, edit and delete Notes
    through the existing editor and confirm the saved Notes appear after reload.
-5. From **Home → Quick Capture**, add a subject inline if needed. Selecting
-   a subject creates an empty ready-to-type capture automatically.
-6. Type `Title` on line one and a body below. Temporary drafts save during
-   typing; press **Save** to commit to the private GitHub repo. After success
-   the same subject remains selected and a fresh capture is ready.
+5. From **Home → Quick Capture**, add a subject inline if needed. A single
+   available subject is chosen automatically; otherwise select one.
+6. Type a simple thought, **or** write a title on line one and details below.
+   A one-line capture derives a useful title and keeps the full text in its
+   body. Temporary drafts save during typing; press **Save** to commit to
+   the private GitHub repo. After success the subject stays selected and
+   a fresh capture is ready.
 7. Reload, sign in again and confirm committed Notes are still present.
 8. Test the existing editor's favorites, Markdown, search, tags, pagination,
    undo/confirm behavior and the draft recovery prompt.
@@ -108,6 +110,25 @@ journeys verified** measure. Passing CI does not prove live provider access.
 **Progress:** 8/10 (80%) implementation checkpoints after M107, 0/3
 required real-account workflows verified. These two numbers are independent.
 See `docs/OGE_NOTES_MVP_PROGRESS.md`.
+
+## M108 — Quick Capture one-line usability
+
+- A one-line text such as `Buy milk tomorrow` now creates a valid
+  GitHub Note with an automatically derived title and the original sentence
+  preserved in its body. Multi-line title-and-body Notes are unchanged.
+- With one existing subject, Quick Capture chooses it without another click.
+  The existing draft recovery prompt is still shown if necessary.
+- Quick Capture's navigation now returns directly to **GitHub Notes**,
+  avoiding an unexpected jump into the older Notes page.
+- The floating extension shares the same text conversion on the server;
+  an ordinary quick thought is enough to save into a selected subject.
+- Run this real-account test: open Quick Notes, type one sentence, Save,
+  reload GitHub Notes and check its title and body. Repeat from Chrome's
+  floating extension, and with a two-line Note.
+
+**Progress unchanged:** 8/10 implementation checkpoints and 0/3 real
+user journeys independently verified. This fixes usability within an
+existing checkpoint; no new checkpoint is claimed.
 
 ## Explicitly not doing next
 

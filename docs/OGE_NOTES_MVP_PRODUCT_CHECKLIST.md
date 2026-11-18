@@ -257,6 +257,25 @@ Simulated pagination tests cover this behavior; live GitHub/Chrome
 acceptance is **NOT RUN**. Progress remains **8/10 implemented,
 0/3 real-account journeys**.
 
+## M116 — Continue typing during Save in the full Notes editor
+
+1. Create a **new** Note in GitHub Notes and start Save.
+2. While GitHub responds, add more text in the same editor.
+3. When Save confirms the submitted version, check that the editor
+   **stays open** with the extra text and says another Save will
+   **update the same Note**.
+4. Press Save again. Reload the library and confirm the final text
+   survives in **one Note ID**, without a duplicate or a 409 conflict.
+5. Repeat while **editing an existing Note** to confirm the new
+   GitHub SHA is used for the second Save.
+6. Repeat with a fast reload between the confirmed first Save and
+   the 700 ms temporary-draft autosave. Open that committed Note
+   and accept browser draft recovery; the newer text should remain.
+
+These sequences have scripted provider and source tests, but still
+require actual connected-account verification. Overall score:
+**8/10 built, 0/3 live journeys independently passed**.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

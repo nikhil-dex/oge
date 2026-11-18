@@ -219,6 +219,7 @@ export default function NotesPage({
     // Abort in-progress read-only searches before replacing the list.
     searchScanRef.current?.abort();
     searchScanRef.current = null;
+    setSearchScanBusy(false);
     setSearchScanStatus('');
     setLoading(true);
     setError('');
@@ -279,10 +280,10 @@ export default function NotesPage({
       const result = await loadVaultSearchPages({
         cursor: nextNotesCursor,
         shouldStop: () => controller.signal.aborted,
-        fetchPage: (cursor) => responseJson(fetch(
+        fetchPage: async (cursor) => responseJson(await fetch(
           notesApi + '?paged=true&limit=25&cursor=' + encodeURIComponent(cursor),
           { cache: 'no-store', signal: controller.signal },
-        ).then((response) => response)),
+        )),
         onPage: (incoming, page) => {
           if (controller.signal.aborted) return;
           setNotes((existing) => {
@@ -306,8 +307,10 @@ export default function NotesPage({
         ? 'Your GitHub Notes changed while searching. Refresh your library to restart.'
         : err.message || 'Could not load the remaining GitHub Notes.');
     } finally {
-      if (searchScanRef.current === controller) searchScanRef.current = null;
-      setSearchScanBusy(false);
+      if (searchScanRef.current === controller) {
+        searchScanRef.current = null;
+        setSearchScanBusy(false);
+      }
     }
   }
 

@@ -330,6 +330,9 @@
   // Wait for the owner's subject list to select the right writer.
   let vaultReady = null;
   let pendingVaultCapture = null;
+  // If text changes during a confirmed Save, the next click updates that
+  // same GitHub Note instead of creating an accidental duplicate.
+  let pendingSavedUpdate = null;
   let savingCapture = false;
   // crypto.randomUUID() is absent in some HTTP page contexts where the
   // extension can still run. getRandomValues() is available there.
@@ -399,33 +402,48 @@
     try {
       let result;
       if (submittedToVault) {
-        // If the response was lost, resubmitting the same unchanged capture
-        // reuses the UUID. Avoid a duplicate GitHub Note on a retry.
-        if (!pendingVaultCapture ||
-            pendingVaultCapture.content !== submittedContent ||
-            pendingVaultCapture.subjectSlug !== submittedSubject) {
-          pendingVaultCapture = {
-            id: createCaptureId(), content: submittedContent,
-            subjectSlug: submittedSubject,
-          };
+        if (pendingSavedUpdate &&
+            pendingSavedUpdate.subjectSlug === submittedSubject) {
+          // The previous Save succeeded, but the user kept editing the
+          // text. Update that Note using its exact GitHub blob revision.
+          result = await send('UPDATE_VAULT_NOTE', {
+            content: submittedContent, subjectSlug: submittedSubject,
+            captureId: pendingSavedUpdate.id, sha: pendingSavedUpdate.sha,
+          });
+        } else {
+          // If the response was lost, resubmitting the same unchanged
+          // capture reuses its UUID rather than creating a duplicate.
+          if (!pendingVaultCapture ||
+              pendingVaultCapture.content !== submittedContent ||
+              pendingVaultCapture.subjectSlug !== submittedSubject) {
+            pendingVaultCapture = {
+              id: createCaptureId(), content: submittedContent,
+              subjectSlug: submittedSubject,
+            };
+          }
+          result = await send('CREATE_VAULT_NOTE', {
+            content: submittedContent, subjectSlug: submittedSubject,
+            captureId: pendingVaultCapture.id,
+          });
         }
-        result = await send('CREATE_VAULT_NOTE', {
-          content: submittedContent, subjectSlug: submittedSubject,
-          captureId: pendingVaultCapture.id,
-        });
-        if (result.confirmed !== true) throw new Error('GitHub Save not confirmed.');
+        if (result.confirmed !== true || typeof result.id !== 'string' ||
+            !/^[a-f0-9]{40}$/i.test(result.sha || ''))
+          throw new Error('GitHub Save was not confirmed with a Note revision.');
         pendingVaultCapture = null;
+        lastSavedVaultNoteId = result.id;
+        noteOpenSaved.hidden = false;
       } else {
         result = await send('CREATE_QUICK_NOTE', {
           content: submittedContent, subjectSlug: submittedSubject,
         });
       }
-      if (result.destination === 'vault' && typeof result.id === 'string') {
-        lastSavedVaultNoteId = result.id;
-        noteOpenSaved.hidden = false;
-      }
       const unchanged = note.value === submittedContent &&
         subjectSelect.value === submittedSubject;
+      if (submittedToVault) {
+        pendingSavedUpdate = unchanged ? null : {
+          id: result.id, sha: result.sha, subjectSlug: submittedSubject,
+        };
+      }
       if (unchanged) note.value = '';
       const confirmation = result.destination === 'vault'
         ? 'Saved “' + result.title + '” to GitHub Vault / ' + result.subject + '.'
@@ -433,7 +451,9 @@
           ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.'
           : 'Saved “' + result.title + '” to Quick Notes.';
       setStatus(confirmation + (unchanged ? ''
-        : ' Newer edits are still in your editor; press Save again for them.'));
+        : submittedToVault && subjectSelect.value === submittedSubject
+          ? ' Newer edits are still here; press Save again to update the same GitHub Note.'
+          : ' Newer edits are still in your editor; press Save again for them.'));
     } catch (error) {
       // Do not erase text or the retry UUID on an uncertain Save.
       setStatus((error.message || 'Save was not confirmed.') +

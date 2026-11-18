@@ -1,5 +1,52 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## PRODUCT DIRECTION CHANGE — practical Notes MVP first (18 Nov 2026)
+
+**User priority: make Oge a usable notes app. Stop adding extra security/attestation milestones.**
+Preserve basic authentication, owner privacy and not losing Note text. From this
+point, each milestone should improve an actual user journey: connect Vault,
+open Notes, add subject, write, Save, reload, recover, search, mobile, extension.
+Retire the unverified historical **~96%** completion estimate as a progress
+metric. Measure readiness by successful real user flows instead of milestone
+count or CI-only proofs. See `docs/OGE_NOTES_MVP_PRODUCT_CHECKLIST.md`.
+
+### Milestone #104 — Usable GitHub Notes entry + Quick Capture (implementation complete; real browser acceptance pending)
+
+- **Home Notes card and navbar:** For an authenticated owner with a connected
+  private Vault and the GitHub Notes workspace already enabled, Home → Notes
+  now opens `/vault/notes`, not the legacy MongoDB editor. Otherwise the
+  existing `/notes` behavior remains unchanged. The GitHub editor's own Notes
+  navigation stays in its GitHub workspace. No automatic data migration.
+- **Quick Capture is no longer hidden behind extra staging-only switches:**
+  If the connected GitHub Notes editor and existing hybrid temporary-draft
+  service are enabled, the Quick Capture page opens with the same signed user
+  and Vault mapping. Removed its separate `QUICK_CAPTURE_PREVIEW` flag,
+  staging DB requirement and unrelated `NOTE_API_PREVIEW` dependency.
+  No alternate Note body storage or new GitHub writer.
+- **One-click entry:** Home shows a Quick Capture card when that workspace
+  is available; the familiar GitHub editor links to Quick Capture; the Vault
+  connection page prioritizes **Open My Notes** and **Write a Quick Note**.
+- **First note without friction:** Quick Capture now creates subjects on its
+  page via the existing owner-scoped `/api/subjects` POST. Choosing a subject
+  creates a ready-to-type note automatically (no extra New capture click).
+  After a verified GitHub Save, it clears the finished draft, keeps the subject
+  and readies a new empty capture without producing a pointless empty
+  recovery pointer. Notes remain on GitHub; only temporary autosave drafts
+  use existing MongoDB draft storage.
+- **Regression coverage:** Quick Capture flags and UI semantics, home
+  navigation, connected workspace linkage, subject creation and the next-note
+  flow are checked by tests. GitHub CI to verify separately at final commit.
+- **Known unfinished features:** Legacy Quick Notes, AirNotes and extension
+  are NOT silently switched to GitHub storage. Search in the familiar GitHub
+  editor still covers loaded pages only. Real OAuth/GitHub end-to-end browser
+  verification and mobile usability are **not yet executed**. Deployment
+  remains last. PR #35 is draft/unmerged, and no production cutover occurred.
+- **Next #105:** prioritize basic Notes UX: paginated search discoverability,
+  editor usability and a live manual test of Add Subject → Save → Reload. Do
+  not add HMAC/device-signature/release-gate features unless a specific
+  actionable bug requires them.
+
+
 ## Oge Vault milestone #103 — F7: fix real manual-check request and same-Note relink gaps (18 Nov 2026)
 
 - **Implemented, tested locally in CI (status separately verified on final head):** Hardened the M100 owner-clicked `GET mode=verify` private GitHub Note check. Requires `X-Oge-Verify-Intent: manual` custom header and matching staging request origin. If `Origin` or `Sec-Fetch-Site` is present, its value must match same-origin. A cross-site navigational GET carrying SameSite=Lax signed cookies now fails with 403 before GitHub token creation or verification rate-limit consumption. The Learning Tracks UI and protected Playwright operator CLI explicitly send this header. New pure `manualLearningTrackNoteCheckAllowed` helper has direct Request-based positive and negative tests.

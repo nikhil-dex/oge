@@ -62,6 +62,19 @@ The floating panel header has a **⌖ Position** control. Each click moves the *
 
 On an HTTPS YouTube playlist or a watch page with a playlist query, open the floating **O** and select **Tracks**. Enter your own track name, videos-per-day goal and optional total number of videos. The background worker takes the tab URL from Chrome (not from webpage messages), and posts only this metadata to a token-authenticated route. The feature is **default OFF** on the server (`OGE_LEARNING_TRACKS_PREVIEW=false`). It does not scrape playlists or transmit titles, transcripts, watch history or note bodies. View and manually advance tracks at `/learning-tracks` after enabling an isolated preview. No automatic lesson notes, GitHub note commits, notifications, or provider-backed playlist extraction are implemented yet. The server limits each owner to 100 tracks and validates the owner/token in a MongoDB transaction. Release still requires real Chrome and two-device staging tests.
 
+## M109 — Editing while a Save is in flight
+
+The extension uses the exact text and subject visible when **Save** is
+pressed. If you continue typing while GitHub responds, the newer text
+remains in the editor; the confirmation applies only to the earlier
+submission. Press Save again for the newer text.
+
+On connection failure or an unknown outcome, the extension leaves the note
+in place and keeps the same capture ID for a retry with unchanged content.
+Multiple Save clicks during the same request do not start multiple commits.
+Test this in a real Chrome session with a connected GitHub Vault before
+production use; automated tests exercise simulated network responses.
+
 ## M107 — shared GitHub Note capture
 
 Connected users now open **Quick Notes** or **AirNotes** in the Oge website and

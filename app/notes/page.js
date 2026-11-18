@@ -10,7 +10,7 @@ import { loadVaultSearchPages } from '../../lib/oge-vault-search-pages.js';
 import { noteEditorFeedback, noteBodyMetrics } from '../../lib/oge-notes-editor-feedback.js';
 import {
   isVaultNoteId, recentVaultNotesKey, readRecentVaultNoteIds,
-  rememberRecentVaultNote, mergeRecentVaultNotes,
+  rememberRecentVaultNote, mergeRecentVaultNotes, findLinkedVaultNote,
 } from '../../lib/oge-vault-recent-notes.js';
 
 async function responseJson(response) {
@@ -51,6 +51,9 @@ export default function NotesPage({
   const [noteDialog, setNoteDialog] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [readerNote, setReaderNote] = useState(null);
+  // An extension link opens the reader once per page visit. Re-loading the
+  // Note list after editing must not reopen it unexpectedly.
+  const openedDeepLinkRef = useRef(null);
   const [heading, setHeading] = useState('');
   const [answer, setAnswer] = useState('');
   const [tagsText, setTagsText] = useState('');
@@ -274,9 +277,22 @@ export default function NotesPage({
       setNotes(loadedNotes);
       setNextNotesCursor(vaultMode ? response.nextCursor || null : null);
       setTotalVaultNotes(vaultMode ? response.total : null);
-      const direct = recentNotes.find((note) =>
-        note.id === new URLSearchParams(window.location.search).get('note'));
+      const linkId = vaultMode
+        ? new URLSearchParams(window.location.search).get('note') : null;
+      const direct = findLinkedVaultNote(linkId, loadedNotes);
       setActiveSubject((current) => preferredSubject || direct?.subjectSlug || current || defaultSubject);
+      if (direct && openedDeepLinkRef.current !== direct.id) {
+        // The link must open the Note itself, not just switch to its
+        // subject or show its card in the library.
+        openedDeepLinkRef.current = direct.id;
+        setShareMenuOpen(false);
+        setReaderNote(direct);
+      } else if (isVaultNoteId(linkId) && !direct &&
+          openedDeepLinkRef.current !== linkId.toLowerCase()) {
+        // Could be a deleted Note, a revoked GitHub connection, or a
+        // temporary provider read error; do not falsely claim deletion.
+        setError('Could not open the linked GitHub Note. Refresh or check your Vault connection.');
+      }
     } catch (err) {
       setError(err.message || 'Could not load your notes.');
     } finally {

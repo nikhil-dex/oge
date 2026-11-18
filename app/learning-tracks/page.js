@@ -172,7 +172,7 @@ export default function LearningTracksPage() {
     try {
       const data = await read(await fetch('/api/learning-tracks/note-links?' +
         new URLSearchParams({ mode: 'verify', trackId: link.trackId, videoId: link.videoId }),
-      { cache: 'no-store' }));
+      { cache: 'no-store', headers: { 'X-Oge-Verify-Intent': 'manual' } }));
       setLinkChecks((current) => ({ ...current, [key]: data.status }));
     } catch (err) {
       setError(err.message);

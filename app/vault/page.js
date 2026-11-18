@@ -69,10 +69,8 @@ export default async function VaultPage({ searchParams }) {
     /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(process.env.MONGODB_DB || '') &&
     checkVaultStagingReadiness(process.env).ok;
   const capturePreviewEnabled = mainPreviewEnabled &&
-    process.env.OGE_VAULT_QUICK_CAPTURE_PREVIEW === 'true' &&
     process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true' &&
-    process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true' &&
-    /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(process.env.MONGODB_DB || '');
+    process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
   // M62 staging-only owner workflow; never link from production.
   const restoreStagingVisible =
     process.env.OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW === 'true' &&
@@ -95,7 +93,7 @@ export default async function VaultPage({ searchParams }) {
         <p className="oge-eyebrow"><span className="oge-status-dot" /> PRIVATE STORAGE · PHASE A</p>
         <h1>Oge Vault<span>.</span></h1>
         <span className="oge-retro-workspace-stamp" aria-hidden="true">✳<small>YOUR NOTES</small></span>
-        <p>Your own private repository on GitHub. Oge is building a safer, student-owned home for your notes.</p>
+        <p>Keep your notes in your own private GitHub repository. Write, save, and find them from one workspace.</p>
       </section>
       <div className="oge-settings-card oge-vault-card">
         <div className="oge-settings-card-heading">
@@ -110,10 +108,10 @@ export default async function VaultPage({ searchParams }) {
           <>
             <p className="oge-settings-description">Connected to a private GitHub repository owned by <strong>{vault.githubLogin}</strong>.</p>
             <p className="oge-vault-repository"><span aria-hidden="true">▣</span> {vault.githubLogin}/{vault.repoName} <span>PRIVATE</span></p>
-            <p className="oge-settings-note">The GitHub Notes preview is separate from the main Notes workspace. The current Notes, Quick Notes and AirNotes still use legacy MongoDB endpoints until cutover. Existing records have been identified as disposable test data, pending inventory and cleanup.</p>
+            <p className="oge-settings-note">Your Notes workspace saves committed Notes in your private GitHub repository. Quick Capture uses the same subjects and saves there when you press Save. Other legacy note features remain separate until migrated.</p>
             {previewEnabled && <Link className="oge-primary-link" href="/vault/preview">Open GitHub-only Notes preview →</Link>}
-            {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open familiar Notes interface (GitHub-only) →</Link>}
-            {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Quick Capture to GitHub Vault (staging preview) →</Link>}
+            {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open My Notes →</Link>}
+            {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Write a Quick Note →</Link>}
             {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}
             {recoveryCenterVisible && <Link className="oge-primary-link" href="/vault/recovery">Recovery Center — coverage and safety status →</Link>}
             {currentResourceBackupVisible && <>

@@ -62,6 +62,19 @@ The floating panel header has a **⌖ Position** control. Each click moves the *
 
 On an HTTPS YouTube playlist or a watch page with a playlist query, open the floating **O** and select **Tracks**. Enter your own track name, videos-per-day goal and optional total number of videos. The background worker takes the tab URL from Chrome (not from webpage messages), and posts only this metadata to a token-authenticated route. The feature is **default OFF** on the server (`OGE_LEARNING_TRACKS_PREVIEW=false`). It does not scrape playlists or transmit titles, transcripts, watch history or note bodies. View and manually advance tracks at `/learning-tracks` after enabling an isolated preview. No automatic lesson notes, GitHub note commits, notifications, or provider-backed playlist extraction are implemented yet. The server limits each owner to 100 tracks and validates the owner/token in a MongoDB transaction. Release still requires real Chrome and two-device staging tests.
 
+## M111 — Open the Note you just saved
+
+After a confirmed GitHub Vault Save, the floating widget shows
+**View last saved GitHub Note ↗**. Clicking it opens the connected Oge
+site at `/vault/notes?note=<saved-UUID>`; the regular signed-in Notes
+page fetches that specific Note from GitHub even if it is not in the
+initial 20-file page, and selects the Note's subject.
+
+This is an explicit click, not an automatic new tab. Only the
+validated UUID is passed in the URL; Note contents and extension tokens
+are not placed in the link. If you are not signed in, complete normal
+Oge sign-in before viewing your private Notes.
+
 ## M109 — Editing while a Save is in flight
 
 The extension uses the exact text and subject visible when **Save** is

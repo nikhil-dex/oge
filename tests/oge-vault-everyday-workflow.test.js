@@ -45,6 +45,7 @@ test('M104 capture uses existing authenticated Notes and draft gates without a s
 
 test('M104 quick capture lets new users create a subject and write immediately', async () => {
   const client = await read('../app/vault/capture/vault-quick-capture-client.js');
+  const page = await read('../app/vault/capture/page.js');
   assert.match(client, /async function createSubject\(event\)/);
   assert.match(client, /method: 'POST', cache: 'no-store'/);
   assert.match(client, /body: JSON\.stringify\(\{ name \}\)/);

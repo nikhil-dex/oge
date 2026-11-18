@@ -56,14 +56,18 @@ commit/reload follows the recovery. Note failures and the browser behavior.
 2. The connected account should see a subject and **Save to GitHub Vault**.
    Type a one-line thought and Save, then reload `/vault/notes` and
    find the Note under the chosen subject.
-3. Attempt a slow or interrupted Save. The widget must keep the text
+3. Click **View last saved GitHub Note** in the extension. The
+   actual Note reader should open automatically (not just the Notes
+   page/subject). Click **Edit note**, Save, and ensure the old reader
+   does not reopen after the list refresh.
+4. Attempt a slow or interrupted Save. The widget must keep the text
    until success is confirmed; a retry with identical input should not
    create a duplicate.
-4. Test continued typing while Save is pending. The newer text must
+5. Test continued typing while Save is pending. The newer text must
    remain and be labeled as needing a separate Save.
-5. Create or use at least 21 Notes; search for a later-page Note using
+6. Create or use at least 21 Notes; search for a later-page Note using
    **Search remaining GitHub Notes**.
-6. At a mobile viewport, open an existing Note, edit, Save and reload.
+7. At a mobile viewport, open an existing Note, edit, Save and reload.
    The Save button should remain accessible.
 
 **Pass only if** the extension Save and later-page/mobile editing all

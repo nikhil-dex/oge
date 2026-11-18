@@ -190,6 +190,20 @@ The provider fixture tests this create/reload/edit/reload path against a
 mock GitHub tree. Live owner account verification still must be done.
 **Implementation: 8/10 (80%); live journeys: 0/3.**
 
+## M112 — Extension saved Note opens in reader
+
+After saving from the floating extension, select **View last saved GitHub
+Note**. The app should load the Note by UUID from GitHub, automatically
+open its reader, select the correct subject, and let the user choose
+**Edit note**. Save changes and confirm the reader stays closed until
+explicitly reopened; an ordinary refresh should allow opening the linked
+Note again. If the note was deleted or temporarily inaccessible, the app
+should display an error and never fabricate a Note.
+
+This specific UI behavior now has an automated regression test, but
+remains to be verified in a real connected Chrome session. Overall
+score **8/10 implemented, 0/3 real-account journeys verified**.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

@@ -1,5 +1,40 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #109 — Fix everyday capture data loss under recovery and slow saves (18 Nov 2026)
+
+**Product reliability milestone — no new security attestation or release gate.**
+
+- **Verbatim Quick Capture recovery:** A single-line thought is stored as
+  normalized GitHub-compatible heading/body metadata. On restoring an
+  acknowledged encrypted temporary draft, the editor now compares the
+  original browser copy with the server fields and uses the actual browser
+  text when they agree. This avoids manufacturing a second copy of a
+  single-line thought on same-tab recovery. Divergent browser content still
+  receives an explicit recovery prompt; browser local data is not silently
+  substituted for a newer server draft.
+- **Extension Save never erases later typing:** The floating widget snapshots
+  text and subject at Save time. If a user types while GitHub is responding,
+  a successful earlier Save leaves the later changes in place and says they
+  still need Save. On unknown or failed results, the text and same-capture
+  retry ID are preserved. Legacy Quick Notes Save benefits from the same
+  snapshot behavior, without a storage migration.
+- **No concurrent double-Save:** The widget tracks an in-flight request even
+  if its subject options reload and the Save control is inadvertently
+  enabled. Only one request proceeds at a time.
+- **Executable tests:** New
+  `tests/oge-vault-capture-recovery-m109.test.js` exercises the actual
+  extension click handler in a Node VM with delayed Save, edited-during-Save,
+  confirmed Save, network error, UUID retry, simultaneous click and legacy
+  Save. It also checks recovered one-line, duplicate two-line and divergent
+  browser copies.
+- **No scope inflation:** Implementation checkpoint score remains **8/10
+  (80%)**; real connected-account validation stays **0/3**. These are
+  existing user-flow bug fixes, not an invented ninth feature.
+- **Next #110:** A real browser/GitHub connected-owner acceptance of Save,
+  reload, draft recovery and Chrome extension capture (and fix any observed
+  failures). Production cutover stays last.
+
+
 ## Milestone #108 — Quick Capture should work for a simple thought (18 Nov 2026)
 
 **Product usability improvement, not another release-gate milestone.**

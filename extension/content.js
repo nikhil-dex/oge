@@ -46,7 +46,7 @@
   // HTML is static extension-owned markup; user content uses textContent.
   panel.innerHTML = [
     '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="corner-button" type="button" aria-label="Move widget to top-right corner" title="Move to top-right corner">⌖</button><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
-    '<div class="body" data-panel="note"><p class="hint">Write a quick thought, or a title followed by details. Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Write a thought, or a title&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
+    '<div class="body" data-panel="note"><p class="hint">Write a quick thought, or a title followed by details. Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Write a thought, or a title&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button><button type="button" data-open-saved-vault-note hidden>View last saved GitHub Note ↗</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your GitHub, LinkedIn and portfolio links.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div><button class="primary" type="button" data-save-url>＋ Save current page to Saved Links</button></div>',
     '<div class="body" data-panel="tracks" hidden><p class="hint">Open a YouTube playlist or a video inside one. This adds a playlist tracker, not video notes.</p><label class="subject-label">Track name<input class="track-input" data-track-title maxlength="120" placeholder="Machine learning course"></label><label class="subject-label">Videos per day<input class="track-input" data-track-daily type="number" min="1" max="20" value="2"></label><label class="subject-label">Total videos (optional)<input class="track-input" data-track-total type="number" min="1" max="10000" placeholder="Unknown"></label><button class="primary" type="button" data-save-track>Create learning track</button><button type="button" data-open-learning-tracks>Open Learning Tracks in Oge</button></div>',
     '<p class="status" role="status" aria-live="polite"></p>',
@@ -314,6 +314,17 @@
   wake();
 
   const noteSave = panel.querySelector('[data-save-note]');
+  const noteOpenSaved = panel.querySelector('[data-open-saved-vault-note]');
+  let lastSavedVaultNoteId = null;
+  noteOpenSaved.addEventListener('click', async () => {
+    if (!lastSavedVaultNoteId) return;
+    try {
+      await send('OPEN_VAULT_NOTE', { id: lastSavedVaultNoteId });
+      setStatus('Opened your saved Note in Oge.');
+    } catch (error) {
+      setStatus(error.message || 'Could not open the saved Note.', true);
+    }
+  });
   // Unknown destination is NOT permission to fall back to MongoDB.
   // Wait for the owner's subject list to select the right writer.
   let vaultReady = null;
@@ -407,6 +418,10 @@
         result = await send('CREATE_QUICK_NOTE', {
           content: submittedContent, subjectSlug: submittedSubject,
         });
+      }
+      if (result.destination === 'vault' && typeof result.id === 'string') {
+        lastSavedVaultNoteId = result.id;
+        noteOpenSaved.hidden = false;
       }
       const unchanged = note.value === submittedContent &&
         subjectSelect.value === submittedSubject;

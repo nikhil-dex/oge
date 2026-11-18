@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { VaultGitHubError } from '../lib/oge-vault-github.js';
-import { verifyLessonNoteLinkReadOnly } from '../lib/oge-learning-track-note-links.js';
+import {
+  verifyLessonNoteLinkReadOnly, manualLearningTrackNoteCheckAllowed,
+} from '../lib/oge-learning-track-note-links.js';
 
 const record = { _id: 'link-1', noteId: 'c96a716d-125b-43e9-96dc-992a9b6d34cf' };
 const verify = (overrides = {}) => {
@@ -67,9 +69,7 @@ test('M100 explicit endpoint bounds owner reads, rejects stale session and never
   const route = await readFile(new URL('../app/api/learning-tracks/note-links/route.js', import.meta.url), 'utf8');
   const page = await readFile(new URL('../app/learning-tracks/page.js', import.meta.url), 'utf8');
   assert.match(route, /q\.get\('mode'\) === 'verify'/);
-  assert.match(route, /request\\.headers\\.get\\('x-oge-verify-intent'\\) !== 'manual'/);
-  assert.match(route, /fetchSite !== 'same-origin'/);
-  assert.match(route, /suppliedOrigin !== origin/);
+  assert.match(route, /manualLearningTrackNoteCheckAllowed\\(request\\)/);
   assert.match(page, /'X-Oge-Verify-Intent': 'manual'/);
   assert.match(route, /scope: 'learning-track-note-check'/);
   assert.match(route, /limit: 8, windowMs: 3600000/);
@@ -84,4 +84,32 @@ test('M100 explicit endpoint bounds owner reads, rejects stale session and never
   assert.match(page, /No longer found in your current Vault/);
   assert.match(page, /absent from this playlist snapshot/);
   assert.doesNotMatch(route, /saveVaultNote|commitVaultNoteBatch|method: 'PUT'/);
+});
+
+test('M103 verification intent rejects cross-site and ambient GET requests before GitHub reads', () => {
+  const staging = 'https://staging.oge-example.org';
+  const makeRequest = (headers, url = staging + '/api/learning-tracks/note-links?mode=verify') =>
+    new Request(url, { method: 'GET', headers });
+  const env = { OGE_STAGING_URL: staging };
+  assert.equal(manualLearningTrackNoteCheckAllowed(makeRequest({
+    'x-oge-verify-intent': 'manual', 'origin': staging,
+    'sec-fetch-site': 'same-origin',
+  }), env), true);
+  // Operator request context supplies Origin but may omit Sec-Fetch-Site.
+  assert.equal(manualLearningTrackNoteCheckAllowed(makeRequest({
+    'x-oge-verify-intent': 'manual', 'origin': staging,
+  }), env), true);
+  for (const headers of [
+    {},
+    { 'origin': staging, 'sec-fetch-site': 'same-origin' },
+    { 'x-oge-verify-intent': 'MANUAL' },
+    { 'x-oge-verify-intent': 'manual', 'origin': 'https://evil.example' },
+    { 'x-oge-verify-intent': 'manual', 'sec-fetch-site': 'cross-site' },
+    { 'x-oge-verify-intent': 'manual', 'sec-fetch-site': 'same-site' },
+    { 'x-oge-verify-intent': 'manual', 'sec-fetch-site': 'none' },
+  ]) assert.equal(manualLearningTrackNoteCheckAllowed(makeRequest(headers), env), false);
+  assert.equal(manualLearningTrackNoteCheckAllowed(makeRequest({
+    'x-oge-verify-intent': 'manual', 'origin': staging,
+  }, 'https://app.oge-example.org/api/learning-tracks/note-links'), env), false);
+  assert.equal(manualLearningTrackNoteCheckAllowed({}, env), false);
 });

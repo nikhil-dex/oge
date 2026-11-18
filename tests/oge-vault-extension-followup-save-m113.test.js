@@ -156,3 +156,97 @@ test('M113 API supports revision-aware updating and no permanent Mongo Note cont
   assert.match(worker, /method: updating \? 'PUT' : 'POST'/);
   assert.match(worker, /sha: data\.sha/);
 });
+
+
+test('M114 explicit separate-Note choice keeps text but uses a fresh GitHub Note ID', async () => {
+  const calls = [];
+  let finishFirst;
+  const editor = await floatingEditor(async (action, payload) => {
+    calls.push({ action, payload });
+    if (calls.length === 1)
+      return new Promise((resolve) => { finishFirst = resolve; });
+    return {
+      destination: 'vault', confirmed: true, id: payload.captureId,
+      sha: secondSha, title: 'Independent thought', subject: 'AI',
+    };
+  });
+  const saving = editor.save();
+  const firstId = calls[0].payload.captureId;
+  editor.note.value = 'Independent thought in the same subject';
+  finishFirst({
+    destination: 'vault', confirmed: true, id: firstId, sha: firstSha,
+    title: 'Machine learning task', subject: 'AI',
+  });
+  await saving;
+  assert.equal(editor.ctx.noteNewCapture.hidden, false);
+  assert.match(editor.ctx.noteSave.textContent, /Update saved GitHub Note/);
+
+  editor.startNew();
+  assert.equal(editor.note.value, 'Independent thought in the same subject');
+  assert.equal(editor.ctx.pendingSavedUpdate, null);
+  assert.equal(editor.ctx.noteNewCapture.hidden, true);
+  assert.match(editor.ctx.noteSave.textContent, /Save to GitHub Vault/);
+  assert.match(editor.events.at(-1).message, /earlier GitHub Note is unchanged/);
+
+  await editor.save();
+  assert.deepEqual(calls.map((c) => c.action),
+    ['CREATE_VAULT_NOTE', 'CREATE_VAULT_NOTE']);
+  assert.notEqual(calls[1].payload.captureId, firstId);
+  assert.equal(calls[1].payload.subjectSlug, calls[0].payload.subjectSlug);
+  assert.equal(calls[1].payload.content, 'Independent thought in the same subject');
+  assert.equal(editor.note.value, '');
+});
+
+test('M114 cannot switch to a new Note while an update is in progress', async () => {
+  let firstDone, updateDone;
+  const calls = [];
+  const editor = await floatingEditor(async (action, payload) => {
+    calls.push({ action, payload });
+    if (action === 'CREATE_VAULT_NOTE')
+      return new Promise((resolve) => { firstDone = resolve; });
+    return new Promise((resolve) => { updateDone = resolve; });
+  });
+  const first = editor.save();
+  editor.note.value = 'Updated version';
+  firstDone({
+    destination: 'vault', confirmed: true, id: calls[0].payload.captureId,
+    sha: firstSha, title: 'Machine learning task', subject: 'AI',
+  });
+  await first;
+  const originalId = editor.ctx.pendingSavedUpdate.id;
+  const update = editor.save();
+  editor.startNew();
+  assert.equal(editor.ctx.pendingSavedUpdate.id, originalId);
+  updateDone({
+    destination: 'vault', confirmed: true, id: originalId,
+    sha: secondSha, title: 'Updated version', subject: 'AI',
+  });
+  await update;
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].action, 'UPDATE_VAULT_NOTE');
+});
+
+test('M114 separate Note option is visible only for the subject of unsaved edits', async () => {
+  const calls = [];
+  let done;
+  const editor = await floatingEditor(async (action, payload) => {
+    calls.push({ action, payload });
+    return new Promise((resolve) => { done = resolve; });
+  });
+  const first = editor.save();
+  editor.note.value = 'Unsaved edits to a saved Note';
+  done({
+    destination: 'vault', confirmed: true,
+    id: calls[0].payload.captureId, sha: firstSha,
+    title: 'Machine learning task', subject: 'AI',
+  });
+  await first;
+  assert.equal(editor.ctx.noteNewCapture.hidden, false);
+  const previous = editor.subjectSelect.value;
+  editor.subjectSelect.value = randomUUID();
+  editor.startNew(); // Explicit option remains safe even if subject changed.
+  assert.equal(editor.ctx.pendingSavedUpdate, null);
+  assert.equal(editor.note.value, 'Unsaved edits to a saved Note');
+  editor.subjectSelect.value = previous;
+  assert.equal(editor.ctx.noteNewCapture.hidden, true);
+});

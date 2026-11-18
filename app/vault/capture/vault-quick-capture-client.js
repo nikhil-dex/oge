@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   VAULT_CAPTURE_MAX_CHARS, vaultCaptureFields, vaultCaptureLocalKey,
-  vaultCapturePointer, vaultCaptureRecoveryText,
+  vaultCapturePointer, vaultCaptureRecoveryText, captureMatchesCommittedNote,
 } from '../../../lib/oge-vault-quick-capture.js';
 
 async function responseJson(response) {
@@ -139,14 +139,43 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         let local = null;
         try { local = sessionStorage.getItem(vaultCaptureLocalKey(ownerId, repoId, pointer)); }
         catch { /* harmless */ }
-        if (local !== null && window.confirm('Encrypted server draft unavailable. Recover local browser copy?')) {
-          setNoteId(pointer); setContent(local);
-          // Do not guess remote CAS revision. Block writes until reviewed.
-          setBlocked(true); blockedRef.current = true;
-          setStatus('Local copy preserved. Server draft revision unknown; use Vault Notes recovery.');
+        if (local !== null && window.confirm('No server draft found. Recover your browser-only note?')) {
+          // A browser pointer can outlive a successfully committed Note.
+          // Check that one UUID before offering a new Save, so an old copy
+          // cannot silently become a duplicate Note after lost cleanup.
+          let saved = null;
+          let verifiedMissing = false;
+          try {
+            const response = await fetch('/api/vault/notes-main?id=' + encodeURIComponent(pointer),
+              { cache: 'no-store' });
+            if (response.status === 404) verifiedMissing = true;
+            else if (response.ok) saved = await response.json();
+          } catch { /* GitHub may be offline; never discard the local copy. */ }
+          if (generation !== generationRef.current) return;
+          if (saved && captureMatchesCommittedNote(local, selected, pointer, saved)) {
+            // The note is already in GitHub. Remove only the confirmed
+            // duplicate browser pointer and prepare a fresh capture.
+            try {
+              sessionStorage.removeItem(vaultCapturePointer(ownerId, repoId, selected));
+              sessionStorage.removeItem(vaultCaptureLocalKey(ownerId, repoId, pointer));
+            } catch { /* GitHub is already confirmed; cleanup is best effort. */ }
+            setNoteId(crypto.randomUUID());
+            setStatus('This note was already saved to GitHub. Find it in All GitHub Notes.');
+          } else {
+            // If no server draft or GitHub commit exists, keep the same UUID.
+            // Otherwise give the recovered text a new UUID instead of
+            // overwriting an existing Note or guessing its revision.
+            setNoteId(verifiedMissing ? pointer : crypto.randomUUID());
+            setContent(local);
+            setStatus(saved
+              ? 'Recovered newer browser text as a new Note. Your earlier GitHub Note is unchanged.'
+              : verifiedMissing
+                ? 'Recovered browser text. You can keep writing and press Save.'
+                : 'Recovered browser text. Check GitHub Notes for a previous Save before committing.');
+          }
         } else {
-          // The previous pointer was stale or empty; do not silently reuse
-          // an unknown draft revision. Begin a separate new note.
+          // Empty or dismissed local recovery: prepare a separate new note.
+          // Keep any declined browser copy untouched for later recovery.
           setNoteId(crypto.randomUUID());
           setStatus('Ready to write. A single thought works, or write a title and body.');
         }

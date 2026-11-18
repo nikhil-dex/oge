@@ -204,6 +204,24 @@ This specific UI behavior now has an automated regression test, but
 remains to be verified in a real connected Chrome session. Overall
 score **8/10 implemented, 0/3 real-account journeys verified**.
 
+## M113 — Extension Save while typing should update one Note
+
+1. Type a Note in the floating Chrome widget and click **Save to GitHub
+   Vault**. While it is saving, continue typing extra details.
+2. When the earlier Save confirms, keep the newer text in the editor.
+   The message must explain that pressing Save again **updates the same
+   GitHub Note**.
+3. Click Save again. Reload the linked Note in Oge: confirm the new text
+   replaced the old Note body and **no second Note was created**.
+4. Repeat after an interrupted GitHub Update response; retry should
+   check/update the same Note ID without creating an unrelated Note.
+5. If the subject changes between Saves, treat the new subject as a
+   distinct capture and do not rewrite the earlier subject's Note.
+
+Automated simulated extension tests cover these steps; the actual
+connected Chrome/GitHub test remains **NOT RUN**. Implementation remains
+**8/10 (80%)**; real-account verification remains **0/3**.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

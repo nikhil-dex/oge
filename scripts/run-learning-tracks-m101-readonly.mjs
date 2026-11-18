@@ -15,6 +15,9 @@ import { request } from '@playwright/test';
 import {
   executeM101ReadOnlyStagingObservation, m101ReadOnlyStagingGuard,
 } from '../lib/oge-learning-track-m101-readonly-acceptance.js';
+import {
+  m102OperatorBindingEnabled, executeM102StagingOwnerBinding,
+} from '../lib/oge-learning-track-m102-owner-binding.js';
 
 const env = process.env;
 const BLOCK = () => { throw new TypeError('Unsafe M101 staging input'); };
@@ -83,6 +86,8 @@ async function redactedReport(data) {
 
 async function main() {
   if (!m101ReadOnlyStagingGuard(env)) BLOCK();
+  const doOwnerBinding = env.OGE_LEARNING_TRACK_M102_OWNER_BINDING_PREVIEW === 'true';
+  if (doOwnerBinding && !m102OperatorBindingEnabled(env)) BLOCK();
   const paths = [
     env.OGE_LEARNING_TRACK_M101_DEVICE_A_STORAGE_STATE,
     env.OGE_LEARNING_TRACK_M101_DEVICE_B_STORAGE_STATE,
@@ -113,13 +118,19 @@ async function main() {
       extraHTTPHeaders: { Origin: env.OGE_STAGING_URL },
       timeout: 15000, ignoreHTTPSErrors: false,
     });
+    const ownerBindingPath = '/api/learning-tracks/acceptance/owner-binding?run=' +
+      env.OGE_LEARNING_TRACK_M101_RUN_ID;
+    const allowedPaths = [
+      '/api/learning-tracks',
+      '/api/learning-tracks/note-links?trackId=' + env.OGE_LEARNING_TRACK_M101_TRACK_ID,
+      '/api/learning-tracks/note-links?mode=verify&trackId=' +
+        env.OGE_LEARNING_TRACK_M101_TRACK_ID + '&videoId=' +
+        env.OGE_LEARNING_TRACK_M101_VIDEO_ID,
+      ...(doOwnerBinding ? [ownerBindingPath] : []),
+    ];
     const invoke = async (slot, path) => {
       if (!['device-a', 'device-b'].includes(slot) ||
-          !['/api/learning-tracks',
-            '/api/learning-tracks/note-links?trackId=' + env.OGE_LEARNING_TRACK_M101_TRACK_ID,
-            '/api/learning-tracks/note-links?mode=verify&trackId=' +
-              env.OGE_LEARNING_TRACK_M101_TRACK_ID + '&videoId=' +
-              env.OGE_LEARNING_TRACK_M101_VIDEO_ID].includes(path)) BLOCK();
+          !allowedPaths.includes(path)) BLOCK();
       const response = await contexts[slot].get(path, {
         maxRedirects: 0, failOnStatusCode: false, timeout: 15000,
       });
@@ -137,7 +148,15 @@ async function main() {
       const data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw));
       return { status: 200, noStore: true, data };
     };
-    const report = await executeM101ReadOnlyStagingObservation({ env, invoke });
+    const executeM101 = () => executeM101ReadOnlyStagingObservation({ env, invoke });
+    // M102 adds four read-only owner/account mapping attestations bracketing
+    // M101's eight reads. Never send cookies/owner IDs in the report.
+    const report = doOwnerBinding
+      ? await executeM102StagingOwnerBinding({
+        env, invokeBinding: (slot) => invoke(slot, ownerBindingPath),
+        executeM101,
+      })
+      : await executeM101();
     await redactedReport(report);
     console.log(JSON.stringify(report, null, 2));
   } finally {

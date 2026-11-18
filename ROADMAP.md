@@ -1,5 +1,38 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #114 — Choose update or a separate Note after continued typing (18 Nov 2026)
+
+**Fix a real extension workflow trap; no new security gates or release framework.**
+
+- **User problem:** M113 correctly updates the same GitHub Note when the
+  user keeps typing during Save, but there was no obvious way to take that
+  retained text and save it as a *separate* Note in the same subject.
+  Without reloading, the next Save would update the original Note.
+- **Explicit choice:** While the extension has newer, unsaved text for a
+  confirmed GitHub Note, the primary button now clearly says
+  **Update saved GitHub Note** and a secondary action offers
+  **Save this as a separate Note instead**. The latter keeps every
+  typed character, discards the pending update intent (not the GitHub
+  Note) and makes the next Save create a new Note UUID. No automatic
+  GitHub writes are triggered by selecting the action.
+- **Safe switching:** Choosing the separate Note is ignored if a Save
+  is already in flight. Subject changes hide the update choice until
+  the matching subject is selected. The existing **View last saved
+  GitHub Note** shortcut remains available.
+- **Regression coverage:** The real floating extension click logic is
+  executed in the Node VM test harness for the update path, same-subject
+  separate-Note path, and switching attempts during an in-flight Save.
+  Existing M109/M113 test harnesses now execute the actual button labels
+  and selector behavior. This validates simulated user actions, not
+  a deployed site or an authenticated Chrome profile.
+- **Readiness:** The connected browser was inaccessible in Chat mode;
+  **0/3 real-account journeys verified**. Implementation stays
+  **8/10 MVP checkpoints (80%)**, PR #35 draft/unmerged, production last.
+- **Next:** The next deliverable is a genuine signed-in owner
+  Save/reload/draft/extension/mobile acceptance run. No more cosmetic or
+  security milestones merely to raise the number.
+
+
 ## Milestone #113 — Continue editing the same extension Note after Save (18 Nov 2026)
 
 **Practical Notes workflow fix, no extra security or approval milestones.**

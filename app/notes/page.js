@@ -637,8 +637,15 @@ export default function NotesPage({
       // POST that conflicts with the already-created file.
       if (hybridDrafts && vaultMode &&
           JSON.stringify(liveEditorRef.current) !== submittedEditor) {
-        const followup = stageVaultFollowupSave(notes, note);
-        setNotes((existing) => stageVaultFollowupSave(existing, note).notes);
+        const followup = stageVaultFollowupSave(notes, note, liveEditorRef.current);
+        setNotes((existing) => mergeRecentVaultNotes(existing, [note]));
+        // A fast reload before the next 700 ms autosave still needs the
+        // browser-only newer text, now tied to this committed GitHub SHA.
+        // Never erase it if sessionStorage is disabled.
+        try {
+          window.sessionStorage.setItem(hybridKey(note.id),
+            JSON.stringify({ draft: followup.pendingDraft }));
+        } catch { /* Keep the active editor and retry draft autosave. */ }
         setEditingId(followup.editingId);
         setNewDraftId(followup.newDraftId);
         editorInitialRef.current = followup.baseline;

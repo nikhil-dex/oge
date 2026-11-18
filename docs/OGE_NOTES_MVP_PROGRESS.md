@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 18 November 2026, after milestone #116 code changes.**
+**Updated 19 November 2026, after milestone #117 code changes.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -201,6 +201,23 @@ different revisions and source integration. **No real signed-in GitHub
 or Chrome acceptance was possible from this conversation.** The
 score remains **8/10 implementation checkpoints (80%)** and
 **0/3 independently verified live journeys**; no production release.
+
+## Milestone #117 — Clean up the submitted temporary draft after a confirmed Save
+
+After #116, a confirmed GitHub Save with newer text correctly kept
+the editor in **edit the same Note** mode. However, its original
+temporary MongoDB draft could still appear as an unfinished *new*
+Note. M117 now confirms the **previously submitted** revision through
+the existing GitHub-verified draft reconciliation endpoint and retires
+it without deleting the newer browser text. On success the next
+autosave starts a fresh revision against the committed GitHub SHA.
+If cleanup fails, both newer text and the prior temporary draft
+revision remain intact, with a clear pending-cleanup status.
+
+Simulated cleanup tests verify success, interruption, conflict and
+no-server-draft paths. This is **not** independently verified against
+a real signed-in GitHub account: **8/10 implementation checkpoints
+(80%)**, **0/3 live connected-account journeys**, no production release.
 
 ## The three mandatory live journeys
 

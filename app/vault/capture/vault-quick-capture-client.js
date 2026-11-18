@@ -141,12 +141,16 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
           setBlocked(true); blockedRef.current = true;
           setStatus('Local copy preserved. Server draft revision unknown; use Vault Notes recovery.');
         } else {
-        // The first-time flow should be immediately writable after choosing
-        // a subject; no extra "New capture" click is necessary.
+          // The previous pointer was stale or empty; do not silently reuse
+          // an unknown draft revision. Begin a separate new note.
+          setNoteId(crypto.randomUUID());
+          setStatus('Ready to write. Your first line becomes the title.');
+        }
+      } else {
+        // A fresh subject with no pending draft should be writable immediately.
         setNoteId(crypto.randomUUID());
         setStatus('Ready to write. Your first line becomes the title.');
       }
-      } else setStatus('Start a new capture to write.');
     } catch {
       if (generation === generationRef.current) {
         setError('Server draft recovery unavailable. No existing draft was overwritten.');

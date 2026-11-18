@@ -276,6 +276,26 @@ These sequences have scripted provider and source tests, but still
 require actual connected-account verification. Overall score:
 **8/10 built, 0/3 live journeys independently passed**.
 
+## M117 — No stale new-Note draft after continued typing during Save
+
+1. Start a new GitHub Note and wait for its temporary autosave.
+2. Click Save, then type additional text while GitHub commits the
+   submitted version.
+3. When the first Save confirms, ensure the editor stays open with
+   the newer text, and the app is ready to **update that same Note**.
+4. Open **New Note** after safely leaving the editor. The already-
+   committed first version should not be offered as an unfinished
+   *new* Note to restore. The newer unsaved text must remain recoverable
+   from the original committed Note.
+5. Repeat with temporary draft cleanup interrupted. A failure must
+   not delete newer text or claim it successfully cleared the draft.
+6. Press Save again and reload the original Note; the final text
+   should survive with the **same GitHub Note ID**.
+
+Synthetic tests cover reconciliation outcomes and actual UI wiring.
+Live connected GitHub/Chrome validation is **NOT RUN**. Progress
+remains **8/10 built, 0/3 live journeys verified**.
+
 ## Explicitly not doing next
 
 Do not add new physical-device attestation, HMAC chains, cryptographic report

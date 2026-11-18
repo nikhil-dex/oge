@@ -33,6 +33,10 @@ test('M106 existing committed Note, new unsaved Note and confirmed save are dist
   assert.equal(feedback({
     message: 'Note saved to GitHub successfully.', editingId: 'saved-note',
   }).kind, 'saved');
+  assert.equal(feedback({
+    message: 'The submitted revision was saved to GitHub. Newer edits are still in this editor.',
+    changed: true,
+  }).kind, 'draft');
   assert.match(feedback({ changed: true }).label, /Unsaved changes/);
   assert.equal(noteEditorFeedback({ vaultMode: false, changed: true }).kind, 'draft');
 });
@@ -53,6 +57,9 @@ test('M106 editor has visible reliable Save status, word count and sticky mobile
   assert.match(ui, /className=\{'oge-editor-feedback oge-editor-feedback--'/);
   assert.match(ui, /ref=\{headingRef\}/);
   assert.match(ui, /requestAnimationFrame\(\(\) => headingRef\.current\?\.focus\(\)\)/);
+  assert.ok(ui.includes('setEditorBaseline({'));
+  assert.ok(ui.includes('changed: Boolean(editorBaseline &&'));
+  assert.ok(ui.includes('onClick={() => editNote(readerNote)}'));
   assert.match(ui, /oge-editor-save-footer/);
   assert.match(ui, /Save to GitHub/);
   assert.match(ui, /Temporary draft only — not yet committed/);

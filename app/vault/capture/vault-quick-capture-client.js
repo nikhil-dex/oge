@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   VAULT_CAPTURE_MAX_CHARS, vaultCaptureFields, vaultCaptureLocalKey,
-  vaultCapturePointer, vaultCaptureRecoveryText, captureMatchesCommittedNote,
+  vaultCapturePointer, vaultCaptureRecoveryText, resolveBrowserOnlyCapture,
 } from '../../../lib/oge-vault-quick-capture.js';
 
 async function responseJson(response) {
@@ -152,24 +152,25 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
             else if (response.ok) saved = await response.json();
           } catch { /* GitHub may be offline; never discard the local copy. */ }
           if (generation !== generationRef.current) return;
-          if (saved && captureMatchesCommittedNote(local, selected, pointer, saved)) {
-            // The note is already in GitHub. Remove only the confirmed
-            // duplicate browser pointer and prepare a fresh capture.
+          const recovery = resolveBrowserOnlyCapture({
+            pointer, subjectId: selected, text: local, saved,
+            verifiedMissing, newId: crypto.randomUUID(),
+          });
+          if (recovery.alreadySaved) {
+            // Only an exact confirmed GitHub Note is enough to clear the
+            // duplicate browser copy. The actual Note stays on GitHub.
             try {
               sessionStorage.removeItem(vaultCapturePointer(ownerId, repoId, selected));
               sessionStorage.removeItem(vaultCaptureLocalKey(ownerId, repoId, pointer));
-            } catch { /* GitHub is already confirmed; cleanup is best effort. */ }
-            setNoteId(crypto.randomUUID());
+            } catch { /* Local cleanup is best effort. */ }
+            setNoteId(recovery.noteId);
             setStatus('This note was already saved to GitHub. Find it in All GitHub Notes.');
           } else {
-            // If no server draft or GitHub commit exists, keep the same UUID.
-            // Otherwise give the recovered text a new UUID instead of
-            // overwriting an existing Note or guessing its revision.
-            setNoteId(verifiedMissing ? pointer : crypto.randomUUID());
-            setContent(local);
+            setNoteId(recovery.noteId);
+            setContent(recovery.text);
             setStatus(saved
               ? 'Recovered newer browser text as a new Note. Your earlier GitHub Note is unchanged.'
-              : verifiedMissing
+              : recovery.reuseId
                 ? 'Recovered browser text. You can keep writing and press Save.'
                 : 'Recovered browser text. Check GitHub Notes for a previous Save before committing.');
           }

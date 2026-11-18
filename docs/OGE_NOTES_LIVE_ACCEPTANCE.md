@@ -21,10 +21,14 @@ Green CI verifies code tests, not this live journey.
 2. Add a subject, create a Note with a title and body, then press
    **Save to GitHub** or ⌘/Ctrl+Enter.
 3. Reload the page and confirm the Note appears with identical text.
-4. Open it, choose **Edit note**, update its body and Save.
-5. Reload again, verify the updated text, and inspect the private GitHub
+4. Repeat with a slow first Save: type additional words while the
+   request is pending, then press Save again and confirm GitHub updates
+   **the same Note ID** without a duplicate or 409 conflict. Retry
+   with an existing Note and a fast reload to check newer browser text.
+5. Open it, choose **Edit note**, update its body and Save.
+6. Reload again, verify the updated text, and inspect the private GitHub
    repository to confirm the file exists.
-6. Confirm that the corresponding content was not inserted permanently
+7. Confirm that the corresponding content was not inserted permanently
    into MongoDB's legacy `notes` collection.
 
 **Pass only if** the committed text survives the full reload and edit cycle.

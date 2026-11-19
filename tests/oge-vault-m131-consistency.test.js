@@ -21,3 +21,12 @@ test('Extension documents Quick Notes as its default destination', () => {
   assert.match(guide, /Quick Notes\*\* is the default destination/);
   assert.match(guide, /Selecting an existing subject saves a regular Note/);
 });
+
+test('GitHub standalone pages never fall back to MongoDB routes', () => {
+  for (const page of ['quick-notes', 'airnotes']) {
+    const source = readFileSync(new URL('../app/' + page + '/page.js', import.meta.url), 'utf8');
+    assert.match(source, /if \(!vaultCaptureAvailable\(account\)\) redirect\('\/vault\?setup=onboarding'\)/);
+    assert.match(source, /if \(account\.notesStorage !== 'mongodb'\)/);
+    assert.match(source, /if \(!account\) redirect\('\/register'\)/);
+  }
+});

@@ -107,7 +107,7 @@ test('M69 client reuses existing temporary encrypted draft CAS and one explicit 
   assert.match(client, /\/api\/vault\/drafts\?id=/);
   assert.match(client, /&confirm=true&revision=/);
   assert.match(client, /method: 'POST', cache: 'no-store'/);
-  assert.match(client, /completeStagingAcceptanceSignedOff|No automatic GitHub pushes/);
+  assert.match(client, /Check GitHub Save \(read-only\)/);
   assert.doesNotMatch(client,
     /\/api\/quick-notes|\/api\/personal-quick-notes|\/api\/extension\/quick-note/);
   assert.doesNotMatch(client,

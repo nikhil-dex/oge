@@ -39,7 +39,13 @@ export async function GET() {
   }
 }
 
+const WEB_QUICK_NOTE_WRITES_ALLOWED = false;
+
 export async function POST(request) {
+  // Quick Notes are extension-only captures. The website can list and
+  // delete, but cannot create or edit, even with direct API requests.
+  if (!WEB_QUICK_NOTE_WRITES_ALLOWED)
+    return json({ error: 'Save new Quick Notes using the Oge browser extension.' }, 405);
   const parsed = await readJson(request);
   if (parsed.error) return parsed.error;
   if (typeof parsed.data?.content !== 'string') return json({ error: 'Quick note content must be text.' }, 400);
@@ -71,6 +77,8 @@ export async function POST(request) {
 }
 
 export async function PUT(request) {
+  if (!WEB_QUICK_NOTE_WRITES_ALLOWED)
+    return json({ error: 'Quick Notes are read-only in the app. Use the extension to capture.' }, 405);
   const parsed = await readJson(request);
   if (parsed.error) return parsed.error;
   const id = parsed.data?.id;

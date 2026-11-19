@@ -23,7 +23,7 @@ export default async function HomePage() {
   const session = await auth();
   if (!session?.user?.id) redirect('/register');
   const db = await getDatabase();
-  const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1, vault: 1 } });
+  const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1, vault: 1, notesStorage: 1 } });
   if (!account?.onboardingComplete) redirect('/onboarding');
   // Once GitHub Notes is enabled for a connected owner, the main Notes card
   // should open the actual GitHub-backed editor, not the older MongoDB UI.
@@ -32,8 +32,11 @@ export default async function HomePage() {
     Number.isSafeInteger(account.vault.repoId) &&
     Number.isSafeInteger(account.vault.installationId) &&
     account.vault.repoId > 0 && account.vault.installationId > 0;
-  const notesHref = vaultNotesReady ? '/vault/notes' : '/notes';
-  const captureReady = vaultNotesReady &&
+  const notesHref = account.notesStorage === 'github'
+    ? (vaultNotesReady ? '/vault/notes' : '/vault?setup=onboarding')
+    : account.notesStorage === 'mongodb' ? '/notes'
+      : vaultNotesReady ? '/vault/notes' : '/notes';
+  const captureReady = account.notesStorage !== 'mongodb' && vaultNotesReady &&
     process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
   const visibleModules = [
     ...modules,

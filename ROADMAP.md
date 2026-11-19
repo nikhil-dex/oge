@@ -1,5 +1,18 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #131 — Consistency repairs (in progress, 19 Nov 2026)
+
+**Goal:** Repair existing user-facing mismatches with minimal changes, rather than expand the architecture.
+
+- **Fixed:** GitHub Vault owners no longer see homepage links to MongoDB-only Revision and Revision History pages. The per-note GitHub revision API is preserved, and full Vault revision-page integration remains pending.
+- **Fixed:** The extension README now explains extension-only Quick Notes capture (default destination) and subject-selected regular Notes.
+- **Fixed:** My Files native sharing sends the actual downloaded file when supported; otherwise the fallback downloads the file for manual attachment instead of copying a private signed-in URL.
+- **Added:** Small regression tests covering these behavior contracts.
+- **Still open, high priority:** Full backup/export and restore of Saved Links and My Files. Do not claim JSON resource backups include these.
+- **Still open:** Consolidate feature availability checks, then reduce AirNotes GitHub autosave commits, harmonize navigation and show capacity warnings.
+- **Release:** Keep PR #35 draft and do not deploy until CI and real-account flows are verified.
+
+
 ## Milestone #130 — Upload any file type to GitHub Vault My Files (19 Nov 2026)
 
 **User request:** Now that files live in each user's private repository, remove the old OgeNotes Vercel Blob-specific restriction that allowed only PDF, ZIP, JPEG, PNG and WebP.

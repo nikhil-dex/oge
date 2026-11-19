@@ -1,5 +1,16 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #120 — Add a Note first-use subject onboarding (19 Nov 2026)
+
+**Reported bug:** In `/notes` (including the GitHub-backed editor), both **Add a note** buttons appeared dead to a new user because they were silently disabled with `disabled={!activeSubject}` until a subject existed or was selected.
+
+- Both Add a note buttons are now interactive even with zero subjects.
+- If no subject is selected, clicking Add a note opens the existing **Add subject** form, focuses the subject-name field, and explains why the subject is required. No Notes write occurs before a subject exists.
+- If the user successfully creates a subject from this flow, Oge selects it and automatically opens the familiar Notes editor. Cancel clears the pending action.
+- Existing subject selection, optional MongoDB storage, GitHub Vault storage, editor validations and manual Save semantics stay unchanged. No auto-created subjects or hidden storage fallback.
+- Added regression tests for both clickable buttons, guided subject creation, focus, automatically opening the editor, cancel and unchanged GitHub Notes backend.
+- Practical MVP progress stays **8/10 (80%) implemented**, **0/3 independently proven connected-account live journeys**. Real browser acceptance pending, merge/deployment still last.
+
 ## Milestone #119 — Actionable GitHub Vault connection from Settings (19 Nov 2026)
 
 **User-reported blocker:** The Vault screen showed installation/authorization/repository steps without a visible way to start when GitHub App configuration was incomplete. Settings also had no GitHub Vault connection section.

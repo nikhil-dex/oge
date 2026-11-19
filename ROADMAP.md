@@ -1,5 +1,16 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #119 — Actionable GitHub Vault connection from Settings (19 Nov 2026)
+
+**User-reported blocker:** The Vault screen showed installation/authorization/repository steps without a visible way to start when GitHub App configuration was incomplete. Settings also had no GitHub Vault connection section.
+
+- Settings now has **GitHub Vault connection** status and a **Set up GitHub Vault** / **Manage my connected GitHub Vault** action, linking to the existing connection workflow.
+- The Vault screen shows distinct actions in order: **Install the GitHub App** (the validated server-configured install URL, if present), **Connect GitHub & create my Vault** (real form POST to `/api/vault/start`, if configured), and an explanation that private repository creation is automatic after GitHub authorization.
+- If required server-side GitHub App configuration is missing, the connection button is clearly disabled and explains that the operator must configure the integration. A GitHub App setup guide is linked. No fake success or nonworking OAuth action is shown. If the installation link is missing, the page says so rather than pretending installation is possible.
+- This reuses the existing signed OAuth state, server-side Vault provisioning and owner/repository verification. No new credentials or backend storage paths, no migration or destructive operation.
+- CI tests check Settings navigation, real form action, disabled/unconfigured state, installation link wiring and configured-versus-missing prerequisite behavior.
+- **Progress remains the practical Notes MVP's 8/10 implemented (80%)**, pending 0/3 real owner-connected acceptance journeys and production cutover. GitHub App environment configuration and real account interaction still need independent confirmation.
+
 ## Milestone #118 — Choose Notes storage during first-run onboarding (19 Nov 2026)
 
 **Requested product behavior:** New users choose **Oge Cloud (MongoDB)** or **Oge Vault (GitHub)** on the same onboarding screen as news interests. Both choices clearly explain their capabilities and trade-offs. This is a Notes content-storage choice, not an authentication-provider choice: account, subjects and preferences still use MongoDB either way.

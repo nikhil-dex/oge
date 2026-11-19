@@ -94,7 +94,7 @@ export default function QuickNotesPanel({
   return (
     <section className={'quick-notes-section' + (fullPage ? ' quick-notes-full-page' : '')}
       aria-labelledby="quick-notes-heading">
-      {fullPage && <SiteNavbar />}
+      {fullPage && <SiteNavbar showFiles={vaultBacked} notesHref={vaultBacked ? '/vault/notes' : '/notes'} />}
       <div className="quick-notes-heading-row">
         <div>
           <p className="eyebrow">{fullPage ? 'CAPTURE IT BEFORE YOU FORGET' : 'THOUGHTS, REMINDERS & IDEAS'}</p>
@@ -102,6 +102,7 @@ export default function QuickNotesPanel({
           <p className="quick-notes-lead">Your notes saved from the browser extension.</p>
         </div>
       </div>
+      {vaultBacked && notes.length >= 270 && !loading && <p className="quick-notes-feedback" role="status">{notes.length}/300 Quick Notes used. {notes.length >= 300 ? "Delete old captures to make room." : "Approaching capacity."}</p>}
       {(error || message) &&
         <p className={'quick-notes-feedback' + (error ? ' is-error' : '')}
           role={error ? 'alert' : 'status'}>{error || message}</p>}

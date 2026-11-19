@@ -11,6 +11,17 @@
 - Updated existing UI copy tests and added regression coverage. Storage, authentication, GitHub writes, MongoDB drafts and extension behavior are not changed.
 - Notes MVP remains **8/10 (80%) implemented**, connected-account browser tests not fully accepted and deployment pending.
 
+## Milestone #125 — Original Oge Notes UI for GitHub Vault users (19 Nov 2026)
+
+**User feedback:** Vault Notes showed surplus preview/Vault navigation, special GitHub save labels and draft-storage explanation instead of the regular Oge Notes layout. The storage provider should not change the everyday editor design.
+
+- The older B3 `/vault/preview` page now redirects a verified connected account to the existing familiar `/vault/notes` workspace when `OGE_VAULT_MAIN_PREVIEW=true`. It no longer displays its experimental header/footer, return link, or alternative Sync/Save UI in this normal-user flow.
+- The Vault dashboard exposes only `Open My Notes` when the familiar Notes workspace is enabled; it no longer shows an additional `Open GitHub-only Notes preview` action. The older B3 source remains separately gated for legacy testing only.
+- The familiar Notes page now shows the same primary **Add a note** action regardless of backend, rather than adding an extra GitHub-only Quick Capture button beside it. Quick Capture remains available via its existing dedicated route/home entry.
+- Save button is unchanged and standard: **Save note**, **Save changes**, **Saving…**. GitHub Vault Notes continues to use `/api/vault/notes-main`; MongoDB Notes continues to use `/api/notes`. Draft autosave and manual commit semantics remain unchanged.
+- New regressions cover redirect, navigation, familiar header/footer, standard Save labels, preserved GitHub-only adapter and Quick Capture.
+- **Practical MVP progress:** Notes implementation **8/10 (80%)**; live authenticated acceptance checklist still pending. PR #35 remains draft and deployment last.
+
 ## Milestone #124 — Hide premature YouTube Learning Tracks option from extension (19 Nov 2026)
 
 **User feedback:** The floating Chrome extension showed a YouTube **Tracks** action despite the full Learning Track roadmap not being launched as a regular user-facing feature.

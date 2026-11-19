@@ -27,7 +27,8 @@ test('M104 Notes navigation stays in GitHub workspace; legacy users keep classic
   assert.match(navbar, /link\.href === '\/notes' \? notesHref : link\.href/);
   assert.match(navbar, /href=\{href\}/);
   assert.match(notes, /<SiteNavbar notesHref=\{vaultMode \? '\/vault\/notes' : '\/notes'\}/);
-  assert.match(notes, /vaultMode && hybridDrafts && <Link className="add-button" href="\/vault\/capture"/);
+  assert.doesNotMatch(notes, /className="add-button" href="\/vault\/capture"/);
+  assert.match(notes, /<button className="add-button" type="button" onClick=\{\(\) => openNewNote\(\)\}/);
   assert.match(page, /<NotesPage notesApi="\/api\/vault\/notes-main" vaultMode/);
 });
 

@@ -8,6 +8,7 @@
 - Explicit MongoDB users keep their existing Saved Links experience; connected Vaults never override an explicit Oge Cloud preference. First-run unselected GitHub setup does not silently fall back to MongoDB.
 - GitHub collection is versioned JSON with existing title, URL, description, category, tags and order. It uses GitHub's file SHA to refuse concurrent overwrites and re-reads the resulting private file before confirming Save.
 - Browser's new-link UUID is stable across a failed/unconfirmed Save, so retrying the same link does not create a duplicate; UI reports the active storage provider.
+- The Chrome extension's `/api/extension/save-link` also routes Save Link to the owner's private GitHub Vault when selected, after validating its extension token, and preserves MongoDB behavior for explicit Oge Cloud users. Social profile links remain account preferences.
 - Previously saved MongoDB links remain unchanged and are NOT automatically copied into the GitHub file, to avoid silent migration or deletion. An explicit import/export migration can follow later if requested.
 - Existing GitHub-backed Notes/Quick Capture flow is preserved; account, subject, login and learning-track metadata stay in MongoDB. File uploads/attachments and import backups still do not include Saved Links.
 - Added synthetic GitHub-provider tests for full Saved Links CRUD/reordering, retry idempotency, stale SHA conflicts and storage routing. No live owner-account GitHub Saved Links verification yet.

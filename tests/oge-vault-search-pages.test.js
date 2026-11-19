@@ -119,7 +119,7 @@ test('M105 GitHub Notes UI searches unloaded pages without modifying storage or 
   const api = await readFile(new URL('../app/api/vault/notes-main/route.js', import.meta.url), 'utf8');
   assert.match(ui, /import \{ loadVaultSearchPages \} from/);
   assert.match(ui, /notesApi \+ '\?paged=true&limit=25&cursor='/);
-  assert.match(ui, /Search remaining GitHub Notes/);
+  assert.match(ui, /Search all notes/);
   assert.match(ui, /Stop search/);
   assert.match(ui, /No matches in loaded notes yet/);
   assert.match(ui, /All GitHub Notes loaded/);

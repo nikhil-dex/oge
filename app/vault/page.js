@@ -4,6 +4,8 @@ import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import { vaultConfigured } from '../../lib/oge-vault-github.js';
+import { vaultNotesAvailable, vaultCaptureAvailable } from '../../lib/oge-vault-workspace-routing.js';
+import { githubVaultFilesEnabled } from '../../lib/oge-vault-media-validation.js';
 import { checkVaultStagingReadiness } from '../../lib/oge-vault-staging-preflight.js';
 import { vaultRecoveryCenterStagingAllowed } from '../../lib/oge-vault-recovery-center.js';
 import SiteNavbar from '../components/site-navbar';
@@ -43,7 +45,7 @@ export default async function VaultPage({ searchParams }) {
   const configured = vaultConfigured();
   const recoveryCenterVisible = vaultRecoveryCenterStagingAllowed(process.env);
   const previewEnabled = process.env.OGE_VAULT_NOTE_API_PREVIEW === 'true';
-  const mainPreviewEnabled = process.env.OGE_VAULT_MAIN_PREVIEW === 'true';
+  const mainPreviewEnabled = vaultNotesAvailable(user);
   const standaloneEditorVisible =
     process.env.OGE_VAULT_STANDALONE_EDITOR_PREVIEW === 'true' &&
     process.env.OGE_VAULT_STANDALONE_PREVIEW === 'true' &&
@@ -68,8 +70,7 @@ export default async function VaultPage({ searchParams }) {
     process.env.AUTH_URL === process.env.OGE_STAGING_URL &&
     /^oge_vault_restore_staging_[a-zA-Z0-9_]{1,36}$/.test(process.env.MONGODB_DB || '') &&
     checkVaultStagingReadiness(process.env).ok;
-  const capturePreviewEnabled = mainPreviewEnabled &&
-    process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
+  const capturePreviewEnabled = vaultCaptureAvailable(user);
   // M62 staging-only owner workflow; never link from production.
   const restoreStagingVisible =
     process.env.OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW === 'true' &&
@@ -118,7 +119,7 @@ export default async function VaultPage({ searchParams }) {
             {previewEnabled && !mainPreviewEnabled &&
               <Link className="oge-primary-link" href="/vault/preview">Open legacy Notes preview →</Link>}
             {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open My Notes →</Link>}
-            {user.notesStorage !== 'mongodb' &&
+            {githubVaultFilesEnabled(user) &&
               <Link className="oge-primary-link" href="/files">Open My Files →</Link>}
             {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Write a Quick Note →</Link>}
             {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}

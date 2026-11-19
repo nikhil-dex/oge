@@ -8,6 +8,7 @@ import { checkOwnerMutationLimit, rateLimitResponse } from '../../../../lib/rate
 import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import {
   githubVaultFilesEnabled, isValidMediaId, VAULT_MEDIA_CHUNK_BYTES,
+  canPreviewMediaFile,
   MAX_MEDIA_CHUNKS,
 } from '../../../../lib/oge-vault-media-validation.js';
 import {
@@ -80,10 +81,14 @@ async function boundedBinary(request) {
 }
 function contentHeaders(file, start, end, isRange, download) {
   const safeName = file.name.replace(/[^\x20-\x7E]|["\\\r\n]/g, '_') || 'download';
+  // Never serve HTML, SVG, JS, text, or another arbitrary upload as
+  // active same-origin content. Only verified PDF and raster formats
+  // may be previewed; everything else is a binary attachment.
+  const previewable = canPreviewMediaFile(file);
   const headers = {
-    'Content-Type': file.type,
+    'Content-Type': previewable ? file.type : 'application/octet-stream',
     'Content-Length': String(end - start + 1),
-    'Content-Disposition': (download || file.type === 'application/zip'
+    'Content-Disposition': (download || !previewable
       ? 'attachment; filename="' : 'inline; filename="') + safeName + '"',
     'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff',

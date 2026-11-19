@@ -92,3 +92,15 @@ test('Home only renders the Quick Notes inbox when its selected API is available
   assert.match(home, /\{showQuickNotes && <section/);
   assert.match(home, /const quickNotesApi = captureReady \?/);
 });
+
+test('Settings selects GitHub Vault backup UI instead of MongoDB import/export', () => {
+  const page = readFileSync(new URL('../app/settings/page.js', import.meta.url), 'utf8');
+  const client = readFileSync(new URL('../app/settings/settings-client.js', import.meta.url), 'utf8');
+  assert.match(page, /githubVaultSelected=\{user\.notesStorage === 'github'\}/);
+  assert.match(client, /\{githubVaultSelected \? \(/);
+  assert.match(client, /Open GitHub Vault backup options/);
+  assert.match(client, /Code → Download ZIP/);
+  assert.match(client, /not yet available in Oge/);
+  assert.match(client, /href="\/api\/backup"/);
+  assert.match(client, /Restore from backup/);
+});

@@ -182,7 +182,7 @@ export default function SavedLinksPage() {
 
   return (
     <main className="shell saved-links-shell">
-      <SiteNavbar />
+      <SiteNavbar showFiles={storage === 'github'} notesHref={storage === 'github' ? '/vault/notes' : '/notes'} />
       <section className="saved-links-hero">
         <div>
           <p className="eyebrow">YOUR PERSONAL LINK LIBRARY</p>

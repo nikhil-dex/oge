@@ -33,7 +33,8 @@ test('GitHub standalone pages never fall back to MongoDB routes', () => {
 
 test('Vault settings offers complete GitHub repository ZIP instructions', () => {
   const page = readFileSync(new URL('../app/vault/page.js', import.meta.url), 'utf8');
-  assert.match(page, /Code → Download ZIP/);
+  assert.match(page, /Download complete Vault ZIP/);
+  assert.match(page, /href="\/api\/vault\/backup-zip"/);
   assert.match(page, /including Saved Links and My Files/);
   assert.match(page, /not an Oge one-click restore/);
 });
@@ -98,9 +99,21 @@ test('Settings selects GitHub Vault backup UI instead of MongoDB import/export',
   const client = readFileSync(new URL('../app/settings/settings-client.js', import.meta.url), 'utf8');
   assert.match(page, /githubVaultSelected=\{user\.notesStorage === 'github'\}/);
   assert.match(client, /\{githubVaultSelected \? \(/);
-  assert.match(client, /Open GitHub Vault backup options/);
-  assert.match(client, /Code → Download ZIP/);
+  assert.match(client, /Download Vault ZIP/);
+  assert.match(client, /href="\/api\/vault\/backup-zip"/);
   assert.match(client, /not yet available in Oge/);
   assert.match(client, /href="\/api\/backup"/);
   assert.match(client, /Restore from backup/);
+});
+
+test('Direct ZIP backup route checks signed owner and uses GitHub default branch', () => {
+  const route = readFileSync(new URL('../app/api/vault/backup-zip/route.js', import.meta.url), 'utf8');
+  assert.match(route, /await auth\(\)/);
+  assert.match(route, /ownerMutationFilter\(ownerId, \{ sessionVersion \}\)/);
+  assert.match(route, /githubVaultFilesEnabled\(account\)/);
+  assert.match(route, /getVaultNoteClient\(db, \{ ownerId, sessionVersion \}, \{ readOnly: true \}\)/);
+  assert.match(route, /client\.branch/);
+  assert.match(route, /archive\/refs\/heads\//);
+  assert.match(route, /Cache-Control/);
+  assert.doesNotMatch(route, /\/api\/backup['"]/);
 });

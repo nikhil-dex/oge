@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #121 GitHub Save troubleshooting.**
+**Updated 19 November 2026, after milestone #122 GitHub branch PATCH fix.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,29 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #122 — Fix GitHub Notes Save failing after connected Vault
+
+A real local test reported `POST /api/vault/notes-main` returning
+503 after the user had successfully connected Vault; temporary draft
+PUT and read-only confirmation requests returned HTTP 200.
+
+The root-cause code defect is the wrong GitHub branch-update endpoint:
+**GET** uses `/git/ref/heads/{branch}`, while **PATCH** must use
+`/git/refs/heads/{branch}`. The shared batch writer incorrectly used
+singular `ref` for the PATCH request. GitHub rejects that endpoint
+and the Note's new commit remains off the current branch, which Oge
+reported as an unconfirmed Save. M122 now calls the correct plural
+PATCH endpoint and retains the correct singular GET endpoint for
+before/after verification. Mock provider tests now enforce these
+distinct paths and check a complete single-Note commit.
+
+A 200 response from `/api/vault/drafts?confirm=true` only describes
+the HTTP request; only its `confirmed: true` body proves that specific
+draft revision reached the selected branch. The owner should confirm
+a newly saved Note on GitHub after pulling the fix. This is a
+**source-verified bug fix, not a live connected-account acceptance pass**.
+MVP **8/10 (80%)**, live journeys **0/3**, no production merge.
 
 ## Milestone #121 — User-reported GitHub Save failure
 

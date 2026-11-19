@@ -60,6 +60,8 @@ export default function NotesPage({
   const [tagsText, setTagsText] = useState('');
   const [subjectName, setSubjectName] = useState('');
   const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const subjectInputRef = useRef(null);
+  const createNoteAfterSubjectRef = useRef(false);
   const [subjectSaving, setSubjectSaving] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -423,7 +425,16 @@ export default function NotesPage({
     draftStatus, hybridError, error, message,
   });
 
-  function openNewNote() {
+  function openNewNote(subjectId = activeSubject) {
+    if (!subjectId) {
+      // The Notes editor requires a subject, but the action must remain
+      // clickable and explain what is missing instead of silently disabling.
+      createNoteAfterSubjectRef.current = true;
+      setShowSubjectForm(true);
+      setError('');
+      setMessage('Create a subject below. Your new Note will open automatically.');
+      return;
+    }
     const generation = ++hybridGenerationRef.current;
     setNewDraftId('');
     setHybridReady(!hybridDrafts);
@@ -444,7 +455,7 @@ export default function NotesPage({
     setAnswerFullscreen(false);
     setDraftStatus('');
     setNoteDialog(true);
-    if (hybridDrafts) void recoverNewHybridDraft(activeSubject, generation);
+    if (hybridDrafts) void recoverNewHybridDraft(subjectId, generation);
   }
 
   function editNote(note) {
@@ -901,6 +912,12 @@ export default function NotesPage({
     }
   }
 
+  useEffect(() => {
+    if (!showSubjectForm) return undefined;
+    const frame = window.requestAnimationFrame(() => subjectInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [showSubjectForm]);
+
   async function createSubject(event) {
     event.preventDefault();
     if (subjectSaving) return;
@@ -915,7 +932,12 @@ export default function NotesPage({
       setSubjectName('');
       setShowSubjectForm(false);
       await load(subject.slug);
-      setMessage('Subject created.');
+      if (createNoteAfterSubjectRef.current) {
+        createNoteAfterSubjectRef.current = false;
+        openNewNote(subject.slug);
+      } else {
+        setMessage('Subject created.');
+      }
     } catch (err) {
       setError(err.message || 'Could not create the subject.');
     } finally {
@@ -1040,14 +1062,20 @@ export default function NotesPage({
             </button>
           </span>
         ))}
-        <button type="button" className="subject-add" onClick={() => setShowSubjectForm((value) => !value)} aria-expanded={showSubjectForm}>＋ Add subject</button>
+        <button type="button" className="subject-add" onClick={() => {
+          if (showSubjectForm) createNoteAfterSubjectRef.current = false;
+          setShowSubjectForm((value) => !value);
+        }} aria-expanded={showSubjectForm}>＋ Add subject</button>
       </nav>
 
       {showSubjectForm && (
         <form className="subject-create-form" onSubmit={createSubject}>
-          <input value={subjectName} onChange={(event) => setSubjectName(event.target.value)} placeholder="New subject name" maxLength={60} required aria-label="New subject name" />
+          <input ref={subjectInputRef} value={subjectName} onChange={(event) => setSubjectName(event.target.value)} placeholder="New subject name" maxLength={60} required aria-label="New subject name" />
           <button className="add-button" type="submit" disabled={subjectSaving}>{subjectSaving ? 'Adding…' : 'Add subject'}</button>
-          <button className="text-button" type="button" onClick={() => setShowSubjectForm(false)}>Cancel</button>
+          <button className="text-button" type="button" onClick={() => {
+            setShowSubjectForm(false);
+            createNoteAfterSubjectRef.current = false;
+          }}>Cancel</button>
         </form>
       )}
 
@@ -1058,7 +1086,7 @@ export default function NotesPage({
           <p className="subtitle">A clear place for the commands, concepts, and things you learn.</p>
         </div>
         <div className="intro-actions">
-          <button className="add-button" type="button" onClick={openNewNote} disabled={!activeSubject}><span>＋</span> Add a note</button>
+          <button className="add-button" type="button" onClick={() => openNewNote()}><span>＋</span> Add a note</button>
           {vaultMode && hybridDrafts && <Link className="add-button" href="/vault/capture">Quick Capture →</Link>}
         </div>
       </section>
@@ -1119,7 +1147,9 @@ export default function NotesPage({
                 : 'Try another search, or clear the filters.')
                 : vaultMode && nextNotesCursor && !globalSearch && !favoritesOnly && !selectedTag
                   ? 'Your GitHub library has more pages. Notes for this subject may be farther down.'
-                  : 'Add a note to this subject, then come back to study it.'}</p>
+                  : !activeSubject
+                    ? 'Create a subject first; it helps organize your notes. Add a note will guide you through setup.'
+                    : 'Add a note to this subject, then come back to study it.'}</p>
               {vaultMode && nextNotesCursor && !query.trim() && !globalSearch &&
                 !favoritesOnly && !selectedTag && activeSubject && <button
                   className="add-button" type="button"
@@ -1127,8 +1157,9 @@ export default function NotesPage({
                   disabled={searchScanBusy || loadingMoreNotes || saving || noteDialog}>
                   {searchScanBusy ? 'Finding…' : 'Find older Notes in this subject'}
                 </button>}
-              <button className="add-button" type="button" onClick={openNewNote}
-                disabled={!activeSubject}><span>＋</span> Add a note</button></div>}
+              <button className="add-button" type="button" onClick={() => openNewNote()}>
+                <span>＋</span> {activeSubject ? 'Add a note' : 'Create a subject to add notes'}
+              </button></div>}
         {vaultMode && <div className="oge-vault-notes-pagination">
           <p role="status">Showing {notes.length} of {totalVaultNotes ?? notes.length} GitHub notes. Search, filters and sorting apply to loaded notes. Use Search remaining GitHub Notes to include older pages.</p>
           {nextNotesCursor && <button type="button" className="add-button" onClick={() => void loadMoreVaultNotes()}

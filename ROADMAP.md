@@ -1,5 +1,16 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #122 — Correct GitHub branch PATCH endpoint for committed Notes (19 Nov 2026)
+
+**User evidence:** `POST /api/vault/notes-main` returned HTTP 503 in 5.6s, while `GET /api/vault/drafts?...confirm=true` returned HTTP 200 and `PUT /api/vault/drafts` returned HTTP 200. A 200 confirmation HTTP status alone does not prove its `confirmed` response field is true.
+
+**Confirmed code defect:** GitHub's Git References REST API reads a reference at `GET /git/ref/{ref}` (singular) but updates it using `PATCH /git/refs/{ref}` (plural). Oge's batch commit writer reused the singular GET route as the PATCH endpoint, so the new commit could be created without its branch reference being advanced. The app then correctly reported `vault-commit-unconfirmed` as HTTP 503 instead of falsely saying Saved.
+
+- Fixed `lib/oge-vault-batch.js`: read and verification stay at singular `/git/ref/heads/...`, while non-forcing branch PATCH uses plural `/git/refs/heads/...`.
+- Updated the mocked GitHub batch fixture so it rejects the incorrect PATCH path, and added a runnable test that asserts actual GET versus PATCH paths and verifies one complete Note Save roundtrip.
+- No changes to MongoDB storage choice, App permissions, Vault ownership, the subject model or draft retention. A previously failed Save may have produced an unreferenced Git commit; it is not assumed to be saved to the default branch.
+- Retest by checking the exact saved Note on the Vault's default branch. No live owner-authorized GitHub write was executed from ChatGPT. Keep implementation checkpoints **8/10 (80%)**, verified live connected-account journeys **0/3**, merge and deployment pending.
+
 ## Milestone #121 — Real-account GitHub Save failure troubleshooting (19 Nov 2026)
 
 **Reported:** Vault connected and Notes editor reachable, but pressing **Save to GitHub** fails.

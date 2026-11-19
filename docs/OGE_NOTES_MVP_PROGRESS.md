@@ -228,6 +228,8 @@ content and order are committed to the owner's private
 client as regular Notes. Explicit MongoDB users keep the old API and
 MongoDB collection.
 
+Browser extension `Save Link` now follows the same choice: signed extension-token owners with an enabled private Vault write directly through the GitHub App, while explicit Oge Cloud owners keep MongoDB. Social profile links remain account metadata.
+
 GitHub writes use SHA compare-and-swap and read-back verification;
 an uncertain write is never silently switched into MongoDB or
 reported as saved. Stable create UUIDs prevent duplicate links when

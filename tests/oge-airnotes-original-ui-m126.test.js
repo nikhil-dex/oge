@@ -20,12 +20,12 @@ test('M126 /airnotes renders original Oge panel instead of redirecting to Quick 
   assert.match(page, /apiPath = '\/api\/personal-quick-notes'/);
   assert.match(page, /apiPath = '\/api\/vault\/airnotes'/);
   assert.match(page, /vaultCaptureAvailable\(account\)/);
-  assert.match(page, /account\?\.notesStorage !== 'mongodb'/);
+  assert.match(page, /account\.notesStorage !== 'mongodb'/);
   assert.match(panel, /quick-notes-heading-row/);
   assert.match(panel, /Air<span>Notes\.<\/span>/);
   assert.match(panel, /airnote-library-card/);
   assert.match(panel, /airnote-edit-dialog/);
-  assert.match(panel, /<SiteNavbar \/>/);
+  assert.match(panel, /<SiteNavbar notesHref=\{vaultBacked/);
 });
 
 test('M126 AirNotes uses the SAME original create, read, update and delete UI with SHA in GitHub mode', async () => {

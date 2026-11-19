@@ -38,9 +38,7 @@ test('M107 both existing legacy pages route by signed server owner without rewri
     assert.match(src, /ownerMutationFilter\(session\.user\.id/);
     assert.match(src, /sessionVersion: session\.user\.sessionVersion/);
     assert.match(src, /standaloneNotesDestination\(account\)/);
-    if (src.includes("M126: GitHub Vault users keep the ORIGINAL /airnotes screen."))
-      assert.match(src, /if \(destination && destination !== '\/vault\/capture'\) redirect\(destination\)/);
-    else assert.match(src, /if \(destination\) redirect\(destination\)/);
+    assert.match(src, /if \(destination && destination !== '\/vault\/capture'\) redirect\(destination\)/);
     assert.match(src, /return children/);
     assert.doesNotMatch(src, /insertOne\(|commitVaultNoteBatch\(|collection\('notes'\)/);
   }

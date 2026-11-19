@@ -44,19 +44,12 @@ export default async function VaultQuickCapturePage() {
   return (
     <main className="shell oge-shell oge-retro-workspace oge-vault-page">
       <SiteNavbar notesHref="/vault/notes" actions={
-        <Link href="/vault/notes" className="oge-signin">All GitHub Notes →</Link>
+        <Link href="/vault/notes" className="oge-signin">All notes →</Link>
       } />
-      <div className="oge-retro-workspace-ribbon" aria-hidden="true">
-        <span>✳ OGE / QUICK CAPTURE</span>
-        <span>CAPTURE · SAVE WHEN READY</span>
-      </div>
       <section className="oge-settings-hero">
-        <p className="oge-eyebrow"><span className="oge-status-dot" />
-          ENCRYPTED AUTOSAVE · PRIVATE GITHUB
-        </p>
+        <p className="oge-eyebrow">YOUR PERSONAL KNOWLEDGE BASE</p>
         <h1>Capture<span>.</span></h1>
-        <p>Fast, subject-based notes, with temporary encrypted drafts and
-          explicit GitHub-backed Save. Write a single thought, or put the title on the first line and details below it.</p>
+        <p>Capture an idea in a moment. Write a thought, or put a title on the first line and details below.</p>
       </section>
       <VaultQuickCaptureClient
         ownerId={session.user.id} repoId={user.vault.repoId} />

@@ -30,3 +30,10 @@ test('GitHub standalone pages never fall back to MongoDB routes', () => {
     assert.match(source, /if \(!account\) redirect\('\/register'\)/);
   }
 });
+
+test('Vault settings offers complete GitHub repository ZIP instructions', () => {
+  const page = readFileSync(new URL('../app/vault/page.js', import.meta.url), 'utf8');
+  assert.match(page, /Code → Download ZIP/);
+  assert.match(page, /including Saved Links and My Files/);
+  assert.match(page, /not an Oge one-click restore/);
+});

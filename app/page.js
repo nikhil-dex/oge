@@ -38,9 +38,11 @@ export default async function HomePage() {
   // Home's Quick Notes widget must share the signed user's selected storage.
   // A temporarily disconnected GitHub Vault is NOT permission to write to
   // the legacy MongoDB Quick Notes collection.
-  const quickNotesApi = account.notesStorage === 'github' ||
-    githubVaultFilesEnabled(account)
-    ? '/api/vault/quick-notes' : '/api/quick-notes';
+  // Never render a GitHub inbox that its API would reject, and never
+  // silently route a GitHub owner to MongoDB when capture is unavailable.
+  const showQuickNotes = captureReady || account.notesStorage === 'mongodb' ||
+    (!account.notesStorage && !githubVaultFilesEnabled(account));
+  const quickNotesApi = captureReady ? '/api/vault/quick-notes' : '/api/quick-notes';
   const filesReady = githubVaultFilesEnabled(account);
   // GitHub Vault does not use the legacy MongoDB revision queue or history pages.
   // Per-note GitHub history is accessible within Vault Notes instead.
@@ -109,9 +111,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="oge-quick-notes-bottom" aria-label="Quick Notes">
+      {showQuickNotes && <section className="oge-quick-notes-bottom" aria-label="Quick Notes">
         <QuickNotesPanel apiPath={quickNotesApi} />
-      </section>
+      </section>}
 
       <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>A little more organized, every day.</span><Link href="/settings">Settings <span aria-hidden="true">↗</span></Link></footer>
     </main>

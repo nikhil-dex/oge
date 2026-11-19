@@ -1,5 +1,16 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #118 — Choose Notes storage during first-run onboarding (19 Nov 2026)
+
+**Requested product behavior:** New users choose **Oge Cloud (MongoDB)** or **Oge Vault (GitHub)** on the same onboarding screen as news interests. Both choices clearly explain their capabilities and trade-offs. This is a Notes content-storage choice, not an authentication-provider choice: account, subjects and preferences still use MongoDB either way.
+
+- **MongoDB choice:** New Notes use the existing familiar MongoDB-backed Notes, Quick Notes and AirNotes experience immediately, with no GitHub setup. No personal Git history. Existing and newly connected Vaults do not silently override an explicit MongoDB choice.
+- **GitHub choice:** Onboarding remembers the user's preference and immediately redirects to `/vault?setup=onboarding` for GitHub App authorization and private repository setup. GitHub stores committed Notes; temporary autosave drafts still use MongoDB/sessionStorage and an explicit Save commits to GitHub. GitHub requires connectivity. No permanent MongoDB Notes fallback is allowed while setup is incomplete.
+- **Skip news ≠ skip storage:** News topics are optional, but one storage choice is required. Updating interests from Settings preserves the chosen backend.
+- **No silent migration:** Existing users with no explicit selection retain their previous behavior; no Note bodies, backups or repositories are moved or deleted. Switching storage after onboarding needs a separate owner-approved migration design.
+- **Scope:** Existing Notes API fences and signed owner routing now honor the preference, including legacy Notes, Quick Notes, AirNotes and extension content endpoints. Regression tests added. This is an MVP onboarding improvement, not advanced recovery or a new release/security gate.
+- **Progress:** Remains 8/10 practical MVP implementation checkpoints (80%), with 0/3 verified real connected-account journeys. Recheck exact final CI and complete live acceptance before merging PR #35 or deploying.
+
 ## Milestone #117 — Clear the already-committed draft when typing continues during GitHub Save (19 Nov 2026)
 
 **Everyday Note recovery cleanup, no new approval/security milestones.**

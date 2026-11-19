@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #122 GitHub branch PATCH fix.**
+**Updated 19 November 2026, after milestone #123 GitHub Saved Links.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,30 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #123 — GitHub Saved Links
+
+GitHub-selected Oge users can now create, read, edit, delete, search
+and reorder Saved Links from the existing `/saved-links` UI. Saved Link
+content and order are committed to the owner's private
+`links/saved-links.json` file using the same signed GitHub App Vault
+client as regular Notes. Explicit MongoDB users keep the old API and
+MongoDB collection.
+
+GitHub writes use SHA compare-and-swap and read-back verification;
+an uncertain write is never silently switched into MongoDB or
+reported as saved. Stable create UUIDs prevent duplicate links when
+retrying the same form after a lost response. Existing MongoDB links
+are preserved, **not migrated**, and may no longer appear for accounts
+now viewing the GitHub store. Account metadata, subjects and learning
+progress still belong in MongoDB. Backups do not yet include Saved Links.
+
+Synthetic provider regression tests cover CRUD, reordering, stale SHA,
+duplicate-create retries and storage choice. The user's successful
+GitHub Notes Save is a reported manual check; Saved Links has not yet
+been verified with the actual GitHub App account. Notes MVP stays
+**8/10 (80%)**, independent acceptance checklist **0/3**, deployment
+last.
 
 ## Milestone #122 — Fix GitHub Notes Save failing after connected Vault
 

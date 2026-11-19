@@ -9,7 +9,9 @@ test('M104 home routes connected owners to GitHub Notes and exposes Quick Captur
   assert.match(home, /onboardingComplete: 1, vault: 1/);
   assert.match(home, /const vaultNotesReady = process\.env\.OGE_VAULT_MAIN_PREVIEW === 'true'/);
   assert.match(home, /account\.vault\?\.status === 'connected'/);
-  assert.match(home, /const notesHref = vaultNotesReady \? '\/vault\/notes' : '\/notes'/);
+  assert.match(home, /const notesHref = account.notesStorage === 'github'/);
+  assert.match(home, /account.notesStorage === 'mongodb'/);
+  assert.match(home, /vaultNotesReady \? '\/vault\/notes' : '\/vault\?setup=onboarding'/);
   assert.match(home, /<SiteNavbar notesHref=\{notesHref\}/);
   assert.match(home, /item\.href === '\/notes' \? notesHref : item\.href/);
   assert.match(home, /title: 'Quick Capture'/);

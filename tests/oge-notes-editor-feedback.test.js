@@ -11,8 +11,8 @@ test('M106 never labels a temporary autosaved draft as a GitHub commit', () => {
     changed: true, draftStatus: 'Draft saved', editingId: 'existing-note',
   });
   assert.equal(status.kind, 'draft');
-  assert.match(status.label, /Draft autosaved temporarily/);
-  assert.match(status.label, /press Save for GitHub/);
+  assert.match(status.label, /Draft autosaved/);
+  assert.match(status.label, /press Save to finish/);
   assert.doesNotMatch(status.label, /^Saved to GitHub/);
   assert.equal(feedback({ changed: true, draftStatus: 'Draft pending — offline' }).kind, 'draft');
 });
@@ -23,13 +23,13 @@ test('M106 saving and failures take priority over stale draft status', () => {
   assert.equal(failed.kind, 'error');
   assert.match(failed.label, /Save not confirmed/);
   const recovery = feedback({ hybridError: 'draft conflict', changed: true });
-  assert.match(recovery.label, /not confirmed on GitHub/);
-  assert.match(feedback({ hybridReady: false }).label, /recoverable drafts/);
+  assert.match(recovery.label, /Keep your changes before closing/);
+  assert.match(feedback({ hybridReady: false }).label, /Checking drafts/);
 });
 
 test('M106 existing committed Note, new unsaved Note and confirmed save are distinct', () => {
-  assert.match(feedback({ editingId: 'saved-note', changed: false }).label, /Saved version from GitHub/);
-  assert.match(feedback({ editingId: '', changed: false }).label, /New note · not saved to GitHub/);
+  assert.match(feedback({ editingId: 'saved-note', changed: false }).label, /No unsaved changes/);
+  assert.match(feedback({ editingId: '', changed: false }).label, /New note/);
   assert.equal(feedback({
     message: 'Note saved to GitHub successfully.', editingId: 'saved-note',
   }).kind, 'saved');
@@ -61,8 +61,8 @@ test('M106 editor has visible reliable Save status, word count and sticky mobile
   assert.ok(ui.includes('changed: Boolean(editorBaseline &&'));
   assert.ok(ui.includes('onClick={() => editNote(readerNote)}'));
   assert.match(ui, /oge-editor-save-footer/);
-  assert.match(ui, /Save to GitHub/);
-  assert.match(ui, /Temporary draft only — not yet committed/);
+  assert.match(ui, /editingId \? 'Save changes' : 'Save note'/);
+  assert.match(ui, /Draft saved · press Save to finish/);
   assert.match(ui, /Ctrl\+Enter \(Windows\)/);
   assert.match(style, /\.oge-editor-save-footer\{\s*position:sticky/);
   assert.match(style, /@media\(max-width:640px\)/);

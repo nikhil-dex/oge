@@ -42,7 +42,7 @@ test('M126 AirNotes uses the SAME original create, read, update and delete UI wi
 
 test('M126 GitHub AirNotes API scopes access to signed owner and cannot write permanent MongoDB content', async () => {
   const route = await read('../app/api/vault/airnotes/route.js');
-  const module = await read('../lib/oge-vault-standalone-captures.js');
+  const vaultLibrary = await read('../lib/oge-vault-standalone-captures.js');
   for (const method of ['GET', 'POST', 'PUT', 'DELETE'])
     assert.match(route, new RegExp('export async function ' + method));
   assert.match(route, /await auth\(\)/);
@@ -54,10 +54,10 @@ test('M126 GitHub AirNotes API scopes access to signed owner and cannot write pe
   assert.match(route, /commitVaultStandaloneCapture\(ctx\.client/);
   assert.match(route, /withVaultOwnerDraftWrite\(ctx\.db, scope/);
   assert.doesNotMatch(route, /collection\(['"](?:notes|quickNotes|personalQuickNotes)['"]\)|insertOne\(|updateOne\(|deleteOne\(/);
-  assert.match(module, /const updateRefPath = '\/git\/refs\/heads\/'/);
-  assert.match(module, /await client\.call\(updateRefPath, \{ method: 'PATCH'/);
-  assert.match(module, /const refPath = '\/git\/ref\/heads\/'/);
-  assert.match(module, /path: 'airnotes\/'/);
+  assert.match(vaultLibrary, /const updateRefPath = '\/git\/refs\/heads\/'/);
+  assert.match(vaultLibrary, /await client\.call\(updateRefPath, \{ method: 'PATCH'/);
+  assert.match(vaultLibrary, /const refPath = '\/git\/ref\/heads\/'/);
+  assert.match(vaultLibrary, /path: 'airnotes\/'/);
 });
 
 test('M126 GitHub AirNote files retain Oge content, title and timestamps', () => {

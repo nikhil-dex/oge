@@ -3,8 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '../../auth.js';
 import { getDatabase } from '../../lib/mongodb.js';
 import {
-  inspectLegacyCutoverForOwner, vaultLegacyCutoverPreviewEnabled,
-  legacyNotesWorkspaceDestination,
+  inspectLegacyCutoverForOwner, legacyNotesWorkspaceDestination,
 } from '../../lib/oge-vault-cutover-guard.js';
 
 export const dynamic = 'force-dynamic';
@@ -19,8 +18,6 @@ export const dynamic = 'force-dynamic';
  * repo and installation, and its API never falls back to MongoDB content.
  */
 export default async function NotesLayout({ children }) {
-  if (!vaultLegacyCutoverPreviewEnabled()) return children;
-
   const session = await auth();
   if (!session?.user?.id) redirect('/register');
   const db = await getDatabase();
@@ -29,6 +26,8 @@ export default async function NotesLayout({ children }) {
     { sessionVersion: session.user.sessionVersion },
   );
   const destination = legacyNotesWorkspaceDestination(decision);
+  if (['vault-storage-setup-required', 'vault-storage-not-ready'].includes(decision.code))
+    redirect('/vault?setup=onboarding');
   if (destination === 'vault') redirect('/vault/notes');
   if (destination === 'legacy') return children;
 

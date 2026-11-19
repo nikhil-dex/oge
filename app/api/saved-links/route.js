@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
+import { withActiveOwnerMutation, ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../lib/saved-links.js';
-import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 import { getVaultNoteClient } from '../../../lib/oge-vault-notes.js';
 import { VaultGitHubError } from '../../../lib/oge-vault-github.js';
 import {
@@ -63,10 +62,15 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to view Saved Links.' }, 401);
-    if (ctx.storage === 'github')
-      return json((await readVaultSavedLinks(ctx.vaultClient)).links);
-    const links = await ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }).sort({ order: 1, createdAt: -1 }).limit(500).toArray();
-    return json(links.map(({ _id, title, url, description, category, tags, order, createdAt, updatedAt }) => ({ id: String(_id), title, url, description, category, tags: tags || [], order, createdAt, updatedAt })));
+    const links = ctx.storage === 'github'
+      ? (await readVaultSavedLinks(ctx.vaultClient)).links
+      : (await ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId })
+        .sort({ order: 1, createdAt: -1 }).limit(500).toArray())
+        .map(({ _id, title, url, description, category, tags, order, createdAt, updatedAt }) =>
+          ({ id: String(_id), title, url, description, category, tags: tags || [], order, createdAt, updatedAt }));
+    const response = json(links);
+    response.headers.set('X-Oge-Saved-Links-Storage', ctx.storage);
+    return response;
   } catch (error) {
     return storageError(error, 'Read');
   }

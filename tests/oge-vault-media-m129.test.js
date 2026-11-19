@@ -123,13 +123,13 @@ test('M129 accepts OgeNotes images, PDF and ZIP formats but not arbitrary execut
 });
 test('M129 only connected selected GitHub Vault owners can see My Files', () => {
   assert.equal(githubVaultFilesEnabled({ notesStorage: 'github', vault: {
-    status: 'connected', repoId: 123,
+    status: 'connected', repoId: 123, installationId: 456,
   } }), true);
   assert.equal(githubVaultFilesEnabled({ notesStorage: 'mongodb', vault: {
     status: 'connected', repoId: 123,
   } }), false);
   assert.equal(githubVaultFilesEnabled({ notesStorage: 'github', vault: {
-    status: 'pending', repoId: 123,
+    status: 'pending', repoId: 123, installationId: 456,
   } }), false);
 });
 test('M129 private GitHub media create/list/folders/rename/move/delete verifies branch writes', async () => {

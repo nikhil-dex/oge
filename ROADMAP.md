@@ -1,5 +1,16 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #125 — Original Oge Notes styling without GitHub preview banners (19 Nov 2026)
+
+**User request:** Remove the unnecessary `← Return to Oge Vault` header, `GITHUB VAULT PREVIEW` banner and technical explanations in Notes; make the GitHub-backed Notes workspace look like ordinary Oge.
+
+- `/vault/notes` directly renders the familiar shared Notes UI without the duplicate header, preview metadata or technical banner. The signed GitHub Notes API and storage choice are unchanged.
+- Restored **TOTAL NOTES**, **Save note / Save changes**, and plain **Load more notes** pagination copy. Kept search, subject navigation, editing, normal saving, and safe draft recovery.
+- Editor displays concise, accurate Save/draft feedback, without showing GitHub/MongoDB implementation details everywhere. Error messages and uncertain-save recovery still explain real problems.
+- Quick Capture no longer shows a preview ribbon, encrypted-draft revision counters, a provider badge or lengthy storage explanations. Main Oge branding remains.
+- Updated existing UI copy tests and added regression coverage. Storage, authentication, GitHub writes, MongoDB drafts and extension behavior are not changed.
+- Notes MVP remains **8/10 (80%) implemented**, connected-account browser tests not fully accepted and deployment pending.
+
 ## Milestone #124 — Hide premature YouTube Learning Tracks option from extension (19 Nov 2026)
 
 **User feedback:** The floating Chrome extension showed a YouTube **Tracks** action despite the full Learning Track roadmap not being launched as a regular user-facing feature.

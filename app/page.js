@@ -74,7 +74,7 @@ export default async function HomePage() {
 
       <EnglishWordExplainer />
 
-      <HomeDashboard />
+      <HomeDashboard vaultMode={account.notesStorage === 'github' || (account.notesStorage !== 'mongodb' && filesReady)} notesHref={notesHref} quickNotesApi={quickNotesApi} quickNotesAvailable={showQuickNotes} />
 
       <section className="quick-notes-section oge-airnotes-preview" aria-labelledby="airnotes-heading">
         <div className="quick-notes-heading-row">

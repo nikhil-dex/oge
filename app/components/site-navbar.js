@@ -13,14 +13,14 @@ const links = [
   { href: '/profile', label: 'Profile' },
 ];
 
-export default function SiteNavbar({ actions = null, notesHref = '/notes' }) {
+export default function SiteNavbar({ actions = null, notesHref = '/notes', showFiles = false }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   return <><header className="site-navbar">
     <Link className="brand" href="/" aria-label="OgeNotes home" onClick={() => setMenuOpen(false)}><span className="brand-mark" aria-hidden="true">O</span><span>Oge<span className="brand-light">Notes</span></span></Link>
     <button className="site-navbar-toggle" type="button" aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={menuOpen} aria-controls="site-navbar-content" onClick={() => setMenuOpen((open) => !open)}><span aria-hidden="true">{menuOpen ? '×' : '☰'}</span></button>
     <div id="site-navbar-content" className={'site-navbar-content' + (menuOpen ? ' is-open' : '')}>
-      <nav className="site-navbar-links" aria-label="Main navigation">{links.map((link) => {
+      <nav className="site-navbar-links" aria-label="Main navigation">{(showFiles ? [...links, { href: '/files', label: 'My Files' }] : links).map((link) => {
         const href = link.href === '/notes' ? notesHref : link.href;
         const active = href === '/' ? pathname === '/' :
           pathname === href || pathname.startsWith(href + '/');

@@ -158,7 +158,7 @@ export default async function VaultPage({ searchParams }) {
               </li>
             </ol>
             {configured && !installUrl && <p className="oge-settings-note">Already installed the GitHub App? You can still select <strong>Connect GitHub</strong> above. If GitHub reports that installation is required, the site owner needs to publish the App installation link.</p>}
-            <p className="oge-settings-note">The current App installation may request access to all repositories, although Oge's Notes-writing token is limited to the private Vault repository. Review GitHub's permission screen before approving.</p>
+            <p className="oge-settings-note">The current App installation may request access to all repositories, although Oge&apos;s Notes-writing token is limited to the private Vault repository. Review GitHub&apos;s permission screen before approving.</p>
           </>
         )}
       </div>

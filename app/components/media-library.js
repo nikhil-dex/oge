@@ -84,7 +84,7 @@ export default function MediaLibrary() {
   }
 
   async function deleteFolder(folder) {
-    if (!window.confirm(`Delete folder “${folder.name}” and permanently delete all files inside it from private storage? This cannot be undone.`)) return;
+    if (!window.confirm(`Remove folder “${folder.name}” and its files from your current library? Earlier versions may remain in GitHub history.`)) return;
     setBusy(true); setError(''); setMessage('');
     try {
       await readResponse(await fetch('/api/vault/media?id=' + encodeURIComponent(folder.id) + '&type=folder', { method: 'DELETE' }));
@@ -201,7 +201,7 @@ export default function MediaLibrary() {
       }
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        setMessage('Private file link copied. It works for people who have access to your OgeNotes session.');
+        setMessage('Private file link copied. Only your signed-in Oge account can open it.');
       } else {
         window.prompt('Copy this private file link. It requires your OgeNotes access session:', url);
       }
@@ -228,7 +228,7 @@ export default function MediaLibrary() {
   }
 
   async function deleteFile(file) {
-    if (!window.confirm(`Delete “${file.name}” from private storage? This cannot be undone.`)) return;
+    if (!window.confirm(`Remove “${file.name}” from your current library? Earlier versions may remain in GitHub history.`)) return;
     setBusy(true); setError(''); setMessage('');
     try {
       await readResponse(await fetch('/api/vault/media?id=' + encodeURIComponent(file.id), { method: 'DELETE' }));

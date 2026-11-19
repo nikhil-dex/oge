@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #120 Add a note first-use fix.**
+**Updated 19 November 2026, after milestone #121 GitHub Save troubleshooting.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,26 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #121 — User-reported GitHub Save failure
+
+A connected user reported **Save to GitHub** failing. Inspection found the
+per-note writer treated GitHub's installation-token `repositories` field
+as mandatory, whereas GitHub says the response field is conditional. The
+writer now requests a repository-ID-scoped token as before, validates a
+returned repository list when available, and always checks the precise
+connected private repository and owner before reading/writing Notes.
+
+The editor also displays actionable error guidance, including insufficient
+Contents permissions, expired/missing GitHub access, provider rate limits,
+stale note revisions and uncertain Git commit outcomes. Drafts are retained
+on failures; an unverified GitHub write is never called Saved. New
+regressions test optional missing token metadata and owner/repo mismatches.
+This is a plausible code-path fix, **not a confirmed root cause of the
+user's local failure**, and tests do not substitute for a live account.
+
+**8/10 implementation checkpoints (80%), 0/3 live authenticated journeys,
+no production merge/deployment.**
 
 ## Milestone #120 — Notes creation without an existing subject
 

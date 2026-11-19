@@ -764,6 +764,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-vault-card .oge-primary-link{align-self:flex-start;margin:0}
 .oge-vault-card form{margin:0}
 .oge-vault-card .oge-google-button{margin:0}
+.oge-vault-connect-list{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.oge-vault-connect-step{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;padding:20px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.oge-vault-connect-step h3{margin:0;font:750 15px/1.45 Manrope,sans-serif;color:var(--ink)}
+.oge-vault-connect-step p{margin:0;font-size:12px;line-height:1.7;color:var(--muted)}
+.oge-vault-connect-step p.oge-password-error{color:#b23b31}
+.oge-vault-connect-step .oge-primary-link,.oge-vault-connect-step form{margin:4px 0 0}
+.oge-vault-connect-step .oge-google-button:disabled{opacity:.6;cursor:not-allowed}
 .oge-vault-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 .oge-vault-steps>span{display:flex;gap:9px;align-items:center;min-width:0;border:1px dashed #b4baa8;border-radius:5px;background:#f6f0df;color:#354e3f;padding:13px;font:700 11px/1.6 var(--mono)}
 .oge-vault-steps strong{display:grid;place-items:center;flex:0 0 27px;height:27px;background:#335c49;color:#fffaf1;border-radius:50%;font-size:10px}

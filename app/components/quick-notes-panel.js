@@ -73,7 +73,7 @@ export default function QuickNotesPanel({
       setLoading(false);
     }
   }, [apiPath]);
-  useEffect(() => { void loadNotes(); }, [loadNotes]);
+  useEffect(() => { Promise.resolve().then(() => { void loadNotes(); }); }, [loadNotes]);
 
   async function deleteNote(note) {
     if (!window.confirm('Delete "' + titleOf(note.content) + '"? This cannot be undone.')) return;

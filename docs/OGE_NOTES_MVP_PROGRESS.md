@@ -236,6 +236,27 @@ are unchanged. Regression tests now check this common Oge presentation.
 
 **8/10 (80%) MVP checkpoints implemented; no release or merge.**
 
+## Milestone #125 — Keep original Oge Notes experience regardless of storage
+
+Connected Vault users who reached the obsolete B3 `/vault/preview`
+saw an experimental editor with Vault-specific header/footer, return
+navigation and GitHub-only labels. With the familiar GitHub Notes editor
+enabled, the preview now redirects to `/vault/notes`. The Vault
+dashboard presents one regular **Open My Notes** entry instead of
+advertising a second preview. The familiar Notes page keeps the same
+primary Add a note action for either backend, and the ordinary Save
+labels `Save note`, `Save changes` and `Saving…` stay identical.
+
+The storage implementation is unchanged: committed GitHub Notes go only
+through `/api/vault/notes-main`, while the legacy MongoDB Notes editor
+continues using `/api/notes`. Temporary draft autosave remains.
+The old B3 preview exists only behind its separate gates when the main
+workspace is disabled; Quick Capture remains accessible separately.
+Added regression tests.
+
+**MVP: 8/10 implemented (80%), live authentication acceptance still
+pending, no merge or deployment.**
+
 ## Milestone #124 — Unfinished Tracks hidden from extension
 
 A user reported a premature YouTube Tracks button in the floating

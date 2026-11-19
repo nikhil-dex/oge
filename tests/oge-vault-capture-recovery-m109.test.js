@@ -114,7 +114,7 @@ test('M109 extension clears only exactly submitted text on a confirmed Save', as
   const save = await ui.mount();
   await save();
   assert.equal(ui.note.value, '');
-  assert.match(ui.statuses.at(-1)[0], /Saved .* to GitHub Vault/);
+  assert.match(ui.statuses.at(-1)[0], /Saved .* to General in Notes/);
   assert.doesNotMatch(ui.statuses.at(-1)[0], /Newer edits/);
 });
 

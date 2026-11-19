@@ -1086,7 +1086,6 @@ export default function NotesPage({
         </div>
         <div className="intro-actions">
           <button className="add-button" type="button" onClick={() => openNewNote()}><span>＋</span> Add a note</button>
-          {vaultMode && hybridDrafts && <Link className="add-button" href="/vault/capture">Quick Capture →</Link>}
         </div>
       </section>
 

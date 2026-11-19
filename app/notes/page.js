@@ -8,6 +8,7 @@ import { markdownHtml } from '../../lib/markdown.js';
 import ThemeToggle from '../components/theme-toggle';
 import { loadVaultSearchPages } from '../../lib/oge-vault-search-pages.js';
 import { noteEditorFeedback, noteBodyMetrics } from '../../lib/oge-notes-editor-feedback.js';
+import { vaultSaveFailureMessage } from '../../lib/oge-vault-save-feedback.js';
 import { stageVaultFollowupSave, retireSubmittedVaultDraft } from '../../lib/oge-vault-followup-save.js';
 import {
   isVaultNoteId, recentVaultNotesKey, readRecentVaultNoteIds,
@@ -841,7 +842,8 @@ export default function NotesPage({
         } catch { /* GitHub/offline failures never become a Saved state. */ }
         setDraftStatus('Draft pending — GitHub confirmation needed');
       }
-      setError(err.message || 'Could not confirm this GitHub Save. Your draft is retained.');
+      setError(vaultMode ? vaultSaveFailureMessage(err) : (err.message || 'Could not save this Note.'));
+      if (vaultMode) setDraftStatus('GitHub Save not confirmed — keep your draft');
     } finally {
       setSaving(false);
     }
@@ -1207,7 +1209,7 @@ export default function NotesPage({
                 setHybridError('');
                 setHybridRetryToken((token) => token + 1);
               }}>Retry draft autosave</button>}
-            {error && <p className="form-error" role="alert">{error}</p>}
+            {error && <p className="form-error" role="alert">{error}{vaultMode && <> <Link href="/vault">Check your Vault connection</Link>.</>}</p>}
             <div className="oge-editor-save-footer">
               <div className="oge-editor-save-meta">
                 <span>{editorMetrics.words} {editorMetrics.words === 1 ? 'word' : 'words'} · {editorMetrics.characters.toLocaleString('en-IN')} / 20,000 characters</span>

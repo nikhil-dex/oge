@@ -243,6 +243,8 @@ and requires the owner's signed-in Oge session.
 cloud file storage. Files removed from the current library can still
 exist in old commits and contribute to repository size. Oge cannot
 physically erase historical Git blobs through regular Delete.
+The existing JSON-only Vault Notes backup/export does **not** include uploaded
+My Files binaries, and original OgeNotes Vercel Blob files are not migrated.
 New upload retries in the same browser session preserve the file ID
 and uploaded chunk references.
 

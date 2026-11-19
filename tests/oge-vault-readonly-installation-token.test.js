@@ -48,3 +48,56 @@ test('M48 operator GitHub App token requests contents=read; normal writers retai
     env, fetcher, readOnly: 'false',
   }), TypeError);
 });
+
+
+test('M121 GitHub token response can omit optional repositories; exact repo is still verified', async () => {
+  const requests = [];
+  const fetcher = async (url, options) => {
+    requests.push({ url, body: options.body && JSON.parse(options.body) });
+    if (url.endsWith('/app/installations/98/access_tokens'))
+      return { ok: true, json: async () => ({ token: 'synthetic-selected-token' }) };
+    if (url.endsWith('/repos/testowner/ogenotes-vault'))
+      return { ok: true, json: async () => ({ id: repoId,
+        private: true, owner: { id: 25, login: 'testowner' },
+        default_branch: 'main' }) };
+    throw Error('Unexpected GitHub path');
+  };
+  const db = { collection(name) {
+    assert.equal(name, 'users');
+    return { async findOne() { return { vault }; } };
+  } };
+  const client = await getVaultNoteClient(db,
+    { ownerId: 'owner-' + randomUUID(), sessionVersion: randomUUID() },
+    { env, fetcher });
+  assert.equal(client.vault.repoId, repoId);
+  assert.deepEqual(requests[0].body.repository_ids, [repoId]);
+  assert.equal(requests[0].body.permissions.contents, 'write');
+  assert.equal(requests.length, 2, 'Must verify the exact private repo using the scoped token');
+});
+
+test('M121 refuse wrong included repository list or wrong private repo identity', async () => {
+  const db = { collection(name) {
+    assert.equal(name, 'users');
+    return { async findOne() { return { vault }; } };
+  } };
+  const id = { ownerId: 'owner-' + randomUUID(), sessionVersion: randomUUID() };
+  const cases = [
+    { tokenResponse: { token: 'synthetic-token', repositories: [{ id: 999 }] },
+      repoResponse: { id: repoId, private: true, owner: { id: 25, login: 'testowner' },
+        default_branch: 'main' }, error: 'vault-repository-token-scope-failed' },
+    { tokenResponse: { token: 'synthetic-token' },
+      repoResponse: { id: repoId, private: false, owner: { id: 25, login: 'testowner' },
+        default_branch: 'main' }, error: 'vault-ownership-changed' },
+  ];
+  for (const scenario of cases) {
+    const fetcher = async (url) => {
+      if (url.endsWith('/app/installations/98/access_tokens'))
+        return { ok: true, json: async () => scenario.tokenResponse };
+      if (url.endsWith('/repos/testowner/ogenotes-vault'))
+        return { ok: true, json: async () => scenario.repoResponse };
+      throw Error('Unexpected GitHub path');
+    };
+    await assert.rejects(getVaultNoteClient(db, id, { env, fetcher }),
+      (error) => error.message === scenario.error);
+  }
+});

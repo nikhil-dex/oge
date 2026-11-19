@@ -219,6 +219,31 @@ no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
 
+## Milestone #128 — Quick Notes created only by extension; AirNotes Delete visible
+
+AirNotes now has clearly labeled **Delete** actions on each card, in
+the reader toolbar and in the edit dialog. Confirmation remains before
+deletion, and open dialogs close once deletion succeeds.
+
+Both the home Quick Notes widget and `/quick-notes` keep the original
+Oge styling but are now read-only inboxes with **Read / Copy / Delete**.
+They expose no in-app Add/Edit/Save controls. The normal website Quick
+Notes APIs also reject POST/PUT (HTTP 405), while retaining GET/DELETE.
+
+The Chrome extension's default Save destination is now Quick Notes,
+including when GitHub Vault is enabled (previously it forced choosing
+a subject). For a connected GitHub owner the extension uses the
+token-authenticated `/api/extension/vault-quick-note` to commit a
+`quick-notes/<UUID>.json` file in their private Vault. For Oge Cloud
+owners, the existing extension Quick Notes writer saves to MongoDB.
+Picking a subject continues to create a normal subject Note.
+
+Tests check owner selection, both storage paths, idempotent retries,
+original app UI restrictions and visible AirNotes Delete. Pending:
+actual extension Save and in-app Delete using the user's connected
+GitHub account. Existing Notes MVP remains **8/10 (80%)**, production
+merge/deployment deferred.
+
 ## Milestone #127 — Quick Notes and AirNotes honor Vault storage without old API warning
 
 The signed user's GitHub storage preference now drives both the original

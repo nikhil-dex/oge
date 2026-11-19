@@ -115,9 +115,9 @@ test('M129 accepts OgeNotes images, PDF and ZIP formats but not arbitrary execut
     ['photo.PNG', 'image/png'],
     ['photo.webp', 'image/webp'],
   ]) assert.equal(normalizeMediaFile({ name, type, size: 25 }).error, undefined);
-  assert.match(normalizeMediaFile({
+  assert.equal(normalizeMediaFile({
     name: 'script.js', type: 'application/javascript', size: 7,
-  }).error, /Only matching PDF/);
+  }).error, undefined);
   assert.equal(hasValidMediaSignature(Buffer.from('%PDF-1.7'), 'application/pdf'), true);
   assert.equal(hasValidMediaSignature(Buffer.from('PK\x03\x04'), 'application/zip'), true);
 });

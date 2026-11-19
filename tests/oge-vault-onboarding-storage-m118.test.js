@@ -60,10 +60,12 @@ test('M118 signed Notes, Quick Notes, AirNotes and API routes honor storage choi
   assert.match(layout, /redirect\('\/vault\?setup=onboarding'\)/);
   assert.match(home, /account\.notesStorage === 'github'/);
   assert.match(home, /account\.notesStorage === 'mongodb'/);
-  for (const route of [quick, air]) {
+  for (const route of [quick, air])
     assert.match(route, /notesStorage: 1/);
-    assert.match(route, /if \(destination\) redirect\(destination\)/);
-  }
+  assert.match(quick, /if \(destination\) redirect\(destination\)/);
+  // AirNotes now keeps the original page and selects a GitHub-backed API
+  // rather than redirecting to the generic Quick Capture editor.
+  assert.match(air, /if \(destination && destination !== '\/vault\/capture'\) redirect\(destination\)/);
   assert.match(guard, /projection: \{ _id: 1, vault: 1, notesStorage: 1 \}/);
   for (const name of ['notes', 'quick-notes', 'personal-quick-notes']) {
     const src = await read('../app/api/' + name + '/route.js');

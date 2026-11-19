@@ -1,4 +1,5 @@
 import { auth } from '../../auth.js';
+import { redirect } from 'next/navigation';
 import { getDatabase } from '../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import { vaultCaptureAvailable } from '../../lib/oge-vault-workspace-routing.js';
@@ -17,8 +18,12 @@ export default async function AirNotesPage() {
         sessionVersion: session.user.sessionVersion,
       }), { projection: { vault: 1, notesStorage: 1 } },
     );
-    if (account?.notesStorage !== 'mongodb' && vaultCaptureAvailable(account))
+    if (!account) redirect('/register');
+    if (account.notesStorage === 'unselected') redirect('/onboarding');
+    if (account.notesStorage !== 'mongodb') {
+      if (!vaultCaptureAvailable(account)) redirect('/vault?setup=onboarding');
       apiPath = '/api/vault/airnotes';
+    }
   }
 
   // Same original Oge AirNotes component, presentation and interactions;

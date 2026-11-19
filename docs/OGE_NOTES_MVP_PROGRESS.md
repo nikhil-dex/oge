@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #126 original AirNotes UI with GitHub storage.**
+**Updated 19 November 2026, after milestone #127 standalone Notes storage routing fix.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,28 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #127 — Quick Notes and AirNotes honor Vault storage without old API warning
+
+The signed user's GitHub storage preference now drives both the original
+Quick Notes and AirNotes page APIs as well as the home Quick Notes widget.
+The legacy `Your Notes storage is GitHub Vault` warning was caused by
+those clients still reaching MongoDB-only endpoints. They now use
+`/api/vault/quick-notes` and `/api/vault/airnotes`, respectively.
+
+Quick Notes CRUD persists in private `quick-notes/<UUID>.json` GitHub
+files, using the existing standalone note data schema, file SHA
+checks, authenticated GitHub App and read-after-write confirmation.
+The original Oge Quick Notes full page editor, home cards and AirNotes
+library remain unchanged in design. AirNotes and home Quick Notes
+autosave advance the returned GitHub SHA and avoid simultaneous writes
+to a single file. Existing MongoDB notes are not migrated or erased.
+
+The old MongoDB API remains guarded for GitHub users; the clients no
+longer reach it when GitHub storage was selected. This is code-level
+fix and regression coverage, not yet live tested with the owner's
+authenticated local account. Notes MVP **8/10 (80%)**, owner acceptance
+and production merge pending.
 
 ## Milestone #126 — AirNotes keeps original Oge UI with GitHub storage
 

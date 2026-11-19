@@ -234,21 +234,23 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
   }
 
   const visibleNotes = fullPage ? notes : notes.slice(0, 3);
+  const atVaultLimit = vaultBacked && notes.length >= 300;
 
   return (
     <section className={'quick-notes-section' + (fullPage ? ' quick-notes-full-page' : '')} aria-labelledby="quick-notes-heading">
-      {fullPage && <SiteNavbar />}
+      {fullPage && <SiteNavbar notesHref={vaultBacked ? '/vault/notes' : '/notes'} showFiles={vaultBacked} />}
       <div className="quick-notes-heading-row">
         <div>
           <p className="eyebrow">{fullPage ? 'CAPTURE IT BEFORE YOU FORGET' : 'PERSONAL KNOWLEDGE SPACE'}</p>
           <h2 id="quick-notes-heading">{fullPage ? <>Air<span>Notes.</span></> : <>AirNotes <span className="quick-notes-count">{notes.length}</span></>}</h2>
           <p className="quick-notes-lead">{fullPage ? 'A focused space for capturing ideas, keeping references, and developing thoughts.' : 'Your private workspace for ideas and drafts, separate from Quick Notes.'}</p>
         </div>
-        <button className="quick-note-add-button" type="button" onClick={addNote} disabled={creating} aria-label="Create an AirNote" title="Create an AirNote">
+        <button className="quick-note-add-button" type="button" onClick={addNote} disabled={creating || atVaultLimit} aria-label="Create an AirNote" title="Create an AirNote">
           <span aria-hidden="true">＋</span>{fullPage ? (creating ? 'Adding…' : 'Add note') : ''}
         </button>
       </div>
 
+      {vaultBacked && notes.length >= 270 && !loading && <p className="quick-notes-feedback" role="status">{notes.length}/300 AirNotes used. {atVaultLimit ? 'Delete an AirNote before creating another.' : 'You are approaching the 300-note limit.'}</p>}
       {(error || message) && <p className={'quick-notes-feedback' + (error ? ' is-error' : '')} role="status">{error || message}</p>}
 
       {!fullPage ? null : loading ? <p className="quick-notes-loading">Loading AirNotes…</p> : notes.length ? (
@@ -268,7 +270,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
               saving={Boolean(savingIds[note.id] || dirty[note.id] !== undefined)}
             />
           ))}
-          <button className="quick-note-add-tile" type="button" onClick={addNote} disabled={creating} aria-label="Create another AirNote">
+          <button className="quick-note-add-tile" type="button" onClick={addNote} disabled={creating || atVaultLimit} aria-label="Create another AirNote">
             <span aria-hidden="true">＋</span><strong>New AirNote</strong><small>Create a fresh note</small>
           </button>
         </div>
@@ -277,7 +279,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
           <span className="quick-notes-empty-icon" aria-hidden="true">✎</span>
           <h3>A clear space for your thoughts.</h3>
           <p>Create an AirNote to start collecting ideas, notes, and references.</p>
-          <button className="add-button" type="button" onClick={addNote} disabled={creating}><span aria-hidden="true">＋</span> Create your first AirNote</button>
+          <button className="add-button" type="button" onClick={addNote} disabled={creating || atVaultLimit}><span aria-hidden="true">＋</span> Create your first AirNote</button>
         </div>
       )}
       {fullPage && typeof document !== 'undefined' && createPortal(

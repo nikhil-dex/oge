@@ -25,6 +25,7 @@ export default async function NotesLayout({ children }) {
     db, session.user.id,
     { sessionVersion: session.user.sessionVersion },
   );
+  if (decision.code === 'notes-storage-choice-required') redirect('/onboarding');
   const destination = legacyNotesWorkspaceDestination(decision);
   if (['vault-storage-setup-required', 'vault-storage-not-ready'].includes(decision.code))
     redirect('/vault?setup=onboarding');

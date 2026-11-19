@@ -43,6 +43,14 @@ export default async function ProfilePage({ searchParams }) {
         <p>Choose how you appear in OgeNotes, manage sign-in, and keep your account secure.</p>
       </section>
       <div className="oge-profile-layout">
+        <section className="oge-settings-card" aria-labelledby="profile-vault-heading">
+          <div className="oge-settings-card-heading">
+            <div><span className="oge-section-kicker">UPCOMING · PRIVATE STORAGE</span><h2 id="profile-vault-heading">Oge Vault</h2></div>
+            <span className="oge-settings-pill">Phase A</span>
+          </div>
+          <p className="oge-settings-description">Create and connect a private GitHub repository owned by you. Your existing notes stay in MongoDB while reliable synchronization and migration are prepared.</p>
+          <Link href="/vault" className="oge-primary-link">Set up your Oge Vault →</Link>
+        </section>
         {(isGitHubAccount || googleConnected) && (
           <section className="oge-settings-card" aria-labelledby="profile-google-link-heading">
             <div className="oge-settings-card-heading">

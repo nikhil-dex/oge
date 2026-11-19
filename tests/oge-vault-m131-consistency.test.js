@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+test('GitHub home excludes MongoDB-only revision entry points', () => {
+  const home = readFileSync(new URL('../app/page.js', import.meta.url), 'utf8');
+  assert.match(home, /account\.notesStorage !== 'github'/);
+  assert.match(home, /item\.href !== '\/revision'/);
+  assert.match(home, /item\.href !== '\/revision-history'/);
+});
+
+test('Vault file sharing does not copy private links to clipboard', () => {
+  const media = readFileSync(new URL('../app/components/media-library.js', import.meta.url), 'utf8');
+  assert.match(media, /await downloadFile\(file\);/);
+  assert.match(media, /Attach the downloaded file to share it/);
+  assert.doesNotMatch(media, /navigator\.clipboard\.writeText\(url\)/);
+});
+
+test('Extension documents Quick Notes as its default destination', () => {
+  const guide = readFileSync(new URL('../extension/README.md', import.meta.url), 'utf8');
+  assert.match(guide, /Quick Notes\*\* is the default destination/);
+  assert.match(guide, /Selecting an existing subject saves a regular Note/);
+});
+
+test('GitHub standalone pages never fall back to MongoDB routes', () => {
+  for (const page of ['quick-notes', 'airnotes']) {
+    const source = readFileSync(new URL('../app/' + page + '/page.js', import.meta.url), 'utf8');
+    assert.match(source, /if \(!vaultCaptureAvailable\(account\)\) redirect\('\/vault\?setup=onboarding'\)/);
+    assert.match(source, /if \(account\.notesStorage !== 'mongodb'\)/);
+    assert.match(source, /if \(!account\) redirect\('\/register'\)/);
+  }
+});
+
+test('Vault settings offers complete GitHub repository ZIP instructions', () => {
+  const page = readFileSync(new URL('../app/vault/page.js', import.meta.url), 'utf8');
+  assert.match(page, /Download complete Vault ZIP/);
+  assert.match(page, /href="\/api\/vault\/backup-zip"/);
+  assert.match(page, /including Saved Links and My Files/);
+  assert.match(page, /not an Oge one-click restore/);
+});
+
+test('GitHub Vault navigation includes My Files across existing workspaces', () => {
+  const notes = readFileSync(new URL('../app/notes/page.js', import.meta.url), 'utf8');
+  const airnotes = readFileSync(new URL('../app/components/personal-quick-notes-panel.js', import.meta.url), 'utf8');
+  const links = readFileSync(new URL('../app/saved-links/page.js', import.meta.url), 'utf8');
+  const quick = readFileSync(new URL('../app/quick-notes/quick-notes-client.js', import.meta.url), 'utf8');
+  assert.match(notes, /showFiles=\{vaultMode\}/);
+  assert.match(airnotes, /showFiles=\{vaultBacked\}/);
+  assert.match(links, /showFiles=\{storage === 'github'\}/);
+  assert.match(quick, /vaultBacked && <Link href="\/files">My Files<\/Link>/);
+});
+
+test('Vault Quick Notes and AirNotes warn before their 300-item limits', () => {
+  const quick = readFileSync(new URL('../app/components/quick-notes-panel.js', import.meta.url), 'utf8');
+  const airnotes = readFileSync(new URL('../app/components/personal-quick-notes-panel.js', import.meta.url), 'utf8');
+  assert.match(quick, /notes\.length >= 270/);
+  assert.match(airnotes, /notes\.length >= 270/);
+  assert.match(airnotes, /disabled=\{creating \|\| atVaultLimit\}/);
+});
+
+test('All GitHub Vault features share one connected-storage eligibility rule', async () => {
+  const { connectedVaultStorageAvailable, vaultNotesAvailable, vaultCaptureAvailable } =
+    await import('../lib/oge-vault-workspace-routing.js');
+  const { githubVaultFilesEnabled } = await import('../lib/oge-vault-media-validation.js');
+  const ready = {
+    notesStorage: 'github',
+    vault: { status: 'connected', repoId: 123, installationId: 456 },
+  };
+  const flags = { OGE_VAULT_MAIN_PREVIEW: 'true', OGE_VAULT_HYBRID_DRAFT_PREVIEW: 'true' };
+  assert.equal(connectedVaultStorageAvailable(ready), true);
+  assert.equal(githubVaultFilesEnabled(ready), true);
+  assert.equal(vaultNotesAvailable(ready, flags), true);
+  assert.equal(vaultCaptureAvailable(ready, flags), true);
+  assert.equal(vaultCaptureAvailable(ready, { ...flags, OGE_VAULT_HYBRID_DRAFT_PREVIEW: 'false' }), false);
+  assert.equal(vaultNotesAvailable(ready, { ...flags, OGE_VAULT_MAIN_PREVIEW: 'false' }), false);
+  for (const bad of [
+    { ...ready, notesStorage: 'mongodb' },
+    { ...ready, notesStorage: 'unselected' },
+    { ...ready, vault: { ...ready.vault, status: 'disconnected' } },
+    { ...ready, vault: { ...ready.vault, installationId: 0 } },
+    { ...ready, vault: { ...ready.vault, repoId: null } },
+  ]) {
+    assert.equal(connectedVaultStorageAvailable(bad), false);
+    assert.equal(githubVaultFilesEnabled(bad), false);
+    assert.equal(vaultNotesAvailable(bad, flags), false);
+    assert.equal(vaultCaptureAvailable(bad, flags), false);
+  }
+});
+
+test('Home only renders the Quick Notes inbox when its selected API is available', () => {
+  const home = readFileSync(new URL('../app/page.js', import.meta.url), 'utf8');
+  assert.match(home, /const showQuickNotes = captureReady/);
+  assert.match(home, /\{showQuickNotes && <section/);
+  assert.match(home, /const quickNotesApi = captureReady \?/);
+});
+
+test('Settings selects GitHub Vault backup UI instead of MongoDB import/export', () => {
+  const page = readFileSync(new URL('../app/settings/page.js', import.meta.url), 'utf8');
+  const client = readFileSync(new URL('../app/settings/settings-client.js', import.meta.url), 'utf8');
+  assert.match(page, /githubVaultSelected=\{user\.notesStorage === 'github'\}/);
+  assert.match(client, /\{githubVaultSelected \? \(/);
+  assert.match(client, /Download Vault ZIP/);
+  assert.match(client, /href="\/api\/vault\/backup-zip"/);
+  assert.match(client, /not yet available in Oge/);
+  assert.match(client, /href="\/api\/backup"/);
+  assert.match(client, /Restore from backup/);
+});
+
+test('Direct ZIP backup route checks signed owner and uses GitHub default branch', () => {
+  const route = readFileSync(new URL('../app/api/vault/backup-zip/route.js', import.meta.url), 'utf8');
+  assert.match(route, /await auth\(\)/);
+  assert.match(route, /ownerMutationFilter\(ownerId, \{ sessionVersion \}\)/);
+  assert.match(route, /githubVaultFilesEnabled\(account\)/);
+  assert.match(route, /getVaultNoteClient\(db, \{ ownerId, sessionVersion \}, \{ readOnly: true \}\)/);
+  assert.match(route, /client\.branch/);
+  assert.match(route, /archive\/refs\/heads\//);
+  assert.match(route, /Cache-Control/);
+  assert.doesNotMatch(route, /\/api\/backup['"]/);
+});
+
+test('Home dashboard reads GitHub note count instead of MongoDB notes for Vault owners', () => {
+  const page = readFileSync(new URL('../app/page.js', import.meta.url), 'utf8');
+  const dashboard = readFileSync(new URL('../app/components/home-dashboard.js', import.meta.url), 'utf8');
+  assert.match(page, /<HomeDashboard vaultMode=\{/);
+  assert.match(page, /notesHref=\{notesHref\}/);
+  assert.match(dashboard, /if \(vaultMode\) \{/);
+  assert.match(dashboard, /readJson\('\/api\/vault\/notes-main\?paged=true&limit=25'\)/);
+  assert.match(dashboard, /noteCount = page\.total/);
+  assert.match(dashboard, /noteCount = null/);
+  assert.match(dashboard, /readJson\('\/api\/notes\?subject='/);
+  assert.match(dashboard, /data\.noteCount === null \? '—'/);
+  assert.match(dashboard, /href=\{notesHref\}/);
+  assert.match(dashboard, /readJson\(quickNotesApi\)/);
+});

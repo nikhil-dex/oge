@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import SiteNavbar from './site-navbar';
 
@@ -34,7 +34,7 @@ function AirNoteLibraryCard({ note, index, onOpen, onDelete }) {
         <span className="card-bottom">◷ <span>{formatDate(note.updatedAt || note.createdAt)}</span></span>
       </button>
       <div className="note-card-actions" aria-label={'Actions for ' + title}>
-        <button type="button" className="delete-note" onClick={() => onDelete(note)} aria-label={'Delete AirNote: ' + title} title="Delete AirNote">×</button>
+        <button type="button" className="delete-note" onClick={() => onDelete(note)} aria-label={'Delete AirNote: ' + title} title="Delete AirNote">Delete</button>
       </div>
     </article>
   );
@@ -82,7 +82,7 @@ const QuickNoteCard = memo(function QuickNoteCard({ note, content, index, title,
   );
 });
 
-export default function PersonalQuickNotesPanel({ fullPage = false }) {
+export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/api/personal-quick-notes' }) {
   const [notes, setNotes] = useState([]);
   const [dirty, setDirty] = useState({});
   const [loading, setLoading] = useState(true);
@@ -95,19 +95,27 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
   const [editingNote, setEditingNote] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const pendingCreateId = useRef(null);
+  const noteRevisionsRef = useRef(new Map());
+  const inFlightRef = useRef(new Set());
+  const [saveCycle, setSaveCycle] = useState(0);
+  const vaultBacked = apiPath === '/api/vault/airnotes';
+  useEffect(() => {
+    noteRevisionsRef.current = new Map(notes.map((note) => [note.id, note.sha]));
+  }, [notes]);
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await readResponse(await fetch('/api/personal-quick-notes', { cache: 'no-store' }));
+      const data = await readResponse(await fetch(apiPath, { cache: 'no-store' }));
       setNotes(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || 'Could not load quick notes.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiPath]);
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
 
@@ -116,27 +124,37 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     if (!entries.length) return undefined;
     const timer = setTimeout(async () => {
       await Promise.all(entries.map(async ([id, content]) => {
+        if (inFlightRef.current.has(id)) return;
+        inFlightRef.current.add(id);
         setSavingIds((current) => ({ ...current, [id]: true }));
+        let saved = false;
         try {
-          const result = await readResponse(await fetch('/api/personal-quick-notes', {
+          const result = await readResponse(await fetch(apiPath, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, content }),
+            body: JSON.stringify({ id, content,
+              ...(vaultBacked ? { sha: noteRevisionsRef.current.get(id) } : {}) }),
           }));
+          if (vaultBacked) noteRevisionsRef.current.set(id, result.sha);
           setNotes((current) => current.map((note) => note.id === id
-            ? { ...note, title: result.title, updatedAt: result.updatedAt }
-            : note));
+            ? { ...note, title: result.title, updatedAt: result.updatedAt,
+              ...(vaultBacked ? { sha: result.sha } : {}) } : note));
           setSaveErrors((current) => ({ ...current, [id]: '' }));
-          setDirty((current) => current[id] === content ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)) : current);
+          setDirty((current) => current[id] === content
+            ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== id))
+            : current);
+          saved = true;
         } catch (err) {
           setSaveErrors((current) => ({ ...current, [id]: err.message || 'Could not save this note.' }));
         } finally {
+          inFlightRef.current.delete(id);
           setSavingIds((current) => ({ ...current, [id]: false }));
+          if (saved) setSaveCycle((cycle) => cycle + 1);
         }
       }));
     }, 700);
     return () => clearTimeout(timer);
-  }, [dirty]);
+  }, [dirty, apiPath, vaultBacked, saveCycle]);
 
   async function addNote() {
     if (creating) return;
@@ -144,12 +162,16 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     setError('');
     setMessage('');
     try {
-      const note = await readResponse(await fetch('/api/personal-quick-notes', {
+      if (vaultBacked && !pendingCreateId.current)
+        pendingCreateId.current = crypto.randomUUID();
+      const note = await readResponse(await fetch(apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: '' }),
+        body: JSON.stringify({ content: '',
+          ...(vaultBacked ? { id: pendingCreateId.current } : {}) }),
       }));
-      setNotes((current) => [note, ...current]);
+      pendingCreateId.current = null;
+      setNotes((current) => [note, ...current.filter((entry) => entry.id !== note.id)]);
       setMessage('AirNote created. Start with a title or your first thought.');
     } catch (err) {
       setError(err.message || 'Could not create a quick note.');
@@ -169,15 +191,17 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     setError('');
     setMessage('');
     try {
-      await readResponse(await fetch('/api/personal-quick-notes?id=' + encodeURIComponent(note.id), { method: 'DELETE' }));
+      await readResponse(await fetch(apiPath + '?id=' + encodeURIComponent(note.id) + (vaultBacked ? '&sha=' + encodeURIComponent(note.sha || '') : ''), { method: 'DELETE' }));
       setNotes((current) => current.filter((item) => item.id !== note.id));
       setDirty((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== note.id)));
       setSaveErrors((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== note.id)));
+      setOpenedNote(null);
+      setEditingNote(null);
       setMessage('AirNote deleted.');
     } catch (err) {
       setError(err.message || 'Could not delete this quick note.');
     }
-  }, []);
+  }, [apiPath, vaultBacked]);
 
   function openEditor(note) {
     setEditingNote(note);
@@ -192,10 +216,11 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     setEditSaving(true);
     setError('');
     try {
-      const result = await readResponse(await fetch('/api/personal-quick-notes', {
+      const result = await readResponse(await fetch(apiPath, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingNote.id, content: editContent }),
+        body: JSON.stringify({ id: editingNote.id, content: editContent,
+          ...(vaultBacked ? { sha: editingNote.sha } : {}) }),
       }));
       setNotes((current) => current.map((note) => note.id === editingNote.id ? { ...note, ...result } : note));
       setDirty((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== editingNote.id)));
@@ -209,21 +234,23 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
   }
 
   const visibleNotes = fullPage ? notes : notes.slice(0, 3);
+  const atVaultLimit = vaultBacked && notes.length >= 300;
 
   return (
     <section className={'quick-notes-section' + (fullPage ? ' quick-notes-full-page' : '')} aria-labelledby="quick-notes-heading">
-      {fullPage && <SiteNavbar />}
+      {fullPage && <SiteNavbar notesHref={vaultBacked ? '/vault/notes' : '/notes'} showFiles={vaultBacked} />}
       <div className="quick-notes-heading-row">
         <div>
           <p className="eyebrow">{fullPage ? 'CAPTURE IT BEFORE YOU FORGET' : 'PERSONAL KNOWLEDGE SPACE'}</p>
           <h2 id="quick-notes-heading">{fullPage ? <>Air<span>Notes.</span></> : <>AirNotes <span className="quick-notes-count">{notes.length}</span></>}</h2>
           <p className="quick-notes-lead">{fullPage ? 'A focused space for capturing ideas, keeping references, and developing thoughts.' : 'Your private workspace for ideas and drafts, separate from Quick Notes.'}</p>
         </div>
-        <button className="quick-note-add-button" type="button" onClick={addNote} disabled={creating} aria-label="Create an AirNote" title="Create an AirNote">
+        <button className="quick-note-add-button" type="button" onClick={addNote} disabled={creating || atVaultLimit} aria-label="Create an AirNote" title="Create an AirNote">
           <span aria-hidden="true">＋</span>{fullPage ? (creating ? 'Adding…' : 'Add note') : ''}
         </button>
       </div>
 
+      {vaultBacked && notes.length >= 270 && !loading && <p className="quick-notes-feedback" role="status">{notes.length}/300 AirNotes used. {atVaultLimit ? 'Delete an AirNote before creating another.' : 'You are approaching the 300-note limit.'}</p>}
       {(error || message) && <p className={'quick-notes-feedback' + (error ? ' is-error' : '')} role="status">{error || message}</p>}
 
       {!fullPage ? null : loading ? <p className="quick-notes-loading">Loading AirNotes…</p> : notes.length ? (
@@ -243,7 +270,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
               saving={Boolean(savingIds[note.id] || dirty[note.id] !== undefined)}
             />
           ))}
-          <button className="quick-note-add-tile" type="button" onClick={addNote} disabled={creating} aria-label="Create another AirNote">
+          <button className="quick-note-add-tile" type="button" onClick={addNote} disabled={creating || atVaultLimit} aria-label="Create another AirNote">
             <span aria-hidden="true">＋</span><strong>New AirNote</strong><small>Create a fresh note</small>
           </button>
         </div>
@@ -252,7 +279,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
           <span className="quick-notes-empty-icon" aria-hidden="true">✎</span>
           <h3>A clear space for your thoughts.</h3>
           <p>Create an AirNote to start collecting ideas, notes, and references.</p>
-          <button className="add-button" type="button" onClick={addNote} disabled={creating}><span aria-hidden="true">＋</span> Create your first AirNote</button>
+          <button className="add-button" type="button" onClick={addNote} disabled={creating || atVaultLimit}><span aria-hidden="true">＋</span> Create your first AirNote</button>
         </div>
       )}
       {fullPage && typeof document !== 'undefined' && createPortal(
@@ -264,6 +291,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
                 <div className="reader-pagination"><span className="reader-kicker">AIRNOTE</span></div>
                 <div className="reader-toolbar-actions">
                   <button type="button" className="note-share-button airnote-reader-edit-button" onClick={() => openEditor(openedNote)} aria-label="Edit AirNote" title="Edit AirNote">✎ Edit</button>
+                  <button type="button" className="oge-danger-link" onClick={() => deleteNote(openedNote)} aria-label="Delete AirNote">Delete</button>
                   <button className="close-button reader-close" onClick={() => setOpenedNote(null)} aria-label="Close AirNote">×</button>
                 </div>
               </div>
@@ -284,6 +312,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
               <p className="form-subtitle">Make your changes, then save them to AirNotes.</p>
               <textarea autoFocus value={editContent} onChange={(event) => setEditContent(event.target.value)} aria-label="AirNote content" rows={12} />
               <div className="editor-dialog-actions">
+                <button type="button" className="oge-danger-link" onClick={() => deleteNote(editingNote)} disabled={editSaving}>Delete AirNote</button>
                 <button type="button" className="study-button" onClick={() => setEditingNote(null)} disabled={editSaving}>Cancel</button>
                 <button type="button" className="add-button" onClick={saveEditedNote} disabled={editSaving}>{editSaving ? 'Saving…' : 'Save changes'}</button>
               </div>

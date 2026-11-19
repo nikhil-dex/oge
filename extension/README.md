@@ -2,7 +2,7 @@
 
 The Chrome Manifest V3 extension now combines the original OgeNotes floating Quick Notes feature with the new Oge tools:
 
-- **Quick Note:** write while browsing; the first line becomes the title and content saves to the account's existing `quickNotes` collection.
+- **Quick Note:** write while browsing. Choose **Quick Notes** (the default) to save to the Quick Notes inbox, or select a subject to save a regular Note in GitHub Vault.
 - **Save URL:** save the current page in Saved Links.
 - **My Links:** view the GitHub, LinkedIn and portfolio URLs saved in Profile, and copy or visit them.
 - A draggable **O** button appears at the bottom right of regular HTTP and HTTPS pages. The existing extension popup remains available for token setup, saving tabs, and profile links.
@@ -12,22 +12,22 @@ The Chrome Manifest V3 extension now combines the original OgeNotes floating Qui
 1. In Chrome, visit `chrome://extensions`, turn on Developer mode, and click **Load unpacked**. Select the `extension/` directory of the **oge** repository.
 2. Sign in to your OgeNotes site and open **Browser Extension**. Generate an extension token.
 3. Open the Chrome extension popup, choose **Connect**, paste the site origin (such as `http://localhost:3000` for local development) and the token, and click **Save connection**. Approve host permission.
-4. **Reload existing website tabs** to inject the widget, click the floating **O** button, and use any of the three tools. The header can be dragged.
-5. Find saved notes in **Quick Notes** and saved tabs in **Saved Links**. Add My Links in **Profile**.
+4. **Reload existing website tabs** to inject the widget, click the floating **O** button, and use **Quick note** or **My links**. The header can be dragged.
+5. For connected Vault accounts, **Quick Notes** captures appear in the Quick Notes inbox; subject-selected captures appear in GitHub Notes. Other accounts use their selected storage. Saved tabs appear in **Saved Links**.
 
 ## Security and limitations
 
 - The content script never reads or receives the connection token. The extension's background service worker reads the token from `chrome.storage.local` and talks to token-authenticated OgeNotes APIs.
-- The Quick Notes endpoint is write-only, scopes documents to the token owner, validates content length, rate limits writes, and rechecks token validity inside the account transaction.
+- The original Quick Notes endpoint remains available for accounts without a connected Vault. Connected accounts use a separate explicit `/api/extension/vault-note` route that saves directly to their existing private GitHub repository (no permanent Note body is stored in MongoDB).
 - This feature adds Chrome host-page content-script access so the floating widget can be injected. Chrome may display an updated permission notice when the extension reloads.
 - The floating widget is injected into the top document of ordinary HTTP/HTTPS websites, **not** browser-internal pages (`chrome://`), the Chrome Web Store, PDFs rendered in internal viewers, or sites where Chrome prevents injection.
 - It intentionally does not scrape or transmit web-page content. Only text you enter and the URL of a page you explicitly save are sent.
 - Browser behavior, keyboard shortcuts, connection revocation, and clipboard fallback require manual Chrome validation before deployment.
 - To revoke access, use the Browser Extension page in OgeNotes; deleting the local token alone is not server-side revocation.
 
-## Choose a subject when capturing
+## Choose where to save a capture
 
-In the floating Quick Note editor, **Save to** defaults to **Quick Notes**. Select a subject from your existing Notes subjects to save there instead. The first line becomes the Notes heading, while the remaining text becomes the body. Subject notes require both a first-line heading and text below it. If no subject is selected, the original standalone Quick Notes behavior remains unchanged.
+**Quick Notes** is the default destination. The extension can create Quick Notes; the Oge app can read, copy and delete them, but cannot create or edit them. Selecting an existing subject saves a regular Note instead. The first line becomes the title and the rest becomes the body. A GitHub Vault account writes to its private repository, not the legacy MongoDB Notes collection.
 
 ## Reset the extension
 
@@ -57,3 +57,88 @@ The toolbar popup still includes its original standalone **Save tab** action; on
 ## One-click corner positioning
 
 The floating panel header has a **⌖ Position** control. Each click moves the **open widget** clockwise through **top-right → bottom-right → bottom-left → top-left → top-right**. It keeps a small gap from the screen edge, preserves panel resizing, and updates the button's accessible label to show the next destination. If the viewport changes size, the selected corner is reapplied. Dragging the panel manually leaves corner-snap mode. Closing the widget brings the floating `O` launcher back at the panel's current corner.
+
+## Learning Tracks preview (M97)
+
+**Hidden from the normal extension starting in M124.** M97 added an early experimental playlist-tracking UI before the planned Learning Track product was finished. The floating extension now shows only **Quick note** and **My links**. The prototype UI code remains behind the hardcoded `LEARNING_TRACKS_EXTENSION_PREVIEW = false` gate, and its original server API remains default OFF (`OGE_LEARNING_TRACKS_PREVIEW=false`). No user-visible extension Tracks button appears until a future roadmap decision explicitly re-enables it and completes testing. The existing prototype supports a manual playlist title and videos-per-day goal only; it does not automatically generate lesson notes, capture transcripts or sync watched video progress. Preserve the prototype without advertising it as a finished feature.
+
+## M114 — Choose whether new text updates or creates a Note
+
+If you keep typing while a GitHub Note is being saved, the widget now
+offers **Update saved GitHub Note** for the default continuation or
+**Save this as a separate Note instead** for a completely new Note
+in the same subject. The latter leaves the text in the editor and
+does not change the already committed Note. Press Save after choosing
+to create the separate Note. Selecting the option itself does not
+send a GitHub request.
+
+This is currently covered by automated extension click tests; the
+live connected-account acceptance steps are still pending.
+
+## M113 — One continued Note, not accidental duplicates
+
+If you continue typing while a GitHub Save is in progress, the earlier
+revision is committed first. The editor keeps your newer text and tells
+you to press Save again to **update that same GitHub Note**. The next
+Save uses its returned GitHub blob SHA and Note UUID, not a second Create.
+
+If the Update response is interrupted, the unchanged newer text and
+original revision are kept for a retry with the same Note ID. When the
+response confirms, Oge clears the editor. If you change the destination
+subject, a new Save creates a different Note instead of overwriting the
+old subject's Note.
+
+**Live browser verification is still required.** Tests simulate the
+network responses, not a real connected Chrome profile.
+
+## M111 — Open the Note you just saved
+
+After a confirmed GitHub Vault Save, the floating widget shows
+**View last saved GitHub Note ↗**. Clicking it opens the connected Oge
+site at `/vault/notes?note=<saved-UUID>`; the regular signed-in Notes
+page fetches that specific Note from GitHub even if it is not in the
+initial 20-file page, selects its subject, and opens the Note reader
+automatically. Tap **Edit note** to continue writing.
+
+This is an explicit click, not an automatic new tab. Only the
+validated UUID is passed in the URL; Note contents and extension tokens
+are not placed in the link. If you are not signed in, complete normal
+Oge sign-in before viewing your private Notes.
+
+## M109 — Editing while a Save is in flight
+
+The extension uses the exact text and subject visible when **Save** is
+pressed. If you continue typing while GitHub responds, the newer text
+remains in the editor; the confirmation applies only to the earlier
+submission. Press Save again for the newer text.
+
+On connection failure or an unknown outcome, the extension leaves the note
+in place and keeps the same capture ID for a retry with unchanged content.
+Multiple Save clicks during the same request do not start multiple commits.
+Test this in a real Chrome session with a connected GitHub Vault before
+production use; automated tests exercise simulated network responses.
+
+## M107 — shared GitHub Note capture
+
+Connected users now open **Quick Notes** or **AirNotes** in the Oge website and
+arrive at the shared GitHub-backed **Quick Capture** editor. The old standalone
+screens and existing MongoDB APIs remain unchanged for unconnected accounts.
+This applies to **new captures**; existing historical standalone notes are
+**not migrated, deleted or copied** automatically.
+
+The updated floating extension asks the server whether the account is Vault-
+ready before enabling Save. When connected, its Save calls only the new Vault
+endpoint and uses the same private GitHub Notes repository as the full editor.
+If a response is lost, the widget retains the note and its original capture
+UUID. Selecting Save again rechecks that exact Note ID to avoid duplicate
+commits. The user must select an existing subject and supply title + body;
+the extension deliberately does not create subjects.
+
+Older builds that still call the legacy Quick Note API receive a clear
+**update extension** message for connected Vault users instead of creating a
+second permanent MongoDB Note. Loading failures never silently switch the
+updated widget back to old storage.
+
+**Live Chrome/GitHub testing still needed:** install the updated extension,
+connect a token, choose a subject, Save, reload Oge, check the Note, and
+simulate a lost Save response. CI alone does not prove that journey.

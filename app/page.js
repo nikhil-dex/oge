@@ -8,6 +8,8 @@ import HomeNewsFeed from './components/home-news-feed';
 import EnglishWordExplainer from './components/english-word-explainer';
 import HomeDashboard from './components/home-dashboard';
 import QuickNotesPanel from './components/quick-notes-panel';
+import { githubVaultFilesEnabled } from '../lib/oge-vault-media-validation.js';
+import { vaultNotesAvailable, vaultCaptureAvailable } from '../lib/oge-vault-workspace-routing.js';
 
 const modules = [
   { number: '01', group: 'LEARN', title: 'Notes', description: 'Organize ideas, study material, and everything worth keeping.', href: '/notes', icon: '▤', featured: true },
@@ -23,18 +25,56 @@ export default async function HomePage() {
   const session = await auth();
   if (!session?.user?.id) redirect('/register');
   const db = await getDatabase();
-  const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1 } });
+  const account = await db.collection('users').findOne({ googleSub: session.user.id }, { projection: { onboardingComplete: 1, vault: 1, notesStorage: 1 } });
   if (!account?.onboardingComplete) redirect('/onboarding');
+  // Once GitHub Notes is enabled for a connected owner, the main Notes card
+  // should open the actual GitHub-backed editor, not the older MongoDB UI.
+  const vaultNotesReady = vaultNotesAvailable(account);
+  const notesHref = account.notesStorage === 'github'
+    ? (vaultNotesReady ? '/vault/notes' : '/vault?setup=onboarding')
+    : account.notesStorage === 'mongodb' ? '/notes'
+      : vaultNotesReady ? '/vault/notes' : '/notes';
+  const captureReady = vaultCaptureAvailable(account);
+  // Home's Quick Notes widget must share the signed user's selected storage.
+  // A temporarily disconnected GitHub Vault is NOT permission to write to
+  // the legacy MongoDB Quick Notes collection.
+  // Never render a GitHub inbox that its API would reject, and never
+  // silently route a GitHub owner to MongoDB when capture is unavailable.
+  const showQuickNotes = captureReady || account.notesStorage === 'mongodb' ||
+    (!account.notesStorage && !githubVaultFilesEnabled(account));
+  const quickNotesApi = captureReady ? '/api/vault/quick-notes' : '/api/quick-notes';
+  const filesReady = githubVaultFilesEnabled(account);
+  // GitHub Vault does not use the legacy MongoDB revision queue or history pages.
+  // Per-note GitHub history is accessible within Vault Notes instead.
+  const visibleModules = [
+    ...modules.filter((item) => account.notesStorage !== 'github' ||
+      (item.href !== '/revision' && item.href !== '/revision-history')),
+    ...(filesReady ? [{
+      number: '06', group: 'COLLECT', title: 'My Files',
+      description: 'Store documents, code, media and other files in your private GitHub Vault.',
+      href: '/files', icon: '▣',
+    }] : []),
+    ...(captureReady ? [{
+      number: filesReady ? '07' : '06', group: 'CAPTURE', title: 'Quick Capture',
+      description: 'Write a note fast. Choose a subject and press Save.',
+      href: '/vault/capture', icon: '✎',
+    }] : []),
+    ...(process.env.OGE_LEARNING_TRACKS_PREVIEW === 'true' ? [{
+      number: String(6 + Number(captureReady) + Number(filesReady)).padStart(2, '0'), group: 'LEARN',
+      title: 'Learning Tracks', description: 'Turn video playlists into daily learning goals.',
+      href: '/learning-tracks', icon: '▷',
+    }] : []),
+  ];
 
   return (
     <main className="shell hub-shell oge-shell">
-      <SiteNavbar actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
+      <SiteNavbar notesHref={notesHref} showFiles={filesReady} actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
 
       <HomeNewsFeed />
 
       <EnglishWordExplainer />
 
-      <HomeDashboard />
+      <HomeDashboard vaultMode={account.notesStorage === 'github' || (account.notesStorage !== 'mongodb' && filesReady)} notesHref={notesHref} quickNotesApi={quickNotesApi} quickNotesAvailable={showQuickNotes} />
 
       <section className="quick-notes-section oge-airnotes-preview" aria-labelledby="airnotes-heading">
         <div className="quick-notes-heading-row">
@@ -57,11 +97,11 @@ export default async function HomePage() {
       <section className="oge-module-section" aria-labelledby="modules-title">
         <div className="oge-section-heading">
           <div><span className="oge-section-kicker">YOUR TOOLKIT</span><h2 id="modules-title">Everything in its place.</h2></div>
-          <span className="oge-count">05 MODULES</span>
+          <span className="oge-count">{String(visibleModules.length).padStart(2, "0")} MODULES</span>
         </div>
         <div className="hub-grid oge-module-grid">
-          {modules.map((item) => (
-            <a key={item.href} className={item.featured ? 'hub-card oge-module-card hub-card-featured' : 'hub-card oge-module-card'} href={item.href}>
+          {visibleModules.map((item) => (
+            <a key={item.href} className={item.featured ? 'hub-card oge-module-card hub-card-featured' : 'hub-card oge-module-card'} href={item.href === '/notes' ? notesHref : item.href}>
               <div className="oge-module-card-top"><span className="oge-module-icon" aria-hidden="true">{item.icon}</span><span className="hub-card-kicker">{item.number} · {item.group}</span></div>
               <h3>{item.title} <span aria-hidden="true">↗</span></h3>
               <p>{item.description}</p>
@@ -71,9 +111,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="oge-quick-notes-bottom" aria-label="Quick Notes">
-        <QuickNotesPanel />
-      </section>
+      {showQuickNotes && <section className="oge-quick-notes-bottom" aria-label="Quick Notes">
+        <QuickNotesPanel apiPath={quickNotesApi} />
+      </section>}
 
       <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>A little more organized, every day.</span><Link href="/settings">Settings <span aria-hidden="true">↗</span></Link></footer>
     </main>

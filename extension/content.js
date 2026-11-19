@@ -1,4 +1,8 @@
 (() => {
+  // Learning Tracks remains an unfinished prototype. Keep it out of the
+  // user-facing extension until the feature's roadmap work is resumed.
+  // The separate, server-gated prototype is deliberately retained.
+  const LEARNING_TRACKS_EXTENSION_PREVIEW = false;
   if (window.top !== window || document.getElementById('oge-floating-toolbelt-host')) return;
   const host = document.createElement('div');
   host.id = 'oge-floating-toolbelt-host';
@@ -7,8 +11,8 @@
   const shadow = host.attachShadow({ mode: 'closed' });
   const style = document.createElement('style');
   style.textContent = [
-    '*{box-sizing:border-box}button,textarea,select{font:inherit}',
-    'button,textarea,select{outline-offset:2px}@media(prefers-reduced-motion:reduce){:host{transition:none!important}}',
+    '*{box-sizing:border-box}button,textarea,select,input{font:inherit}',
+    'button,textarea,select,input{outline-offset:2px}@media(prefers-reduced-motion:reduce){:host{transition:none!important}}',
     '.launcher{width:44px;height:44px;border:1px solid #ffffff55;border-radius:14px;background:#316b50;color:#fff;box-shadow:0 8px 26px #10251b40;font:800 19px system-ui;cursor:grab;touch-action:none;user-select:none;letter-spacing:-.05em;transition:box-shadow .18s,background .18s}.launcher:hover{background:#23563d;box-shadow:0 9px 28px #10251b55}.launcher:active{cursor:grabbing}.launcher.is-panel-open{visibility:hidden;pointer-events:none}',
     '.panel{position:fixed;left:16px;top:16px;right:auto;bottom:auto;width:330px;min-width:265px;max-width:calc(100vw - 24px);height:360px;min-height:235px;max-height:calc(100vh - 75px);resize:both;overflow:auto;border:1px solid #dbe5de;border-radius:14px;background:#fff;color:#1d2d22;box-shadow:0 18px 48px #10251b35;font:12px/1.4 system-ui,-apple-system,sans-serif}',
     '.hidden{display:none}.resize-corner{position:sticky;bottom:0;float:right;width:24px;height:24px;margin-top:-24px;display:grid;place-items:center;border:0;border-top-left-radius:8px;color:#657a6d;background:#f1f6f2;cursor:nwse-resize;touch-action:none;user-select:none;font-size:15px}.resize-corner-left{float:left;border-radius:0 8px 0 0;cursor:nesw-resize}.top{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #e8eee9;cursor:grab;touch-action:none;user-select:none;background:#fbfcfb}.top:active{cursor:grabbing}',
@@ -17,8 +21,9 @@
     '.body{padding:11px 12px}.body[hidden]{display:none}.hint{margin:0 0 9px;color:#6b7b70;font-size:10px;line-height:1.45}',
     'textarea{display:block;width:100%;height:116px;min-height:75px;padding:10px;resize:vertical;border:1px solid #d5e0d8;border-radius:8px;color:#15251b;background:#fff;font:12px/1.5 ui-monospace,monospace;outline-color:#40795e}',
     '.primary{display:block;width:100%;margin-top:9px;padding:9px;border:0;border-radius:8px;background:#316b50;color:white;font-size:11px;font-weight:750;cursor:pointer}.primary:hover{background:#23563d}',
+    '.body [data-open-saved-vault-note],.body [data-new-vault-note]{display:block;width:100%;margin-top:6px;padding:8px;border:1px solid #b6d8bf;border-radius:8px;background:#e9f5ec;color:#245b38;font-size:11px;cursor:pointer}.body [data-open-saved-vault-note][hidden],.body [data-new-vault-note][hidden]{display:none}',
     'button:disabled{opacity:.65;cursor:wait}.status{min-height:0;margin:0 12px;color:#316b50;font-size:10px;overflow-wrap:anywhere}.status:not(:empty){padding:6px 0}.error{color:#b42318}',
-    '.belt{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:7px 10px;border-top:1px solid #e7eee8;background:#fafcfb}',
+    '.belt{display:grid;grid-template-columns:repeat(' + (LEARNING_TRACKS_EXTENSION_PREVIEW ? 3 : 2) + ',1fr);gap:5px;padding:7px 10px;border-top:1px solid #e7eee8;background:#fafcfb}',
     '.belt button{padding:7px 2px;border:1px solid transparent;border-radius:7px;background:transparent;color:#52685a;font-size:10px;font-weight:600;cursor:pointer}',
     '.belt button.selected{border-color:#b6d8bf;background:#e5f3e9;color:#275d39}',
     '.link{display:grid;gap:8px;padding:9px 0;border-bottom:1px solid #e4eee6}.link:last-child{border:0}.link strong{font-size:12px}',
@@ -30,7 +35,7 @@
     ':host([data-oge-theme="dark"]) .launcher,:host([data-oge-theme="dark"]) .mark,:host([data-oge-theme="dark"]) .primary{background:#78ad8d;color:#15251b}'+
     ':host([data-oge-theme="dark"]) .primary:hover,:host([data-oge-theme="dark"]) .launcher:hover{background:#649a79}'+
     ':host([data-oge-theme="dark"]) .hint,:host([data-oge-theme="dark"]) .empty,:host([data-oge-theme="dark"]) .subject-label,:host([data-oge-theme="dark"]) .address,:host([data-oge-theme="dark"]) .close{color:#a2afa7}'+
-    ':host([data-oge-theme="dark"]) textarea,:host([data-oge-theme="dark"]) .subject-select{background:#222e26;color:#e4ebe6;border-color:#3b4d40}'+
+    ':host([data-oge-theme="dark"]) textarea,:host([data-oge-theme="dark"]) input,:host([data-oge-theme="dark"]) .subject-select{background:#222e26;color:#e4ebe6;border-color:#3b4d40}'+
     ':host([data-oge-theme="dark"]) .belt button{color:#b8c8bd}'+
     ':host([data-oge-theme="dark"]) .belt button.selected,:host([data-oge-theme="dark"]) .link-actions button{background:#293c30;color:#a9d3b8;border-color:#44654d}'+
     ':host([data-oge-theme="dark"])  .link{border-color:#303b35}'+
@@ -38,7 +43,7 @@
     ':host([data-oge-theme="dark"]) .status{color:#a9d3b8}',
     ':host([data-oge-theme="dark"]) .corner-button{color:#a2afa7;border-color:#3b4d40}'+
     ':host([data-oge-theme="dark"]) .corner-button:hover{background:#293c30;color:#e4ebe6}',
-    '.empty{font-size:11px;color:#637568}.subject-label{display:block;margin:8px 0 4px;font-size:10px;font-weight:700;color:#546d5b}.subject-select{display:block;width:100%;padding:8px;border:1px solid #d5e0d8;border-radius:8px;background:#fff;color:#15251b;font:11px system-ui}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
+    '.track-input{width:100%;padding:8px;margin:5px 0 8px;border:1px solid #d5e0d8;border-radius:8px;background:#fff;color:#15251b;font:11px system-ui}.empty{font-size:11px;color:#637568}.subject-label{display:block;margin:8px 0 4px;font-size:10px;font-weight:700;color:#546d5b}.subject-select{display:block;width:100%;padding:8px;border:1px solid #d5e0d8;border-radius:8px;background:#fff;color:#15251b;font:11px system-ui}:focus-visible{outline:2px solid #40795e;outline-offset:2px}',
   ].join('');
   const panel = document.createElement('section');
   panel.className = 'panel hidden';
@@ -46,10 +51,13 @@
   // HTML is static extension-owned markup; user content uses textContent.
   panel.innerHTML = [
     '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="corner-button" type="button" aria-label="Move widget to top-right corner" title="Move to top-right corner">⌖</button><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
-    '<div class="body" data-panel="note"><p class="hint">First line = title · Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Heading&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button></div>',
+    '<div class="body" data-panel="note"><p class="hint">Write a quick thought, or a title followed by details. Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Write a thought, or a title&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button><button type="button" data-new-vault-note hidden>Save this as a separate Note instead</button><button type="button" data-open-saved-vault-note hidden>View last saved GitHub Note ↗</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your GitHub, LinkedIn and portfolio links.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div><button class="primary" type="button" data-save-url>＋ Save current page to Saved Links</button></div>',
+    ...(LEARNING_TRACKS_EXTENSION_PREVIEW ? [
+    '<div class="body" data-panel="tracks" hidden><p class="hint">Open a YouTube playlist or a video inside one. This adds a playlist tracker, not video notes.</p><label class="subject-label">Track name<input class="track-input" data-track-title maxlength="120" placeholder="Machine learning course"></label><label class="subject-label">Videos per day<input class="track-input" data-track-daily type="number" min="1" max="20" value="2"></label><label class="subject-label">Total videos (optional)<input class="track-input" data-track-total type="number" min="1" max="10000" placeholder="Unknown"></label><button class="primary" type="button" data-save-track>Create learning track</button><button type="button" data-open-learning-tracks>Open Learning Tracks in Oge</button></div>',
+    ] : []),
     '<p class="status" role="status" aria-live="polite"></p>',
-    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="links" type="button">☷ My links</button><button type="button" disabled aria-label="Reserved for future tool">＋ Coming soon</button></nav>',
+    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="links" type="button">☷ My links</button>' + (LEARNING_TRACKS_EXTENSION_PREVIEW ? '<button data-tool="tracks" type="button">▷ Tracks</button>' : '') + '</nav>',
     '<button class="resize-corner resize-corner-left" type="button" aria-label="Resize widget from left corner" title="Drag left or down to resize">↙</button>',
     '<button class="resize-corner" type="button" aria-label="Resize widget width and height" title="Drag to resize width and height">↘</button>',
   ].join('');
@@ -313,10 +321,42 @@
   wake();
 
   const noteSave = panel.querySelector('[data-save-note]');
+  const noteNewCapture = panel.querySelector('[data-new-vault-note]');
+  const noteOpenSaved = panel.querySelector('[data-open-saved-vault-note]');
+  let lastSavedVaultNoteId = null;
+  noteOpenSaved.addEventListener('click', async () => {
+    if (!lastSavedVaultNoteId) return;
+    try {
+      await send('OPEN_VAULT_NOTE', { id: lastSavedVaultNoteId });
+      setStatus('Opened your saved Note in Oge.');
+    } catch (error) {
+      setStatus(error.message || 'Could not open the saved Note.', true);
+    }
+  });
+  // Unknown destination is NOT permission to fall back to MongoDB.
+  // Wait for the owner's subject list to select the right writer.
+  let vaultReady = null;
+  let pendingVaultCapture = null;
+  // If text changes during a confirmed Save, the next click updates that
+  // same GitHub Note instead of creating an accidental duplicate.
+  let pendingSavedUpdate = null;
+  let savingCapture = false;
+  // crypto.randomUUID() is absent in some HTTP page contexts where the
+  // extension can still run. getRandomValues() is available there.
+  function createCaptureId() {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    const hex = [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('');
+    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' +
+      hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+  }
+  noteSave.disabled = true;
   async function loadSubjects() {
     const previous = subjectSelect.value;
     try {
       const result = await send('GET_SUBJECTS');
+      vaultReady = result.vaultReady === true;
       subjectSelect.replaceChildren();
       const quick = document.createElement('option');
       quick.value = '';
@@ -329,30 +369,144 @@
         option.textContent = subject.name;
         subjectSelect.append(option);
       }
-      if ([...subjectSelect.options].some((option) => option.value === previous)) {
+      if (previous && [...subjectSelect.options].some((option) => option.value === previous)) {
         subjectSelect.value = previous;
+      } else {
+        // Quick Notes is always the default destination. Subjects are
+        // optional and select the regular Notes library instead.
+        subjectSelect.value = '';
       }
+      noteSave.disabled = savingCapture;
       updateNoteButton();
     } catch (error) {
-      // Keep the default Quick Notes destination and any previously loaded subjects.
-      setStatus(error.message || 'Could not load subjects.', true);
+      // Do not guess the storage destination after an API/network failure.
+      vaultReady = null;
+      noteSave.disabled = true;
+      setStatus(error.message || 'Could not load subjects. Reopen this panel to retry.', true);
     }
   }
   function updateNoteButton() {
-    noteSave.textContent = subjectSelect.value ? 'Save to selected subject →' : 'Save to Quick Notes';
+    const continuing = vaultReady === true && pendingSavedUpdate &&
+      pendingSavedUpdate.subjectSlug === subjectSelect.value;
+    noteNewCapture.hidden = !continuing;
+    noteSave.textContent = vaultReady === null ? 'Loading destination…'
+      : vaultReady ? (subjectSelect.value
+        ? continuing ? 'Update saved Note →' : 'Save to selected subject →'
+        : 'Save to Quick Notes')
+        : subjectSelect.value ? 'Save to selected subject →' : 'Save to Quick Notes';
   }
   subjectSelect.addEventListener('change', updateNoteButton);
 
   noteSave.addEventListener('click', async () => {
+    if (savingCapture) return;
     if (!note.value.trim()) return setStatus('Write something before saving.', true);
+    if (vaultReady === null) return setStatus('Load your Oge Notes connection before saving.', true);
+    // Snapshot exactly what this request intends to commit. The user can
+    // keep typing while the network is slow; that newer text is NOT part
+    // of this Save and must never be erased by its eventual response.
+    const submittedContent = note.value;
+    const submittedSubject = subjectSelect.value;
+    const submittedToVault = vaultReady;
+    savingCapture = true;
     noteSave.disabled = true;
-    setStatus('Saving note…');
+    setStatus(submittedToVault ? 'Saving to GitHub Vault…' : 'Saving note…');
     try {
-      const result = await send('CREATE_QUICK_NOTE', { content: note.value, subjectSlug: subjectSelect.value });
-      note.value = '';
-      setStatus(result.destination === 'notes' ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.' : 'Saved “' + result.title + '” to Quick Notes.');
-    } catch (error) { setStatus(error.message, true); }
-    finally { noteSave.disabled = false; }
+      let result;
+      if (submittedToVault) {
+        if (!submittedSubject) {
+          // The extension alone creates standalone Quick Notes.
+          // Hold this UUID across a lost response to prevent duplicates.
+          if (!pendingVaultCapture ||
+              pendingVaultCapture.content !== submittedContent ||
+              pendingVaultCapture.subjectSlug !== '') {
+            pendingVaultCapture = {
+              id: createCaptureId(), content: submittedContent, subjectSlug: '',
+            };
+          }
+          result = await send('CREATE_VAULT_QUICK_NOTE', {
+            content: submittedContent, captureId: pendingVaultCapture.id,
+          });
+          if (result.confirmed !== true ||
+              result.destination !== 'quick-notes' ||
+              !/^[a-f0-9]{40}$/i.test(result.sha || ''))
+            throw new Error('Quick Note Save was not confirmed.');
+          pendingVaultCapture = null;
+          pendingSavedUpdate = null;
+          lastSavedVaultNoteId = null;
+          noteOpenSaved.hidden = true;
+        } else {
+        if (pendingSavedUpdate &&
+            pendingSavedUpdate.subjectSlug === submittedSubject) {
+          // The previous Save succeeded, but the user kept editing the
+          // text. Update that Note using its exact GitHub blob revision.
+          result = await send('UPDATE_VAULT_NOTE', {
+            content: submittedContent, subjectSlug: submittedSubject,
+            captureId: pendingSavedUpdate.id, sha: pendingSavedUpdate.sha,
+          });
+        } else {
+          // If the response was lost, resubmitting the same unchanged
+          // capture reuses its UUID rather than creating a duplicate.
+          if (!pendingVaultCapture ||
+              pendingVaultCapture.content !== submittedContent ||
+              pendingVaultCapture.subjectSlug !== submittedSubject) {
+            pendingVaultCapture = {
+              id: createCaptureId(), content: submittedContent,
+              subjectSlug: submittedSubject,
+            };
+          }
+          result = await send('CREATE_VAULT_NOTE', {
+            content: submittedContent, subjectSlug: submittedSubject,
+            captureId: pendingVaultCapture.id,
+          });
+        }
+        if (result.confirmed !== true || typeof result.id !== 'string' ||
+            !/^[a-f0-9]{40}$/i.test(result.sha || ''))
+          throw new Error('GitHub Save was not confirmed with a Note revision.');
+        pendingVaultCapture = null;
+        lastSavedVaultNoteId = result.id;
+        noteOpenSaved.hidden = false;
+        }
+      } else {
+        result = await send('CREATE_QUICK_NOTE', {
+          content: submittedContent, subjectSlug: submittedSubject,
+        });
+      }
+      const unchanged = note.value === submittedContent &&
+        subjectSelect.value === submittedSubject;
+      if (submittedToVault && submittedSubject) {
+        pendingSavedUpdate = unchanged ? null : {
+          id: result.id, sha: result.sha, subjectSlug: submittedSubject,
+        };
+      }
+      if (unchanged) note.value = '';
+      const confirmation = result.destination === 'vault'
+        ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.'
+        : result.destination === 'notes'
+          ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.'
+          : 'Saved “' + result.title + '” to Quick Notes.';
+      setStatus(confirmation + (unchanged ? ''
+        : submittedToVault && submittedSubject && subjectSelect.value === submittedSubject
+          ? ' Newer edits are still here; press Save again to update the same Note.'
+          : ' Newer edits are still in your editor; press Save again for them.'));
+    } catch (error) {
+      // Do not erase text or the retry UUID on an uncertain Save.
+      setStatus((error.message || 'Save was not confirmed.') +
+        ' Your note is still in the editor.', true);
+    } finally {
+      savingCapture = false;
+      noteSave.disabled = vaultReady === null;
+      updateNoteButton();
+    }
+  });
+  // M114: The user may want to turn the remaining text into a different
+  // note, not append it to the Note saved while they were still typing.
+  // Keep their text intact; the next Save will create a new UUID.
+  noteNewCapture.addEventListener('click', () => {
+    if (savingCapture || !pendingSavedUpdate) return;
+    pendingSavedUpdate = null;
+    pendingVaultCapture = null;
+    updateNoteButton();
+    setStatus('Ready to save this text as a separate Note. Your earlier GitHub Note is unchanged.');
   });
   const urlSave = panel.querySelector('[data-save-url]');
   urlSave.addEventListener('click', async () => {
@@ -364,6 +518,30 @@
     } catch (error) { setStatus(error.message, true); }
     finally { urlSave.disabled = false; }
   });
+  if (LEARNING_TRACKS_EXTENSION_PREVIEW) {
+    panel.querySelector('[data-open-learning-tracks]').addEventListener('click', async () => {
+      try { await send('OPEN_LEARNING_TRACKS'); setStatus('Opened Learning Tracks in Oge.'); }
+      catch (error) { setStatus(error.message || 'Could not open Learning Tracks.'); }
+    });
+    const trackSave = panel.querySelector('[data-save-track]');
+    trackSave.addEventListener('click', async () => {
+      const title = panel.querySelector('[data-track-title]').value.trim();
+      const dailyRaw = panel.querySelector('[data-track-daily]').value;
+      const totalRaw = panel.querySelector('[data-track-total]').value;
+      if (!title || !dailyRaw || (totalRaw && !Number.isInteger(Number(totalRaw)))) {
+        return setStatus('Enter a title and valid video counts.', true);
+      }
+      trackSave.disabled = true;
+      setStatus('Adding playlist track…');
+      try {
+        const result = await send('CREATE_LEARNING_TRACK', {
+          title, videosPerDay: Number(dailyRaw), totalVideos: totalRaw ? Number(totalRaw) : null,
+        });
+        setStatus('Learning track created: “' + result.title + '”. See Learning Tracks in Oge.');
+      } catch (error) { setStatus(error.message || 'Could not create learning track.', true); }
+      finally { trackSave.disabled = false; }
+    });
+  }
   async function copyUrl(url) {
     try {
       await navigator.clipboard.writeText(url);

@@ -11,6 +11,11 @@ export async function saveNewsInterests(formData) {
   const ownerId = session?.user?.id;
   if (typeof ownerId !== 'string' || !ownerId) redirect('/register');
 
+  const fromSettings = formData.get('returnTo') === '/settings';
+  const storageChoice = fromSettings ? null : formData.get('notesStorage');
+  if (!fromSettings && !['mongodb', 'github'].includes(storageChoice))
+    throw new Error('Choose MongoDB or GitHub Vault to store your Notes.');
+
   const action = formData.get('action');
   const submitted = action === 'skip' ? [] : formData.getAll('interest');
   if (submitted.length > 10) throw new Error('Choose no more than 10 news interests.');
@@ -21,8 +26,9 @@ export async function saveNewsInterests(formData) {
   const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion });
   const result = await db.collection('users').updateOne(
     accountFilter,
-    { $set: { newsInterests: interests, onboardingComplete: true, updatedAt: new Date() } },
+    { $set: { newsInterests: interests, ...(fromSettings ? {} : { notesStorage: storageChoice, onboardingComplete: true }), updatedAt: new Date() } },
   );
   if (result.matchedCount !== 1) redirect('/register');
-  redirect(formData.get('returnTo') === '/settings' ? '/settings' : '/');
+  if (!fromSettings && storageChoice === 'github') redirect('/vault?setup=onboarding');
+  redirect(fromSettings ? '/settings' : '/');
 }

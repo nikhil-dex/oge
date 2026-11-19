@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../lib/oge-vault-cutover-guard.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,9 +17,12 @@ export async function GET() {
   try {
     const session = await auth();
     const ownerId = session?.user?.id;
-  const sessionVersion = session?.user?.sessionVersion;
+    const sessionVersion = session?.user?.sessionVersion;
     if (!ownerId) return json({ error: 'Sign in to view revision history.' }, 401);
     const db = await getDatabase();
+    const cutover = await inspectLegacyCutoverForOwner(db, ownerId,
+      { sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const notes = await db.collection('notes').find(
       { ownerId, revisions: { $exists: true, $ne: [] } },
       { projection: { _id: 1, subjectSlug: 1, heading: 1, revisions: 1, updatedAt: 1 } },
@@ -59,9 +63,15 @@ export async function POST(request) {
 
   try {
     const db = await getDatabase();
+    const cutover = await inspectLegacyCutoverForOwner(db, ownerId,
+      { sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkRateLimit(db, { scope: 'revision-restore', identifier: ownerId, limit: 30, windowMs: 60 * 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      const lockedCutover = await inspectLegacyCutoverForOwner(db, ownerId,
+        { sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const collection = db.collection('notes');
       const note = await collection.findOne({ _id: new ObjectId(noteId), ownerId }, { session });
       if (!note) return json({ error: 'Note not found.' }, 404);

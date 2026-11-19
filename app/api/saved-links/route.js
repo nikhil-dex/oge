@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
+import { withActiveOwnerMutation, ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { normalizeSavedLink } from '../../../lib/saved-links.js';
+import { getVaultNoteClient } from '../../../lib/oge-vault-notes.js';
+import { VaultGitHubError } from '../../../lib/oge-vault-github.js';
+import {
+  savedLinksStorageMode, readVaultSavedLinks, createVaultSavedLink,
+  updateVaultSavedLink, deleteVaultSavedLink, reorderVaultSavedLinks,
+} from '../../../lib/oge-vault-saved-links.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,18 +26,53 @@ function validId(value) { return typeof value === 'string' && /^[a-f0-9-]{36}$/i
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id, sessionVersion: session.user.sessionVersion };
+  const db = await getDatabase();
+  const ownerId = session.user.id;
+  const sessionVersion = session.user.sessionVersion;
+  const account = await db.collection('users').findOne(
+    ownerMutationFilter(ownerId, { sessionVersion }),
+    { projection: { vault: 1, notesStorage: 1 } },
+  );
+  if (!account) throw new VaultGitHubError('session-expired', 401);
+  const storage = savedLinksStorageMode(account);
+  if (storage === 'choice-required') throw new VaultGitHubError('notes-storage-choice-required', 409);
+  if (storage === 'vault-setup-required') throw new VaultGitHubError('vault-storage-setup-required', 409);
+  return {
+    db, ownerId, sessionVersion, storage,
+    // Never use MongoDB as a fallback for GitHub-backed link content.
+    ...(storage === 'github'
+      ? { vaultClient: await getVaultNoteClient(db, { ownerId, sessionVersion }) }
+      : {}),
+  };
+}
+
+function storageError(error, operation) {
+  if (error instanceof VaultGitHubError) {
+    const status = [401, 404, 409, 429, 413].includes(error.status)
+      ? error.status : 503;
+    return json({ error: error.message }, status);
+  }
+  if (error instanceof TypeError) return json({ error: error.message }, 400);
+  console.error(operation + ' /api/saved-links failed:', error?.name);
+  return json({ error: 'Could not ' + operation.toLowerCase() +
+    ' Saved Links. Existing links were not changed by MongoDB fallback.' }, 503);
 }
 
 export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to view Saved Links.' }, 401);
-    const links = await ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId }).sort({ order: 1, createdAt: -1 }).limit(500).toArray();
-    return json(links.map(({ _id, title, url, description, category, tags, order, createdAt, updatedAt }) => ({ id: String(_id), title, url, description, category, tags: tags || [], order, createdAt, updatedAt })));
+    const links = ctx.storage === 'github'
+      ? (await readVaultSavedLinks(ctx.vaultClient)).links
+      : (await ctx.db.collection('savedLinks').find({ ownerId: ctx.ownerId })
+        .sort({ order: 1, createdAt: -1 }).limit(500).toArray())
+        .map(({ _id, title, url, description, category, tags, order, createdAt, updatedAt }) =>
+          ({ id: String(_id), title, url, description, category, tags: tags || [], order, createdAt, updatedAt }));
+    const response = json(links);
+    response.headers.set('X-Oge-Saved-Links-Storage', ctx.storage);
+    return response;
   } catch (error) {
-    console.error('GET /api/saved-links failed:', error?.name);
-    return json({ error: 'Could not load Saved Links.' }, 500);
+    return storageError(error, 'Read');
   }
 }
 
@@ -45,6 +86,9 @@ export async function POST(request) {
     if (!ctx) return json({ error: 'Sign in to save links.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
     if (!throttle.allowed) return rateLimitResponse(throttle);
+    if (ctx.storage === 'github') return json(await createVaultSavedLink(
+      ctx.vaultClient, normalized.value, { id: parsed.data?.id || randomUUID() },
+    ), 201);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       const collection = ctx.db.collection('savedLinks');
       const order = await collection.countDocuments({ ownerId: ctx.ownerId }, { session });
@@ -54,8 +98,7 @@ export async function POST(request) {
       return json({ id: link._id, ...normalized.value, order, createdAt: now, updatedAt: now }, 201);
     }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
-    console.error('POST /api/saved-links failed:', error?.name);
-    return json({ error: 'Could not save this link.' }, 500);
+    return storageError(error, 'Create');
   }
 }
 
@@ -71,6 +114,9 @@ export async function PUT(request) {
     if (!ctx) return json({ error: 'Sign in to edit links.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
     if (!throttle.allowed) return rateLimitResponse(throttle);
+    if (ctx.storage === 'github') return json(await updateVaultSavedLink(
+      ctx.vaultClient, id, normalized.value,
+    ));
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       const result = await ctx.db.collection('savedLinks').findOneAndUpdate(
         { _id: id, ownerId: ctx.ownerId },
@@ -81,8 +127,7 @@ export async function PUT(request) {
       return json({ id: result._id, title: result.title, url: result.url, description: result.description, category: result.category, tags: result.tags || [], order: result.order, createdAt: result.createdAt, updatedAt: result.updatedAt });
     }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
-    console.error('PUT /api/saved-links failed:', error?.name);
-    return json({ error: 'Could not update this link.' }, 500);
+    return storageError(error, 'Update');
   }
 }
 
@@ -94,6 +139,8 @@ export async function DELETE(request) {
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid saved link.' }, 400);
+    if (ctx.storage === 'github')
+      return json(await deleteVaultSavedLink(ctx.vaultClient, id));
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       const collection = ctx.db.collection('savedLinks');
       const result = await collection.deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
@@ -106,8 +153,7 @@ export async function DELETE(request) {
       return json({ deleted: id });
     }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
-    console.error('DELETE /api/saved-links failed:', error?.name);
-    return json({ error: 'Could not delete this link.' }, 500);
+    return storageError(error, 'Delete');
   }
 }
 
@@ -121,6 +167,9 @@ export async function PATCH(request) {
     if (!ctx) return json({ error: 'Sign in to reorder links.' }, 401);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'saved-links');
     if (!throttle.allowed) return rateLimitResponse(throttle);
+    if (ctx.storage === 'github') return json(await reorderVaultSavedLinks(
+      ctx.vaultClient, ids,
+    ));
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
       const collection = ctx.db.collection('savedLinks');
       const existingCount = await collection.countDocuments({ ownerId: ctx.ownerId, _id: { $in: ids } }, { session });
@@ -132,7 +181,6 @@ export async function PATCH(request) {
       return json({ reordered: ids.length });
     }, { sessionVersion: ctx.sessionVersion });
   } catch (error) {
-    console.error('PATCH /api/saved-links failed:', error?.name);
-    return json({ error: 'Could not reorder links.' }, 500);
+    return storageError(error, 'Reorder');
   }
 }

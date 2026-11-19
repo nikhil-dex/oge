@@ -71,11 +71,26 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .oge-interest-option{display:flex;align-items:center;gap:10px;min-height:48px;padding:12px;border:1px solid var(--line);border-radius:12px;color:var(--ink);font-size:12px;cursor:pointer;transition:border-color .2s,background .2s}
 .oge-interest-option:has(input:checked){border-color:var(--green);background:color-mix(in srgb,var(--green) 8%,transparent)}
 .oge-interest-option input{accent-color:var(--green);width:15px;height:15px;flex:0 0 15px}
+.oge-onboarding-section-title{display:block;margin:30px 0 10px;font-size:15px;font-weight:750;letter-spacing:-.02em;color:var(--ink)}
+.oge-onboarding-description{font-size:12px;line-height:1.8;color:var(--muted);margin:0 0 14px}
+.oge-storage-fieldset{min-width:0;margin:20px 0 0;padding:0;border:0}
+.oge-storage-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.oge-storage-option{display:flex;align-items:flex-start;gap:12px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--paper);cursor:pointer;line-height:1.65;transition:border-color .2s,background .2s}
+.oge-storage-option:has(input:checked){border-color:var(--green);background:color-mix(in srgb,var(--green) 7%,var(--paper))}
+.oge-storage-option:focus-within{outline:2px solid var(--green);outline-offset:2px}
+.oge-storage-option input{margin:4px 0 0;width:17px;height:17px;accent-color:var(--green);flex:0 0 17px}
+.oge-storage-option-body{display:flex;flex-direction:column;gap:9px;color:var(--ink);font-size:12px}
+.oge-storage-option-heading{display:flex;flex-direction:column;gap:3px}
+.oge-storage-option-heading strong{font-size:15px}
+.oge-storage-option-heading small{font-size:11px;color:var(--green);font-weight:700}
+.oge-storage-feature{font-weight:650;color:var(--ink)}
+.oge-storage-tradeoff{color:var(--muted)}
 .oge-onboarding-actions{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:16px}
 .oge-onboarding-actions .oge-google-button{margin-top:0}
 .oge-skip-button{padding:12px 8px;border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer}
 .oge-skip-button:hover{color:var(--ink)}
 @media(max-width:700px){.oge-interest-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.oge-storage-options{grid-template-columns:1fr}}
 @media(max-width:430px){.oge-interest-grid{grid-template-columns:1fr}.oge-interest-option{min-height:44px}}
 
 .oge-settings-section{width:100%;max-width:760px;margin-top:48px;padding-top:28px;border-top:1px solid var(--line)}
@@ -741,3 +756,54 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .oge-retro-workspace .oge-primary-link,
   .oge-retro-workspace .oge-signin{transition:none}
 }
+
+/* Oge Vault first-run onboarding; intentionally matches retro Profile & Settings. */
+.oge-vault-page .oge-settings-card{max-width:860px}
+.oge-vault-card{display:flex;flex-direction:column;gap:22px}
+.oge-vault-card .oge-settings-card-heading{margin-bottom:0}
+.oge-vault-card .oge-primary-link{align-self:flex-start;margin:0}
+.oge-vault-card form{margin:0}
+.oge-vault-card .oge-google-button{margin:0}
+.oge-vault-connect-list{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.oge-vault-connect-step{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;padding:20px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.oge-vault-connect-step h3{margin:0;font:750 15px/1.45 Manrope,sans-serif;color:var(--ink)}
+.oge-vault-connect-step p{margin:0;font-size:12px;line-height:1.7;color:var(--muted)}
+.oge-vault-connect-step p.oge-password-error{color:#b23b31}
+.oge-vault-connect-step .oge-primary-link,.oge-vault-connect-step form{margin:4px 0 0}
+.oge-vault-connect-step .oge-google-button:disabled{opacity:.6;cursor:not-allowed}
+.oge-vault-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.oge-vault-steps>span{display:flex;gap:9px;align-items:center;min-width:0;border:1px dashed #b4baa8;border-radius:5px;background:#f6f0df;color:#354e3f;padding:13px;font:700 11px/1.6 var(--mono)}
+.oge-vault-steps strong{display:grid;place-items:center;flex:0 0 27px;height:27px;background:#335c49;color:#fffaf1;border-radius:50%;font-size:10px}
+.oge-vault-repository{display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:#e9efdf;border:1px solid #73917a;border-radius:5px;padding:18px;color:#233f32;font:700 14px var(--mono);overflow-wrap:anywhere}
+.oge-vault-repository>span:last-child{font:800 9px var(--mono);letter-spacing:1px;color:#47734c;border:1px solid #8eab86;padding:6px 8px;border-radius:4px}
+.oge-vault-footnote{max-width:860px;font-size:12px;color:#405f4c;line-height:1.8;padding:20px 0 45px}
+@media(max-width:760px){.oge-vault-steps{grid-template-columns:1fr}.oge-vault-card .oge-primary-link{max-width:100%}}
+@media(max-width:440px){.oge-vault-card .oge-google-button{width:100%;white-space:normal}.oge-vault-repository{font-size:12px}}
+
+/* Oge Vault B3 — isolated GitHub-only staging editor */
+.oge-vault-preview-layout{display:grid;grid-template-columns:minmax(240px,.68fr) minmax(0,1.32fr);gap:20px;align-items:start}
+.oge-vault-preview-layout .oge-settings-card{max-width:none}
+.oge-vault-preview-sidebar,.oge-vault-preview-editor{display:flex;flex-direction:column;gap:15px}
+.oge-vault-preview-sidebar .oge-google-button{align-self:start}
+.oge-vault-preview-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow:auto}
+.oge-vault-preview-list button{display:flex;flex-direction:column;gap:5px;text-align:left;background:#f6f1e4;border:1px solid #aab9a8;color:#2b503d;border-radius:5px;padding:12px;cursor:pointer;min-width:0}
+.oge-vault-preview-list button strong{font-size:13px;overflow-wrap:anywhere}
+.oge-vault-preview-list button span{font-size:10px;opacity:.75}
+.oge-vault-preview-list button[aria-current=true]{border-color:#315c49;box-shadow:2px 2px 0 #315c49}
+.oge-vault-preview-list button:disabled{opacity:.65;cursor:not-allowed}
+.oge-vault-preview-editor label,.oge-vault-subject-form label{font-size:11px;font-family:var(--mono);font-weight:800;letter-spacing:.5px}
+.oge-vault-preview-editor input,.oge-vault-preview-editor select,.oge-vault-preview-editor textarea,
+.oge-vault-subject-form input{width:100%;min-width:0;border:1.5px solid #9cad98;background:#fffdf8;color:#244a38;border-radius:4px;padding:12px;font-size:14px}
+.oge-vault-preview-editor textarea{resize:vertical;line-height:1.7;min-height:190px}
+.oge-vault-preview-status{display:flex;flex-direction:column;gap:4px;border:1px dashed #8ea991;background:#f0f1df;border-radius:4px;padding:12px;font-size:12px}
+.oge-vault-preview-status span{color:#566c58}
+.oge-vault-preview-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.oge-vault-preview-actions>button:not(.oge-google-button),.oge-vault-preview-conflict button,
+.oge-vault-subject-form button{border:1.5px solid #315c49;color:#2a4c3c;background:#f7ebd6;border-radius:4px;padding:10px 13px;font-size:12px;font-weight:800;cursor:pointer}
+.oge-vault-preview-actions button:disabled{opacity:.55;cursor:not-allowed}
+.oge-vault-preview-conflict{padding:14px;background:#fff2df;border:1px solid #bc795b;color:#7b412c;display:flex;flex-direction:column;gap:9px;border-radius:5px}
+.oge-vault-preview-conflict p{margin:0;font-size:12px}
+.oge-vault-subject-form{display:flex;flex-direction:column;gap:8px;border-top:1px dashed #a5b8a4;padding-top:18px}
+.oge-vault-subject-form button{align-self:flex-start}
+.oge-vault-preview-editor .oge-primary-link{align-self:flex-start}
+@media(max-width:800px){.oge-vault-preview-layout{grid-template-columns:1fr}.oge-vault-preview-list{max-height:180px}}

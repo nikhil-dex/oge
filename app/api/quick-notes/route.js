@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../lib/oge-vault-cutover-guard.js';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
@@ -27,6 +28,9 @@ export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to view Quick Notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const notes = await ctx.db.collection('quickNotes').find({ ownerId: ctx.ownerId }).sort({ updatedAt: -1 }).limit(300).toArray();
     return json(notes.map(({ _id, content, title, createdAt, updatedAt }) => ({ id: String(_id), content, title, createdAt, updatedAt })));
   } catch (error) {
@@ -35,7 +39,13 @@ export async function GET() {
   }
 }
 
+const WEB_QUICK_NOTE_WRITES_ALLOWED = false;
+
 export async function POST(request) {
+  // Quick Notes are extension-only captures. The website can list and
+  // delete, but cannot create or edit, even with direct API requests.
+  if (!WEB_QUICK_NOTE_WRITES_ALLOWED)
+    return json({ error: 'Save new Quick Notes using the Oge browser extension.' }, 405);
   const parsed = await readJson(request);
   if (parsed.error) return parsed.error;
   if (typeof parsed.data?.content !== 'string') return json({ error: 'Quick note content must be text.' }, 400);
@@ -44,9 +54,17 @@ export async function POST(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to create Quick Notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'quick-notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const now = new Date();
       const note = { _id: randomUUID(), ownerId: ctx.ownerId, content, title: quickNoteTitle(content), createdAt: now, updatedAt: now };
       await ctx.db.collection('quickNotes').insertOne(note, { session });
@@ -59,6 +77,8 @@ export async function POST(request) {
 }
 
 export async function PUT(request) {
+  if (!WEB_QUICK_NOTE_WRITES_ALLOWED)
+    return json({ error: 'Quick Notes are read-only in the app. Use the extension to capture.' }, 405);
   const parsed = await readJson(request);
   if (parsed.error) return parsed.error;
   const id = parsed.data?.id;
@@ -68,9 +88,17 @@ export async function PUT(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to update Quick Notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'quick-notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const now = new Date();
       const result = await ctx.db.collection('quickNotes').findOneAndUpdate(
         { _id: id, ownerId: ctx.ownerId },
@@ -90,11 +118,19 @@ export async function DELETE(request) {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to delete Quick Notes.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkOwnerMutationLimit(ctx.db, ctx.ownerId, 'quick-notes');
     if (!throttle.allowed) return rateLimitResponse(throttle);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!validId(id)) return json({ error: 'Choose a valid Quick Note.' }, 400);
     return await withActiveOwnerMutation(ctx.db, ctx.ownerId, async (session) => {
+      // Repeat under the signed account transaction: a Vault connection
+      // established after preflight must not allow a legacy content write.
+      const lockedCutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+        { sessionVersion: ctx.sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const result = await ctx.db.collection('quickNotes').deleteOne({ _id: id, ownerId: ctx.ownerId }, { session });
       if (!result.deletedCount) return json({ error: 'Quick Note not found.' }, 404);
       return json({ deleted: id });

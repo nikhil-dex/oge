@@ -1,0 +1,404 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import {
+  buildVaultRestoreReviewApproval, classifyVaultRestoreReviewHistory,
+} from '../../../lib/oge-vault-restore-review.js';
+import styles from './restore-staging.module.css';
+import { verifyVaultRestoreLocalChunkFiles } from '../../../lib/oge-vault-restore-local-chunks.js';
+import { openVaultOfflineEncryptedFiles } from '../../../lib/oge-vault-offline-backup-crypto.js';
+
+const historyEndpoint = '/api/vault/backup-import/chunk/history';
+const approveEndpoint = '/api/vault/backup-import/chunk/authorize';
+
+async function readResponse(response) {
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body?.error || 'Staging request unavailable.');
+  return body;
+}
+
+export default function RestoreReviewClient() {
+  const [history, setHistory] = useState(null);
+  const [historyError, setHistoryError] = useState('');
+  const [historyBusy, setHistoryBusy] = useState(true);
+  const [fields, setFields] = useState({
+    sourceSnapshot: '', inventoryDigest: '', targetHead: '',
+    fingerprint: '', selectedIdsText: '',
+  });
+  const [reviewed, setReviewed] = useState(false);
+  const [typedConfirmation, setTypedConfirmation] = useState('');
+  const [localFiles, setLocalFiles] = useState([]);
+  const [offlinePassphrase, setOfflinePassphrase] = useState('');
+  const [localIntegrity, setLocalIntegrity] = useState(null);
+  const [localVerifyBusy, setLocalVerifyBusy] = useState(false);
+  const [localVerifyError, setLocalVerifyError] = useState('');
+  const [approveBusy, setApproveBusy] = useState(false);
+  const [receiptAttempted, setReceiptAttempted] = useState(false);
+  const [approvalError, setApprovalError] = useState('');
+  const [receipt, setReceipt] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [receiptStatus, setReceiptStatus] = useState(null);
+  const [receiptStatusError, setReceiptStatusError] = useState('');
+  const [statusBusy, setStatusBusy] = useState(false);
+
+  const loadHistory = useCallback(async (signal) => {
+    setHistoryBusy(true);
+    setHistoryError('');
+    setHistory(null);
+    try {
+      const response = await fetch(historyEndpoint, {
+        cache: 'no-store', credentials: 'same-origin', signal,
+      });
+      const data = await readResponse(response);
+      if (!signal?.aborted) setHistory(data);
+    } catch (error) {
+      if (!signal?.aborted)
+        setHistoryError(error instanceof Error
+          ? error.message : 'Staging history unavailable.');
+    } finally {
+      if (!signal?.aborted) setHistoryBusy(false);
+    }
+  }, []);
+
+  // The initial read updates state only from asynchronous network
+  // callbacks; React effects never synchronously cascade setState.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(historyEndpoint, {
+      cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
+    }).then(readResponse).then((data) => {
+      if (!controller.signal.aborted) setHistory(data);
+    }).catch((error) => {
+      if (!controller.signal.aborted)
+        setHistoryError(error instanceof Error
+          ? error.message : 'Staging history unavailable.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setHistoryBusy(false);
+    });
+    return () => controller.abort();
+  }, []);
+
+  const review = classifyVaultRestoreReviewHistory(history);
+  const locallyVerified = localIntegrity?.reviewKey === JSON.stringify(fields) &&
+    localIntegrity?.report?.completeLocalSequenceVerified === true &&
+    localIntegrity?.report?.reviewedSelectionFingerprintMatches === true &&
+    localIntegrity?.report?.signedGitHubSourceAuthenticated === false;
+  const canRequest = !historyBusy && !historyError &&
+    review.canRequestReceipt && locallyVerified && reviewed &&
+    typedConfirmation === 'APPROVE ONE BATCH' &&
+    !approveBusy && !localVerifyBusy && !receiptAttempted && !receipt;
+
+  async function requestReceipt(event) {
+    event.preventDefault();
+    if (!canRequest) return;
+    setApprovalError('');
+    setApproveBusy(true);
+    try {
+      const selected = buildVaultRestoreReviewApproval(fields);
+      // Treat a lost POST response as ambiguous: even if the browser never
+      // received the receipt, the signed server may have issued it.
+      // No second request in this reviewed browser session.
+      setReceiptAttempted(true);
+      const response = await fetch(approveEndpoint, {
+        method: 'POST', cache: 'no-store', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selected),
+      });
+      const result = await readResponse(response);
+      if (result?.format !== 'oge-vault-staging-one-time-restore-receipt' ||
+          typeof result.ticket !== 'string' ||
+          !/^[A-Za-z0-9_-]{60,3900}\.[a-f0-9]{64}$/.test(result.ticket) ||
+          !/^[a-f0-9]{64}$/.test(result.receiptId || '') ||
+          result.immediatelyExecutesRestore !== false ||
+          result.productionRestoreAuthorized !== false ||
+          result.oneTimeClaimRequired !== true)
+        throw new Error('The staging receipt response is invalid. Check history before trying again.');
+      setReceipt({
+        ticket: result.ticket,
+        receiptId: result.receiptId,
+        expiresAt: result.expiresAt,
+        selectedCount: result.selectedCount,
+      });
+      setCopied(false);
+    } catch (error) {
+      // POST may have issued a receipt despite a lost browser response.
+      // Never automatically replay or issue a second POST here.
+      setApprovalError((error instanceof Error ? error.message
+        : 'Approval receipt was not confirmed.') +
+        ' Do not retry this review session. Inspect the read-only history, then begin a new independently reviewed session if needed.');
+    } finally { setApproveBusy(false); }
+  }
+
+  async function copyTicket() {
+    if (!receipt) return;
+    setCopied(false);
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({
+        ticket: receipt.ticket,
+      }));
+      setCopied(true);
+    } catch {
+      setApprovalError('Clipboard access denied. Do not put the receipt in chat, logs or public files.');
+    }
+  }
+
+  async function loadReceiptStatus() {
+    if (!receipt || statusBusy) return;
+    setStatusBusy(true);
+    setReceiptStatusError('');
+    try {
+      const response = await fetch('/api/vault/backup-import/chunk/status?receiptId=' +
+        encodeURIComponent(receipt.receiptId), {
+          cache: 'no-store', credentials: 'same-origin',
+        });
+      const data = await readResponse(response);
+      setReceiptStatus(data);
+    } catch (error) {
+      setReceiptStatus(null);
+      setReceiptStatusError(error instanceof Error
+        ? error.message : 'Status unavailable. Do not retry the GitHub write.');
+    } finally { setStatusBusy(false); }
+  }
+
+  async function verifyLocalBackupFiles() {
+    if (!review.canRequestReceipt || localVerifyBusy || receipt) return;
+    const key = JSON.stringify(fields);
+    setLocalIntegrity(null);
+    setLocalVerifyError('');
+    setLocalVerifyBusy(true);
+    try {
+      const encrypted = localFiles.length > 0 &&
+        localFiles.every((file) => /^part-\d{4}\.oge\.json$/.test(
+          file?.name || ''));
+      const plaintext = localFiles.length > 0 &&
+        localFiles.every((file) => /^part-\d{4}\.json$/.test(
+          file?.name || ''));
+      if (!encrypted && !plaintext)
+        throw new TypeError('Do not mix different backup formats.');
+      // The encrypted format is decrypted only into transient memory views,
+      // which the unchanged M63 canonical Notes verifier then checks.
+      const verifiedFiles = encrypted
+        ? await openVaultOfflineEncryptedFiles(localFiles, offlinePassphrase)
+        : localFiles;
+      const result = await verifyVaultRestoreLocalChunkFiles(
+        verifiedFiles, fields);
+      setLocalIntegrity({ reviewKey: key, report: result });
+    } catch {
+      // Never echo File contents, passphrases, private notes or crypto errors.
+      setLocalVerifyError('Unable to decrypt or verify the complete private backup set against the reviewed source and selected IDs. Do not request a receipt.');
+    } finally {
+      setOfflinePassphrase('');
+      setLocalVerifyBusy(false);
+    }
+  }
+
+  const field = (name) => (event) => {
+    setLocalIntegrity(null);
+    setLocalVerifyError('');
+    setReviewed(false);
+    setFields((value) => ({ ...value, [name]: event.target.value }));
+  };
+
+  return (
+    <div className={styles.layout}>
+      <section className={styles.panel} aria-labelledby="restore-history-heading">
+        <div className={styles.headingRow}>
+          <div><span className={styles.kicker}>01 / BATCH HISTORY</span>
+            <h2 id="restore-history-heading">What is already known?</h2></div>
+          <button type="button" className={styles.secondary}
+            onClick={() => loadHistory()} disabled={historyBusy || approveBusy}>
+            {historyBusy ? 'Checking…' : 'Refresh history'}
+          </button>
+        </div>
+        <p className={styles.helper}>This is a metadata-only view, not GitHub
+          source verification. No next batch is automatically authorized.</p>
+        {historyBusy && <p role="status">Checking signed staging history…</p>}
+        {historyError && <p role="alert" className={styles.alert}>
+          {historyError} Approval is disabled while history is unavailable.</p>}
+        {!historyBusy && !historyError && (
+          <>
+            <p role="status" className={review.canRequestReceipt
+              ? styles.neutral : styles.alert}>{review.label}</p>
+            <p className={styles.muted}>
+              {history?.visibleBatchCount ?? 0} recent receipt(s) visible.
+              Records older than the retention window may be absent.
+            </p>
+            {Array.isArray(history?.batches) && history.batches.length > 0 && (
+              <ul className={styles.historyList}>
+                {history.batches.map((batch) => (
+                  <li key={batch.receiptId}>
+                    <strong>{batch.state === 'GITHUB_BATCH_CONFIRMED'
+                      ? 'Confirmed GitHub batch'
+                      : batch.state === 'PENDING_APPROVAL_CLAIM'
+                        ? 'Pending operator claim'
+                        : 'Claimed — investigate if interrupted'}</strong>
+                    <span>Receipt {batch.receiptId.slice(0, 10)}…</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className={styles.panel} aria-labelledby="restore-approval-heading">
+        <span className={styles.kicker}>02 / EXACT REVIEWED SELECTION</span>
+        <h2 id="restore-approval-heading">Approve one operator receipt</h2>
+        <p className={styles.helper}>Enter only the IDs and hashes from the
+          independently verified M57 read-only plan. Never paste note bodies,
+          complete archive JSON, passwords, or GitHub credentials here.</p>
+        <form onSubmit={requestReceipt} className={styles.form} autoComplete="off">
+          <label>Source backup Git commit (40 lowercase hex)
+            <input name="sourceSnapshot" value={fields.sourceSnapshot}
+              onChange={field('sourceSnapshot')} spellCheck={false}
+              placeholder="Exact 40-character source commit" maxLength={40}
+              disabled={Boolean(receipt)} required />
+          </label>
+          <label>Complete source inventory SHA-256 (64 lowercase hex)
+            <input name="inventoryDigest" value={fields.inventoryDigest}
+              onChange={field('inventoryDigest')} spellCheck={false}
+              placeholder="Exact 64-character inventory checksum" maxLength={64}
+              disabled={Boolean(receipt)} required />
+          </label>
+          <label>Reviewed current destination HEAD (40 lowercase hex)
+            <input name="targetHead" value={fields.targetHead}
+              onChange={field('targetHead')} spellCheck={false}
+              placeholder="Exact reviewed target commit" maxLength={40}
+              disabled={Boolean(receipt)} required />
+          </label>
+          <label>Verified M57 selection fingerprint (64 lowercase hex)
+            <input name="fingerprint" value={fields.fingerprint}
+              onChange={field('fingerprint')} spellCheck={false}
+              placeholder="Exact reviewed selection fingerprint" maxLength={64}
+              disabled={Boolean(receipt)} required />
+          </label>
+          <label>Selected note UUIDs (1–12, comma or newline separated)
+            <textarea name="selectedIdsText" value={fields.selectedIdsText}
+              onChange={field('selectedIdsText')} spellCheck={false}
+              placeholder="Paste only selected note UUIDs" rows={4}
+              maxLength={600} disabled={Boolean(receipt)} required />
+          </label>
+          <fieldset className={styles.localReview}>
+            <legend>Local private chunk integrity check</legend>
+            <p className={styles.helper}>
+              Choose all numbered <code>part-0001.oge.json</code> through
+              the final encrypted part (up to 16 files). Enter the same
+              passphrase you used when downloading. The browser decrypts
+              pages only in memory and verifies the original Notes chunks
+              and reviewed selection fingerprint. Older plaintext
+              <code>part-NNNN.json</code> backups remain accepted for
+              controlled staging migration. Never mix the two formats.
+              <strong> Files are never uploaded.</strong> This does
+              not authenticate GitHub ownership; the separate operator
+              independently verifies every original Git blob.
+            </p>
+            <label>Choose the private backup chunk files
+              <input type="file" accept=".json,application/json" multiple
+                disabled={Boolean(receipt) || localVerifyBusy}
+                onChange={(event) => {
+                  setLocalFiles(Array.from(event.target.files || []));
+                  setLocalIntegrity(null);
+                  setLocalVerifyError('');
+                  setReviewed(false);
+                }} />
+            </label>
+            <p className={styles.muted}>
+              {localFiles.length} local file(s) selected. No note bodies,
+              passphrases or filenames will be sent to the server.
+            </p>
+            <label>Offline backup passphrase (for encrypted .oge.json files)
+              <input type="password" name="offline-restore-passphrase"
+                autoComplete="off" value={offlinePassphrase}
+                onChange={(event) => {
+                  setOfflinePassphrase(event.target.value);
+                  setLocalIntegrity(null);
+                  setReviewed(false);
+                  setLocalVerifyError('');
+                }}
+                maxLength={256}
+                disabled={Boolean(receipt) || localVerifyBusy}
+                placeholder="Use the exact original backup passphrase" />
+            </label>
+            <button type="button" className={styles.secondary}
+              onClick={verifyLocalBackupFiles}
+              disabled={!localFiles.length || localVerifyBusy ||
+                Boolean(receipt) || !review.canRequestReceipt}>
+              {localVerifyBusy ? 'Verifying locally…' :
+                'Verify local chunks and reviewed fingerprint'}
+            </button>
+            {localVerifyError && <p role="alert" className={styles.alert}>
+              {localVerifyError}</p>}
+            {locallyVerified &&
+              <p role="status" className={styles.neutral}>
+                Local integrity verified: {localIntegrity.report.locallyVerifiedNoteCount}
+                {' '}Notes in {localIntegrity.report.locallyVerifiedPages} file(s);
+                {' '}{localIntegrity.report.selectedNoteCount} selected.
+                This does not prove signed GitHub provenance or authorize a restore.
+              </p>}
+          </fieldset>
+          <label className={styles.checkbox}>
+            <input type="checkbox" checked={reviewed} disabled={Boolean(receipt)}
+              onChange={(e) => setReviewed(e.target.checked)} />
+            <span>I independently reviewed the create-only candidates, encrypted
+              draft conflicts, complete source proof, and exact target HEAD.</span>
+          </label>
+          <label>Type APPROVE ONE BATCH to request a receipt
+            <input name="typedConfirmation" value={typedConfirmation}
+              onChange={(e) => setTypedConfirmation(e.target.value)}
+              disabled={Boolean(receipt)} autoComplete="off"
+              placeholder="APPROVE ONE BATCH" maxLength={32} />
+          </label>
+          {approvalError && <p role="alert" className={styles.alert}>
+            {approvalError}</p>}
+          {receiptAttempted && !receipt &&
+            <p role="status" className={styles.alert}>
+              This review session has already attempted to issue a receipt.
+              Refresh read-only history and conduct a separate new review;
+              do not replay an unknown POST response.
+            </p>}
+          <button type="submit" className={styles.primary}
+            disabled={!canRequest}>
+            {approveBusy ? 'Requesting…' : 'Request one-time staging receipt'}
+          </button>
+        </form>
+        <p className={styles.muted}>This request requires the complete local
+          chunk integrity and reviewed selection fingerprint check, then
+          issues only a signed 10-minute receipt. It never commits Notes.
+          The private operator must independently verify GitHub provenance
+          and claim the receipt once.</p>
+      </section>
+
+      {receipt && <section className={styles.panel} aria-labelledby="restore-ticket-heading">
+        <span className={styles.kicker}>03 / PRIVATE OPERATOR HANDOFF</span>
+        <h2 id="restore-ticket-heading">One-time receipt issued</h2>
+        <p role="status" className={styles.neutral}>Approval recorded for
+          {receipt.selectedCount} note(s). GitHub has not been modified by
+          this page.</p>
+        <p className={styles.helper}>Expires {receipt.expiresAt}. Transfer the
+          ticket only to the authorized staging operator, using a private
+          owner-only 0600 JSON file outside the backup directory.</p>
+        <p className={styles.muted}>Receipt ID: <code>{receipt.receiptId}</code></p>
+        <button type="button" className={styles.primary} onClick={copyTicket}>
+          Copy private ticket JSON to clipboard
+        </button>
+        {copied && <p role="status" className={styles.neutral}>
+          Copied. The clipboard now contains sensitive authorization
+          material. Clear it after securely handing off the ticket.</p>}
+        <button type="button" className={styles.secondary}
+          onClick={loadReceiptStatus} disabled={statusBusy}>
+          {statusBusy ? 'Checking…' : 'Check this receipt status'}
+        </button>
+        {receiptStatusError && <p role="alert" className={styles.alert}>
+          {receiptStatusError}</p>}
+        {receiptStatus && <p role="status" className={styles.neutral}>
+          {receiptStatus.status === 'GITHUB_BATCH_CONFIRMED'
+            ? 'GitHub batch confirmed.'
+            : receiptStatus.status === 'PENDING_APPROVAL_CLAIM'
+              ? 'Receipt has not yet been claimed.'
+              : 'Receipt claimed; GitHub outcome may require independent review.'}
+          {' '}Do not automatically retry, release a lock, or start another batch.
+        </p>}
+      </section>}
+    </div>
+  );
+}

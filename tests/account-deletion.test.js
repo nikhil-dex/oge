@@ -33,7 +33,7 @@ test('account deletion stays opt-in, transactional and scoped to owner collectio
   const src = await readFile(new URL('../app/api/account/route.js', import.meta.url), 'utf8');
   assert.match(src, /process\.env\.OGE_ACCOUNT_DELETION_ENABLED !== 'true'/);
   assert.match(src, /deleteAccountDataAtomically\(db, ownerId, session\.user\.sessionVersion\)/);
-  assert.deepEqual(ACCOUNT_OWNER_COLLECTIONS, ['notes', 'subjects', 'quickNotes', 'personalQuickNotes', 'savedLinks']);
+  assert.deepEqual(ACCOUNT_OWNER_COLLECTIONS, ['notes', 'subjects', 'quickNotes', 'personalQuickNotes', 'savedLinks', 'learningTracks', 'learningTrackNoteLinks']);
   assert.match(src, /checkRateLimit\(db/);
 });
 

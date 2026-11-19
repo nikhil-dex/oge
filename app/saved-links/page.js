@@ -17,6 +17,8 @@ function hostName(value) {
 
 export default function SavedLinksPage() {
   const [links, setLinks] = useState([]);
+  const [storage, setStorage] = useState('');
+  const [pendingLinkId, setPendingLinkId] = useState(null);
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [form, setForm] = useState(emptyForm);
@@ -32,7 +34,9 @@ export default function SavedLinksPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await readResponse(await fetch('/api/saved-links', { cache: 'no-store' }));
+      const response = await fetch('/api/saved-links', { cache: 'no-store' });
+      const data = await readResponse(response);
+      setStorage(response.headers.get('X-Oge-Saved-Links-Storage') || '');
       setLinks(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || 'Could not load saved links.');
@@ -61,6 +65,9 @@ export default function SavedLinksPage() {
   }, [links, query, selectedCategory]);
 
   function startCreate() {
+    // Retain a create UUID across a failed/unconfirmed response. Retrying
+    // that same link cannot create a duplicate file in the GitHub Vault.
+    setPendingLinkId(crypto.randomUUID());
     setEditingId(null);
     setForm(emptyForm);
     setFormOpen(true);
@@ -69,6 +76,7 @@ export default function SavedLinksPage() {
   }
 
   function startEdit(link) {
+    setPendingLinkId(null);
     setEditingId(link.id);
     setForm({ title: link.title || '', url: link.url || '', description: link.description || '',
       category: link.category || '', tags: (link.tags || []).join(', ') });
@@ -81,6 +89,7 @@ export default function SavedLinksPage() {
     if (saving) return;
     setFormOpen(false);
     setEditingId(null);
+    setPendingLinkId(null);
     setForm(emptyForm);
   }
 
@@ -90,7 +99,11 @@ export default function SavedLinksPage() {
     setSaving(true);
     setError('');
     setMessage('');
-    const payload = { ...form, tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean) };
+    const payload = {
+      ...form,
+      tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+      ...(!editingId && pendingLinkId ? { id: pendingLinkId } : {}),
+    };
     try {
       const response = await fetch('/api/saved-links', {
         method: editingId ? 'PUT' : 'POST',
@@ -102,6 +115,7 @@ export default function SavedLinksPage() {
       else setLinks((current) => [...current, result].sort((a, b) => (a.order || 0) - (b.order || 0)));
       setFormOpen(false);
       setEditingId(null);
+      setPendingLinkId(null);
       setForm(emptyForm);
       setMessage(editingId ? 'Link updated.' : 'Link saved.');
     } catch (err) {
@@ -168,12 +182,17 @@ export default function SavedLinksPage() {
 
   return (
     <main className="shell saved-links-shell">
-      <SiteNavbar />
+      <SiteNavbar showFiles={storage === 'github'} notesHref={storage === 'github' ? '/vault/notes' : '/notes'} />
       <section className="saved-links-hero">
         <div>
           <p className="eyebrow">YOUR PERSONAL LINK LIBRARY</p>
           <h1>Saved <span>links.</span></h1>
           <p className="saved-links-lead">Keep useful websites, docs, tools, and references one tap away.</p>
+          {storage === 'github' ? (
+            <p className="saved-links-lead" role="status">Storage: <strong>your private GitHub Vault</strong>. New links, edits and ordering are saved there. Existing Oge Cloud links are preserved separately, not migrated.</p>
+          ) : storage === 'mongodb' ? (
+            <p className="saved-links-lead" role="status">Storage: <strong>Oge Cloud (MongoDB)</strong>.</p>
+          ) : null}
         </div>
         <button className="add-button saved-links-add" type="button" onClick={startCreate}>
           <span aria-hidden="true">＋</span> Save a link

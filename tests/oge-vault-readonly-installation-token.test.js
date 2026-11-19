@@ -1,0 +1,103 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { generateKeyPairSync, randomUUID } from 'node:crypto';
+import { getVaultNoteClient } from '../lib/oge-vault-notes.js';
+
+const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey
+  .export({ type: 'pkcs8', format: 'pem' }).toString();
+const env = { OGE_VAULT_GITHUB_APP_ID: '99',
+  OGE_VAULT_GITHUB_PRIVATE_KEY_BASE64: Buffer.from(privateKey).toString('base64') };
+const repoId = 1024;
+const vault = { status: 'connected', installationId: 98, repoId,
+  githubAccountId: '25', githubLogin: 'testowner', repoName: 'ogenotes-vault' };
+
+test('M48 operator GitHub App token requests contents=read; normal writers retain contents=write', async () => {
+  const captured = [];
+  const fetcher = async (url, options) => {
+    captured.push({ url, method: options.method, body: options.body &&
+      JSON.parse(options.body) });
+    if (url.endsWith('/app/installations/98/access_tokens'))
+      return { ok: true, json: async () => ({ token: 'synthetic-read-token',
+        repositories: [{ id: repoId }] }) };
+    if (url.endsWith('/repos/testowner/ogenotes-vault'))
+      return { ok: true, json: async () => ({ id: repoId,
+        private: true, owner: { id: 25, login: 'testowner' },
+        default_branch: 'main' }) };
+    throw Error('Unexpected GitHub path');
+  };
+  const id = { ownerId: 'owner-' + randomUUID(), sessionVersion: randomUUID() };
+  const db = { collection(name) {
+    assert.equal(name, 'users');
+    return { async findOne() { return { vault }; } };
+  } };
+  const observer = await getVaultNoteClient(db, id, { env, fetcher, readOnly: true });
+  assert.equal(observer.vault.repoId, repoId);
+  assert.equal(observer.branch, 'main');
+  assert.throws(() => observer.call('/contents/notes/whatever.json', {
+    method: 'PUT', body: { content: 'must not write' },
+  }), TypeError);
+  assert.throws(() => observer.call('/git/refs/heads/main', {
+    method: 'PATCH', body: { sha: 'f'.repeat(40) },
+  }), TypeError);
+  assert.equal(captured[0].body.permissions.contents, 'read');
+  assert.equal(captured[0].body.permissions.metadata, 'read');
+  await getVaultNoteClient(db, id, { env, fetcher });
+  assert.equal(captured[2].body.permissions.contents, 'write');
+  assert.deepEqual(captured[2].body.repository_ids, [repoId]);
+  await assert.rejects(getVaultNoteClient(db, id, {
+    env, fetcher, readOnly: 'false',
+  }), TypeError);
+});
+
+
+test('M121 GitHub token response can omit optional repositories; exact repo is still verified', async () => {
+  const requests = [];
+  const fetcher = async (url, options) => {
+    requests.push({ url, body: options.body && JSON.parse(options.body) });
+    if (url.endsWith('/app/installations/98/access_tokens'))
+      return { ok: true, json: async () => ({ token: 'synthetic-selected-token' }) };
+    if (url.endsWith('/repos/testowner/ogenotes-vault'))
+      return { ok: true, json: async () => ({ id: repoId,
+        private: true, owner: { id: 25, login: 'testowner' },
+        default_branch: 'main' }) };
+    throw Error('Unexpected GitHub path');
+  };
+  const db = { collection(name) {
+    assert.equal(name, 'users');
+    return { async findOne() { return { vault }; } };
+  } };
+  const client = await getVaultNoteClient(db,
+    { ownerId: 'owner-' + randomUUID(), sessionVersion: randomUUID() },
+    { env, fetcher });
+  assert.equal(client.vault.repoId, repoId);
+  assert.deepEqual(requests[0].body.repository_ids, [repoId]);
+  assert.equal(requests[0].body.permissions.contents, 'write');
+  assert.equal(requests.length, 2, 'Must verify the exact private repo using the scoped token');
+});
+
+test('M121 refuse wrong included repository list or wrong private repo identity', async () => {
+  const db = { collection(name) {
+    assert.equal(name, 'users');
+    return { async findOne() { return { vault }; } };
+  } };
+  const id = { ownerId: 'owner-' + randomUUID(), sessionVersion: randomUUID() };
+  const cases = [
+    { tokenResponse: { token: 'synthetic-token', repositories: [{ id: 999 }] },
+      repoResponse: { id: repoId, private: true, owner: { id: 25, login: 'testowner' },
+        default_branch: 'main' }, error: 'vault-repository-token-scope-failed' },
+    { tokenResponse: { token: 'synthetic-token' },
+      repoResponse: { id: repoId, private: false, owner: { id: 25, login: 'testowner' },
+        default_branch: 'main' }, error: 'vault-ownership-changed' },
+  ];
+  for (const scenario of cases) {
+    const fetcher = async (url) => {
+      if (url.endsWith('/app/installations/98/access_tokens'))
+        return { ok: true, json: async () => scenario.tokenResponse };
+      if (url.endsWith('/repos/testowner/ogenotes-vault'))
+        return { ok: true, json: async () => scenario.repoResponse };
+      throw Error('Unexpected GitHub path');
+    };
+    await assert.rejects(getVaultNoteClient(db, id, { env, fetcher }),
+      (error) => error.message === scenario.error);
+  }
+});

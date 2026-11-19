@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
 import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../lib/oge-vault-cutover-guard.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,12 +15,16 @@ function json(data, status = 200) {
 async function context() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  return { db: await getDatabase(), ownerId: session.user.id };
+  return { db: await getDatabase(), ownerId: session.user.id,
+    sessionVersion: session.user.sessionVersion };
 }
 export async function GET() {
   try {
     const ctx = await context();
     if (!ctx) return json({ error: 'Sign in to start revision.' }, 401);
+    const cutover = await inspectLegacyCutoverForOwner(ctx.db, ctx.ownerId,
+      { sessionVersion: ctx.sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const notes = await ctx.db.collection('notes').find(
       { ownerId: ctx.ownerId, $or: [{ reviewDueAt: { $exists: false } }, { reviewDueAt: { $lte: new Date() } }] },
       { projection: { _id: 1, heading: 1, answer: 1, subjectSlug: 1, tags: 1, reviewCount: 1, lastReviewedAt: 1 } },
@@ -44,9 +49,15 @@ export async function POST(request) {
   if (!ObjectId.isValid(id) || !Object.hasOwn(intervals, rating)) return json({ error: 'Choose a valid note and revision rating.' }, 400);
   try {
     const db = await getDatabase();
+    const cutover = await inspectLegacyCutoverForOwner(db, ownerId,
+      { sessionVersion });
+    if (cutover.blocked) return legacyCutoverBlockedResponse(cutover);
     const throttle = await checkRateLimit(db, { scope: 'revision-rating', identifier: ownerId, limit: 120, windowMs: 60 * 1000 });
     if (!throttle.allowed) return rateLimitResponse(throttle);
     return await withActiveOwnerMutation(db, ownerId, async (session) => {
+      const lockedCutover = await inspectLegacyCutoverForOwner(db, ownerId,
+        { sessionVersion }, { session });
+      if (lockedCutover.blocked) return legacyCutoverBlockedResponse(lockedCutover);
       const collection = db.collection('notes');
       const now = new Date();
       const nextReviewAt = new Date(now.getTime() + intervals[rating] * 24 * 60 * 60 * 1000);

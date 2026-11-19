@@ -1,0 +1,1258 @@
+# Oge Vault — Phase D3: GitHub revision history and backup architecture
+
+**Status: bounded revision read/restore, Notes-only export, read-only import
+planning, owner-approved create-only import and read-only bounded Git ancestry
+recovery previews implemented. All import routes are default-off and untested
+with live authenticated staging. Full-resource backup, owner-facing recovery
+and production cutover remain pending.**
+
+## Staging-only revision preview
+
+Configure only on an **isolated** test environment with disposable notes:
+
+```sh
+OGE_VAULT_MAIN_PREVIEW=true
+OGE_VAULT_REVISION_PREVIEW=true
+```
+
+Both flags default to false. This does not replace the existing production
+`/api/revision-history` endpoint or rewrite the revision-history UI.
+
+### Read a single private note's recent history
+
+`GET /api/vault/revision-history?id=<note-UUID>`
+
+- Requires the signed Oge owner and a verified GitHub App repository-scoped
+  installation token. The note's subject must still belong to that owner.
+- Reads **at most five** path-scoped GitHub commits for that one note, verifies
+  each candidate's immutable Git tree and note blob, and checks the branch
+  HEAD again before returning. Any 429 is preserved to the caller.
+- Returns the historical `heading` and `answer` from GitHub only. No note
+  content, revisions or snapshots are persisted in MongoDB.
+- The `limited: true` field is intentional: this is a bounded preview,
+  **not** a complete history explorer. A deleted revision may be omitted and
+  `moreMayExist` signals that more history may require a later pagination
+  implementation.
+- Malformed blobs, truncated Git trees, changed branch HEAD and cross-subject
+  UUID reuse fail closed. The endpoint never reads the old `notes` collection.
+
+### Restore one verified historical version
+
+`POST /api/vault/revision-history`
+
+```json
+{
+  "id": "<note-UUID>",
+  "sha": "<expected-current-git-blob-sha>",
+  "commitSha": "<listed-historical-commit-sha>",
+  "sourceSha": "<listed-historical-blob-sha>"
+}
+```
+
+- All values are checked against a newly loaded **server-side** history. An
+  arbitrary historical commit cannot be submitted without being in the bounded
+  path-scoped list.
+- The target subject is owner-checked and locked with the Vault subject-write
+  fence. If an encrypted unsynced draft exists for this note, restore returns
+  **409** and does not commit; the draft is never deleted by this endpoint.
+- A second GitHub note read verifies the expected current blob SHA. A single
+  `commitVaultNoteBatch` update then applies the historical **heading and
+  answer**, preserving current tags/favorite and creation date.
+- A competing GitHub commit or stale note SHA fails with **409** rather than
+  overwriting the newer note. A lost GitHub write response never causes a blind
+  replay: the underlying batch writer must confirm the commit before returning
+  success.
+- No MongoDB note body or revision history is written.
+
+The new endpoint has no public UI integration yet. It is an independently
+disabled preview API, **not** a completed cross-device revision experience.
+
+## Phase D3b1: GitHub-only Notes export preview
+
+On **isolated staging only**, set:
+
+```sh
+OGE_VAULT_MAIN_PREVIEW=true
+OGE_VAULT_BACKUP_EXPORT_PREVIEW=true
+```
+
+The flags default to false. An authenticated test owner may use:
+
+`GET /api/vault/backup-export`
+
+The response is a JSON download named `oge-vault-notes.json`, with
+`private, no-store` and `nosniff` headers. It contains **only current
+committed GitHub Notes** and their original immutable blob SHAs.
+
+- The server authenticates a signed owner and validates its exact private
+  GitHub App installation/repository. It never takes a repo identifier or
+  arbitrary file path from the request.
+- It reads the branch HEAD and one commit's recursively listed Git tree,
+  validates every path beneath `notes/`, and loads each note from the
+  immutable Git blob SHA with at most five concurrent reads. All note
+  subjects must match that owner's MongoDB **subject metadata**.
+- After building the entire archive it verifies that GitHub HEAD and the
+  signed owner's Vault mapping remain unchanged. Any incomplete tree, corrupt
+  blob, missing subject or moved HEAD is an error; **no partial backup** is
+  returned. No committed note bodies are written to MongoDB.
+- The output has an **8 MiB JSON response cap** and a Git tree limit of
+  30,000 entries. It is not limited to 500 notes; synthetic tests cover
+  501. Vaults exceeding the response limit receive HTTP **413**, not an
+  incomplete download. Large-vault chunked export remains future work.
+- The export `coverage` field states that historical revisions,
+  Quick Notes, AirNotes, encrypted temporary drafts and learning-progress
+  metadata are **not included**. It is *not a complete Oge backup*, and
+  it cannot substitute for an export covering all those resources.
+- GitHub blob SHAs in the JSON are advisory source metadata, not proof that
+  an uploaded backup has been independently authenticated. Import must
+  never trust them without validation and fresh remote conflict checks.
+- No export is stored server-side. Downloaded JSON contains **private note
+  text** and must be stored securely by the owner; do not copy it to CI logs,
+  error reports or public GitHub issues.
+
+The existing legacy `/api/backup` remains unchanged. During D1 staging,
+connected Vault accounts are blocked from using it, rather than exporting
+or importing permanent MongoDB copies.
+
+## Phase D3b2a: Notes-only import validation and conflict preview
+
+On **isolated staging only**, set:
+
+```sh
+OGE_VAULT_MAIN_PREVIEW=true
+OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW=true
+```
+
+Submit the previously downloaded Notes-only JSON backup as the **entire
+JSON request body** to:
+
+`POST /api/vault/backup-import/plan`
+
+This is **read-only conflict planning, not an import action**. There is no
+endpoint that can commit the archive or reuse the returned plan as write
+authorization. The operation validates the owner session and private GitHub
+App Vault mapping, parses at most an **8 MiB** JSON archive in memory, and
+rejects legacy/unknown formats, extra fields, corrupted note data, duplicate
+or invalid UUIDs, malformed source SHA metadata and misleading coverage
+claims. The source GitHub snapshot and blob SHAs are never trusted as
+authorization to write to the destination repository.
+
+A complete, snapshot-pinned scan of the **target** private GitHub tree
+checks its current note IDs, including nested, noncanonical and duplicated
+paths. It then checks owner-scoped MongoDB subject **metadata** and the
+presence of encrypted temporary drafts scoped to the exact signed owner,
+GitHub repository and note IDs, using bounded query chunks. It finally
+rechecks GitHub HEAD and the owner/repository mapping.
+
+The response provides only note IDs and conservative statuses:
+
+- `create-candidate`: the note ID is absent from the destination GitHub
+  snapshot and no encrypted draft was found. It is **not** approved to write
+- `existing-note-conflict`: the destination already has that UUID; it is
+  never overwritten, even when a source SHA appears to match
+- `draft-conflict`: a temporary encrypted unsynced draft exists for that
+  UUID; it must be reviewed rather than deleted
+
+The plan includes `targetHead`, summary counts, `readOnly: true`,
+`canCommit: false` and `requiresFreshApproval: true`. It does not echo
+headings, answers or private note text, store uploaded content or create a
+GitHub commit. As an advisory snapshot, it can become stale as soon as
+another device writes; a future import executor must **recalculate every
+conflict, draft and HEAD check within its own lock before committing**.
+
+The test suite includes over 500 notes, malformed or tampered archives,
+unowned subjects, GitHub drift/429, duplicate files and protected drafts.
+No authenticated live staging import has been performed.
+
+## Phase D3b2b1: Explicit owner-approved create-only Notes import
+
+**Isolated staging with disposable accounts only. Do not enable in production.**
+The optional write API has its own independent default-off flag and requires
+all four conditions below:
+
+```sh
+OGE_VAULT_MAIN_PREVIEW=true
+OGE_VAULT_NOTE_API_PREVIEW=true
+OGE_VAULT_BACKUP_IMPORT_PLAN_PREVIEW=true
+OGE_VAULT_BACKUP_IMPORT_COMMIT_PREVIEW=true
+```
+
+After reviewing the **fresh read-only** `POST /api/vault/backup-import/plan`
+results, the authenticated owner can explicitly call
+`POST /api/vault/backup-import/commit` with an `application/json` body:
+
+```json
+{
+  "archive": "<the full, unmodified Notes-only backup JSON object>",
+  "expectedTargetHead": "<the exact targetHead from the latest plan>",
+  "selectedIds": ["<one to twelve create-candidate note UUIDs>"],
+  "confirmation": "IMPORT_SELECTED_NEW_NOTES"
+}
+```
+
+The `archive` field above is a nested JSON **object**, not a string.
+No UI currently provides this flow. This is a staging-only API capability,
+not a production-ready recovery experience.
+
+- A selected UUID must be in the validated archive and must remain a **new
+  create-candidate** after independent fresh target-tree, owner-scoped subject
+  and encrypted draft checks inside the selected subject-write fences. A
+  conflicting ID cannot be overwritten, even with the correct source SHA.
+- The exact owner-approved target HEAD is rechecked by both the planner
+  and the existing GitHub batch writer. A changed HEAD, deleted subject,
+  modified session/repository mapping, draft or GitHub 429 fails closed.
+  More than 12 selected notes, repeated IDs or absent approval are rejected.
+- The existing verified non-fast-forward **one Git commit** writer preserves
+  archive heading/body/tags/favorite and both original timestamps. It verifies
+  the GitHub ref, commit ancestry and saved blobs. An ambiguous response is
+  **never blindly replayed**. The API responds only with imported UUIDs,
+  counts and the verified commit SHA; it does not echo private note content.
+- The selected batch can be smaller than the archive. Additional batches
+  require a **new plan and new approval HEAD**, not automatic continuation.
+  Existing destination Notes and encrypted drafts are never deleted or
+  modified by the import path. MongoDB is used only for permitted owner,
+  subject and encrypted-draft metadata/fencing.
+- The tests are **synthetic**; real signed OAuth/GitHub-App staging,
+  simultaneous draft creation and cross-request uncertain-result recovery
+  still require review. In-flight draft writers are not an exclusive
+  multi-subject lock, so concurrent draft races need dedicated acceptance
+  testing before any deployment. This route must remain disabled elsewhere.
+
+This limited API **does not** import historical revisions, Quick Notes,
+AirNotes, progress, unsynced browser drafts or an archive larger than
+8 MiB. It does not resolve conflicting existing Notes. A successful
+Notes-only import must never be presented as a full Oge restoration.
+
+## Phase D3b2b2: Race fence and read-only import reconciliation
+
+**Default-off staging implementations; not authenticated provider acceptance.**
+
+The approved `POST /api/vault/backup-import/commit` now obtains a signed
+exclusive lock on the owner's MongoDB `users` row in addition to the existing
+selected-subject write fences. The owner row contains only the operation ID,
+repository ID, timestamp and active draft-writer count, **not uploaded content**.
+Every hybrid draft PUT and verified draft-cleanup mutation increments/decrements
+that same owner-row counter while performing the operation, including when a
+caller tries to use a different subject for the selected note UUID. Import
+cannot start until all draft writers finish; autosave during import returns 409
+and must preserve the local recovery copy.
+
+The exclusive lock **does not auto-expire**. If its release is uncertain, the
+lock is left fail-closed and requires an authorized operator to inspect the
+exact signed account, GitHub state, encrypted drafts and import operation
+before any recovery. No automatic unlock or deletion is implemented. Owner
+lock is intentionally broader than one subject: it temporarily blocks all
+draft mutations for the owner during this bounded import.
+
+Each successful import commit now carries a SHA-256 marker calculated from
+the selected canonical notes and owner-approved target GitHub HEAD, rather
+than private text in the commit message. For a lost HTTP response, submit
+**exactly the same** approval body used for the import to:
+
+`POST /api/vault/backup-import/reconcile`
+
+The read-only endpoint has the same four default-off preview gates as the
+commit endpoint. It requires the signed account and repository, validates the
+archive and selected UUIDs, checks current subject ownership and pins the
+current GitHub HEAD. It walks at most **20 Git commits**, requiring a linear,
+single-parent history to find the exact approved import commit. The import
+commit's direct parent must be the previously approved target HEAD; its
+content-derived SHA-256 marker must match; complete immutable Git trees must
+prove that only the selected note files were newly added; and all imported
+blobs must match the canonical archived notes. A later modification or
+deletion does not erase proof of the **historical** import.
+
+The result returns only metadata: `commitSha` is the verified historical
+import commit (not the current branch HEAD), `currentHead` is the HEAD
+pinned for this check, `commitsAfterImport` counts newer commits, and
+`currentNotesUnchanged` / `currentNotesChanged` distinguish unchanged
+current Notes from later edits/deletions. The branch HEAD and signed owner
+mapping must still match before confirming. No private note text is returned;
+no permanent MongoDB note content, drafts, receipts or GitHub files are
+modified by the recovery endpoint.
+
+When the target commit lies beyond the 20-commit window, the history is
+merged/nonlinear, or the approved commit is not proven, the result is
+`confirmed: false`, **not proof the import failed**. Invalid Git trees,
+cycles and provider limits fail closed. Every result includes
+`safeToRetryAutomatically: false`; this remains true even when import was
+historically confirmed. Do not replay an uncertain import, overwrite newer
+edits or retire encrypted drafts. Owner-facing UI, safe operator lock release,
+signed live two-device/staging tests, merge-aware/deep history and local-only
+browser draft protection remain unimplemented. This is not full Oge backup
+restoration.
+
+## Phase D3b2b2c2 / Milestone #46: Redacted operator import-lock inspection
+
+For a Vault import that may have crashed or lost its response, an authorized
+operator can run an explicit, **read-only** inspection in a private terminal:
+
+`npm run vault:import-lock:inspect`
+
+This is **not an HTTP endpoint** and provides no regular user-facing unlock.
+A separate `OGE_VAULT_IMPORT_LOCK_INSPECT_READ_ONLY=YES_REDACTED_ONLY`
+acknowledgment and exact existing owner/session/repository/lock UUID scope
+must be supplied together with an explicit database and verified GitHub App
+configuration. The CLI uses direct `MongoClient` reads rather than
+`getDatabase()`, which would initialize indexes.
+
+Inspection compares two projected account-row lock snapshots, bounded
+`vault_drafts`/subject-active-writer **existence** counts, and two private
+GitHub HEAD readings. The only output is a redacted result status,
+boolean safety observations and a broad age band. The CLI does **not**
+download, decrypt or store any note body, read draft ciphertext, write MongoDB
+or write GitHub notes, include owner IDs/GitHub SHAs in the report, set TTLs
+or unlock a fenced operation.
+
+This metadata is **not a transactionally consistent snapshot** and cannot
+prove quiescence: a seemingly idle/old lock might still belong to a delayed
+GitHub writer. `automaticUnlockAuthorized` and
+`operatorUnlockAuthorized` always remain `false`. Existing imported-note
+reconciliation should be performed separately with the signed owner's own
+archive and the read-only API, acknowledging its 20-commit linear-history
+window; a missing proof is an unknown outcome, never permission to replay.
+
+**Detailed incident steps and blockers:**
+`docs/OGE_VAULT_IMPORT_LOCK_OPERATOR_RUNBOOK.md`.
+
+The tool includes synthetic redaction, scope, provider-failure and race tests
+plus disposable MongoDB replica-set inspection tests. Milestone #47 adds a
+strictly disposable-local pre-GitHub-write lock release tool and preserves
+uncertain GitHub writes under a durable quarantine marker. **No production
+release of a possibly-started GitHub write, owner-facing recovery, or live
+signed staging is implemented.** PR #35 stays draft and all import preview
+gates remain disabled outside isolated staging.
+
+## Phase D3b2b2c3 / Milestone #47: Durable write quarantine and narrow recovery
+
+The approved import route now persists a scoped, metadata-only
+`vaultImportLock.state='github-write-possible'`, approved SHA-256 commit
+marker and timestamp **before** the first GitHub batch write can occur. The
+marker is written with an exact signed owner/session/repo/operation compare
+and swap. If it is not acknowledged, GitHub is never called. Any exception
+after a successful marker retains the lock, even if the commit might already
+have succeeded; later autosaves/imports receive 409 until independently
+investigated. No blind retry and no TTL exists. On verified success the
+original request still releases its own matching lock.
+
+For safely controlled synthetic recovery **only**, the standalone
+`npm run vault:import-lock:release-prewrite-staging` command can clear
+`state='acquired'` (no GitHub write begun) using an exact-operation,
+exact-start-time CAS and a metadata-only audit receipt in a **single MongoDB
+majority-committed transaction**. The CLI hard-refuses production/Atlas/remote
+databases and accepts only localhost:27017 replica sets with the explicitly
+disposable `oge_vault_recovery_staging_*` database name. It additionally
+requires full owner/session/repo/operation IDs and separate maintenance and
+review attestations, none of which are cryptographically verified. It does
+not touch encrypted drafts, subject records, GitHub files or note content.
+
+A legacy lock without the explicit state, or any
+`state='github-write-possible'`, is **never eligible** for this command,
+regardless of GitHub HEAD stability or age. Such incidents require a future
+operator-reviewed, verified-quiescence process. No HTTP release route or
+production unlock is provided.
+
+See `docs/OGE_VAULT_IMPORT_LOCK_OPERATOR_RUNBOOK.md` for the exact
+disposable staging procedure and remaining blockers.
+
+## Phase D3b2b2c4a / Milestone #48: Read-only GitHub import-attempt evidence
+
+A safe, **metadata-only** operator inspection supplements the previous
+owner-approved full-archive reconciliation. Before a selected create-only
+GitHub import can write, its durable owner-row lock now also stores the
+approved `expectedHead` as `approvedHead` and canonical `selectedIds`
+(up to 12) along with its SHA-256 commit message fingerprint. This is
+ownership-scoped UUID and commit metadata only: **no note bodies, headings,
+archive text or GitHub blobs are stored in MongoDB**.
+
+The independent opt-in operator CLI is
+`npm run vault:import-attempt:inspect`, requiring
+`OGE_VAULT_IMPORT_EVIDENCE_READ_ONLY=YES_METADATA_ONLY`, a specific
+MongoDB database, exact owner/session/repo/operation scope and the verified
+private GitHub App installation. It is **not a user-facing HTTP endpoint**
+and does not release locks, delete drafts, or write to GitHub. Both private operator-inspection commands request GitHub installation tokens scoped to **contents:read** and metadata:read; the ordinary Save/import writer retains its separate write-capable token.
+
+The read-only checker verifies the owner mapping and exact
+`github-write-possible` lock, takes a pinned GitHub HEAD, walks at most
+20 single-parent commits, and checks that the candidate commit is directly
+based on the approved target HEAD with the expected SHA-256 commit marker.
+The complete original/import Git tree leaf delta must consist solely of
+newly created selected Notes paths; HEAD and account lock are rechecked
+before reporting. Unexpected GitHub changes, nonlinear histories, missing
+or invalid metadata, stale sessions and unverified provider state fail
+closed. Results never include private owner IDs, note IDs, GitHub SHAs,
+credentials, ciphertext or note content.
+
+A result of `MATCHING_IMPORT_COMMIT_METADATA_ONLY` is **candidate
+evidence, not verification of the original archived note bytes**, and
+never establishes worker quiescence or permission to unlock or retry.
+The original owner-approved archive and separate signed read-only
+`POST /api/vault/backup-import/reconcile` still provide the stronger
+canonical content comparison. No production recovery for possible GitHub
+writes is enabled. This implementation remains subject to live signed
+two-device/staging acceptance and security review.
+
+## Phase D3b2b2c4b / Milestone #49: Archive-bound content proof for a quarantined import
+
+The read-only #48 operator checker can identify a GitHub commit matching
+stored metadata; it cannot independently verify what note text the owner
+approved. Milestone #49 implements a **separate, opt-in, read-only**
+`npm run vault:import-archive:prove` CLI and a signed,
+`github-write-possible` lock-bound proof engine.
+
+The CLI requires the exact original four-field owner-approved request in
+a local, operator-owned regular JSON file with `0600` permissions,
+no symlink following, a verified stable file size and the existing strict
+8MiB+request-overhead limit. It requires a specific MongoDB database, exact
+owner/session/repository/operation identity, verified private GitHub App,
+and `OGE_VAULT_IMPORT_ARCHIVE_PROOF_READ_ONLY=YES_EXACT_ARCHIVE_ONLY`.
+The private note text is loaded only into the process for canonical proof;
+it is never logged, returned, or stored in MongoDB.
+
+Before accessing GitHub blobs, the helper verifies the durable lock's
+approved GitHub HEAD, exact selected IDs and SHA-256 commit fingerprint
+match the canonical approval. It then reuses the existing 20-commit,
+single-parent, immutable-blob reconciliation including original note
+contents, complete tree delta, owned subjects and branch-head stability.
+The exact signed owner and lock are checked again after reconciliation.
+Only redacted historical-confirmation status and counts are reported.
+Selected encrypted draft **existence only** is observed; drafts and
+confirmed GitHub files are never modified.
+
+This **can prove historical content equality** when all evidence remains
+available, unlike #48's candidate-only metadata inspection. It still
+cannot prove the old worker has stopped, cannot authorize a production
+unlock, cannot claim notes are unchanged today if later commits modified
+them, and cannot allow automatic retries or draft deletion. The operator
+CLI has no HTTP route and uses GitHub `contents:read` permissions; the
+read-only client now also rejects non-GET content calls.
+
+Synthetic and disposable MongoDB replica-set tests cover altered archive,
+wrong owner/session/operation, corrupt immutable blobs, changed GitHub
+HEAD, moved owner lock, draft preservation, redacted results, unsafe local
+file permissions and symlink rejection. Live GitHub authenticated
+two-device acceptance and full recovery approval remain pending.
+
+## Phase D3b2b2c4c / Milestone #50: Deterministic two-device staging acceptance
+
+New `tests/mongodb-vault-two-device.test.js` runs in the isolated
+`localhost:27017` disposable Mongo replica-set CI gate with a
+`oge_ci_multidevice_*` auto-dropped database. The test harness combines
+**real MongoDB account/subject/draft synchronization**, signed owner-epoch
+checks, create-only approved import re-planning and exact immutable
+archive-content reconciliation with a **synthetic GitHub ref/commit/blob
+provider**. No real GitHub accounts or note bodies are touched.
+
+The three acceptance scenarios check:
+1. an in-flight encrypted draft autosave blocks a simultaneous selected-note
+   import; once the draft finishes, fresh import re-planning refuses to
+   overwrite its note ID;
+2. a signed import already holding `github-write-possible` blocks another
+   device's autosave (no draft mutation), then returns to normal encrypted
+   autosave after the import is confirmed and its lock released;
+3. an ambiguous GitHub acknowledgment after a simulated persisted commit
+   leaves durable owner quarantine. New autosave and import remain blocked
+   while read-only original-archive immutable-blob verification may still
+   confirm historical note contents without deleting drafts, retrying the
+   remote write or releasing the lock.
+
+The tests verify no private plaintext is inserted into permanent MongoDB
+owner records, preserve encrypted drafts, and use unique per-test databases
+with no network access to GitHub. See
+`docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md` for test commands and a
+separate acceptance matrix.
+
+**This is synthetic provider acceptance, not complete live authenticated
+two-browser/OAuth/GitHub-App staging signoff.** Subject deletion interactions,
+cross-subject edits, real GitHub throttling/conflicting refs, session
+revocation and browser sessionStorage recovery require further signed
+staging. Production flags are still disabled. No production migration or
+merge is authorized.
+
+## Phase D3b2b2c4d / Milestone #51: Late owner revocation and staging readiness
+
+The owner-approved create-only import executor now checks the same signed
+account incarnation and connected GitHub Vault mapping **again**, after its
+durable `github-write-possible` marker and immediately before the GitHub
+batch writer. A changed owner session or revoked/replaced GitHub
+installation at this point blocks the remote writer. The outer import lock
+remains in conservative quarantine rather than treating a no-write failure
+as permission for automatic unlock. This reduces one important
+time-of-check/time-of-use window; it does **not** provide a cross-service
+atomic guarantee against a later provider revocation.
+
+New real disposable MongoDB replica-set acceptance tests use simulated
+GitHub content and two concurrent devices to verify the account-wide
+import/draft fence **across different subjects**, including a different
+subject for the same note UUID. A draft written before import remains
+encrypted and causes a fresh conflict, while a draft attempted during
+another subject's import receives 409. The tests also revoke the DB
+installation mapping or change the signed session epoch between the
+durable marker and the GitHub writer; no remote note content is written
+and the lock stays protected.
+
+`npm run vault:import:staging-preflight` is a separate, **no-network,
+no-database, configuration-only** readiness check for an isolated
+**synthetic-account** import rehearsal. It verifies all required preview
+gates, disabled destructive/recovery controls, dedicated staging
+credentials and an explicit acknowledgment. It does **not** enable any
+flag, mint a GitHub token, test actual provider permissions or certify
+live OAuth/browser acceptance. See
+`docs/OGE_VAULT_TWO_DEVICE_STAGING_ACCEPTANCE.md` for the remaining
+real two-browser GitHub installation and mobile/429/revocation cases.
+
+## Phase D3b2b2c4e / Milestone #52: GitHub batch-write failure matrix
+
+The test suite now uses the REAL `commitVaultNoteBatch` Git tree/commit/ref
+algorithm together with the approved owner import executor and real
+disposable MongoDB account/subject fences. Only the GitHub network provider
+is simulated. It introduces deterministic rate limits, competing Git
+ref updates, ambiguous PATCH response failures, and failures verifying
+GitHub HEAD or imported-note content **after** the branch may have advanced.
+
+Successful GitHub commits with a lost 503/422 PATCH response are confirmed
+only after reading exact GitHub HEAD, immutable commit ancestry and note
+contents; the owner lock is then released after verified success. A 429
+before import mutation leaves no Git objects or lock. If a potential
+mutation cannot be proven (429 on a POST, ref conflict/422 or 429 during
+post-commit HEAD/content verification), the durable owner lock remains
+quarantined, and no write is retried. An unrelated external Git branch
+update is not overwritten. Later signed owner-archive recovery can prove
+historical content read-only, but **does not** permit automatic lock release.
+
+Only temporary encrypted drafts and non-content coordination metadata
+belong in MongoDB. Tests explicitly reject permanent note plaintext in
+owner records. See
+`docs/OGE_VAULT_GITHUB_FAILURE_ACCEPTANCE.md` for the complete matrix.
+
+All of this is **synthetic GitHub transport** acceptance, not real signed
+GitHub OAuth/installation, actual provider throttling, mobile browser
+recovery or production cutover. Those live checks remain mandatory.
+Import preview flags remain default-off outside isolated staging.
+
+## Phase D3b2b2c4f / Milestone #53: Snapshot-pinned chunked Notes-only export
+
+The original `GET /api/vault/backup-export` keeps its **8 MiB full
+archive/413** semantics. A separate, **default-OFF** staging-only
+`GET /api/vault/backup-export/chunk` preview is available only when
+`OGE_VAULT_MAIN_PREVIEW`, `OGE_VAULT_BACKUP_EXPORT_PREVIEW`, and
+`OGE_VAULT_BACKUP_EXPORT_CHUNK_PREVIEW` all equal `true`. It requires
+the signed owner and exact connected private GitHub Vault, uses an
+installation token restricted to **contents:read**, and checks subject
+ownership and signed session/repository mapping.
+
+Every request scans the **complete** GitHub commit tree rather than the
+500-note directory listing, rejects invalid/truncated/duplicate paths,
+and downloads no more than **64 immutable Notes blobs** (maximum **4 MiB**
+per JSON response). Each page contains `snapshot`, `totalNotes`,
+`offset`, `count`, `inventorySha256` over the sorted full
+UUID/blob-SHA inventory, a page `chunkSha256`, `hasMore`, and
+`nextAfterId` for continuation. The next request must supply the
+original snapshot and the exact previous note UUID. If the branch HEAD
+changes, export fails with 409 before continuing; the owner must restart
+the download from the new snapshot rather than mix revisions.
+
+The pure `createVaultNotesChunkSequenceVerifier` accepts one downloaded
+part at a time and maintains only SHA-256 state, counters and a cursor.
+It rejects skipped or reordered pages, inconsistent page counts,
+missing note IDs, content changes, tampered per-page checksums and a
+mismatched final inventory checksum. A successful `finish()` establishes
+a complete **current Notes-only** set of downloaded pages, not a complete
+Oge backup, authenticated GitHub identity or authorization to import.
+
+A part always says `completeBackup:false` and cannot be submitted
+to the existing one-shot backup import. No production-ready large-vault
+assembly/import/restore exists yet. Synthetic tests cover a **520-note,
+over-8-MiB** snapshot, missing/tampered chunks, 429/corrupt blobs, stale
+cursors, subjects, empty vaults and unchanged legacy 413 semantics.
+No note content is stored in MongoDB. See
+`docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
+**Live signed GitHub OAuth/two-device acceptance, cross-resource backup,
+chunk restoration, owner-facing UI and production flags remain blocked.**
+
+## Phase D3b2b2c4g / Milestone #54: Verified sequence, read-only large-vault restore preview
+
+Large Notes-only chunk backups are not valid inputs to the existing
+8 MiB/12-selected-note approved import. The new
+`planVaultNotesChunkRestoreReadOnly` engine reads one private chunk at a
+time, validates all pages against the existing canonical
+`createVaultNotesChunkSequenceVerifier`, and accumulates only source
+note/subject UUID metadata. An incomplete or reordered source backup
+fails **before** any target GitHub inspection.
+
+Once the entire source sequence passes the self-consistency checks,
+the planner independently verifies the signed current owner, owner-scoped
+subject IDs (100 per query), the **complete destination GitHub tree**,
+temporary encrypted draft conflicts (100 per query), stable destination
+HEAD and the signed owner/repository mapping at finish. A draft conflict
+takes precedence over a committed-note conflict. Results give the
+count of create-candidates, existing-note conflicts and draft conflicts,
+plus the first 12 source IDs/statuses **without any headings or answers**.
+
+An opt-in private, operator-only local command
+`npm run vault:chunk:restore-plan` reads operator-owned, 0700 private
+directories of contiguous `part-0001.json` etc files with 0600
+permissions, checks these files prior to any network I/O, and obtains a
+repo-restricted **contents:read** installation token. It never persists
+note bodies to MongoDB, modifies GitHub, deletes encrypted drafts, or
+changes an import lock. The separate `OGE_VAULT_CHUNK_RESTORE_PLAN_READ_ONLY`
+opt-in is unset by default.
+
+This preview authenticates the signed **destination** owner, not the
+origin of user-supplied backup pages. SHA-256 chunk/inventory digests are
+not source signatures and do not prove original GitHub blob provenance;
+this must be solved separately before any chunk restore can be approved.
+**No large-vault import/write is implemented in Milestone #54.**
+Every plan says `canCommit:false` and a new, independently validated,
+explicit owner approval is required for any future import.
+
+Synthetic >8 MiB/520-note tests, real disposable MongoDB subject/draft
+integration, stale sessions, source truncation, target drift, invalid
+draft output and private-file permissions are covered in CI. Signed
+live GitHub two-device staging and all non-Notes data paths remain
+release blockers. See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
+## Phase D3b2b2c4h / Milestone #55: Signed source Git blob provenance for chunks
+
+Milestone #54 guarantees complete, correctly ordered and internally
+checksum-consistent downloaded Notes chunks. This is **not** the same
+as validating where those chunks came from: anyone can regenerate
+SHA-256 fields after editing a local file.
+
+`verifyVaultNotesChunkGitHubSourceReadOnly()` adds an independent,
+source-side read-only check with a signed owner-bound **private GitHub
+Vault contents:read** client. First it verifies the entire chunk
+sequence in memory, retaining only note UUIDs, source Git blob SHAs and
+normalized note-content SHA-256 digests. Before reading any GitHub
+blob, it requires the full chunk snapshot to be exactly the
+**currently connected source branch HEAD**, exact full canonical
+Git tree entries matching every supplied Note ID/SHA, and the
+owner/session/repository mapping.
+
+The verifier reads each raw immutable Git blob in bounded groups of
+five. It recomputes Git's `SHA-1(blob <length>\\0 + bytes)` from the
+returned bytes, checks the canonical OgeNotes schema and compares
+all note fields against the locally supplied page's normalized
+content digest. It then rechecks the signed owner and Git HEAD.
+No source plaintext is logged, returned, stored in MongoDB, or used
+to authorize import. 1,024 notes / 16 pages is the explicit
+maximal current-head-only proof bound to avoid unbounded GitHub API
+requests. Provider errors and unavailable data fail closed.
+
+The default-off private operator command
+`npm run vault:chunk:verify-source` requires
+`OGE_VAULT_CHUNK_SOURCE_PROOF_READ_ONLY=YES_CURRENT_GITHUB_HEAD_ONLY`,
+exact signed owner/session/repo/database, and 0700 private directory
+with contiguous 0600 non-symlink JSON parts. File permissions and
+sequence names are checked before MongoDB connection or GitHub token
+minting. It returns a redacted, **non-authorizing** report.
+
+This can establish that submitted chunk content matches a
+**currently accessible signed GitHub source**, including a verified
+520-note collection larger than 8 MiB, but it is not a durable
+signature, historical commit proof, disaster-recovery substitute
+after source loss, actual GitHub staging acceptance, or approval
+to write a destination repo. If the original HEAD moved or source
+access is gone, no claim of source authentication is made.
+M54's destination conflict planner remains unchanged and
+`canCommit:false`; the 12-note explicit import approval cannot
+be bypassed. See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
+## Phase D3b2b2c4i / Milestone #56: Bounded historical private source proof
+
+Source verification from #55 previously required an identical
+signed current HEAD. A backup's source HEAD often becomes historic
+after another GitHub Save. Milestone #56 extends the same
+`verifyVaultNotesChunkGitHubSourceReadOnly` helper with a separate,
+**default-OFF** `allowBoundedHistory` mode; the original #55
+current-only mode is unchanged.
+
+After validating every downloaded chunk's complete self-consistent
+Notes sequence (maximum 1,024 Notes/16 parts) **before any provider
+access**, the owner-scoped historical verifier pins the current
+signed private GitHub branch HEAD. It follows at most **20
+single-parent Git commits** towards the backup's original snapshot.
+It refuses a detached/unreachable SHA, merge, cycle, invalid parent,
+missing commit or deeper history; it never treats an arbitrary
+caller-provided SHA as proof of source authenticity. Once the
+Git ancestry is verified, it reads the complete canonical
+**historical** snapshot Git tree and independently matches every
+downloaded note's ID, Git blob SHA-1 calculated from raw bytes and
+normalized note-content digest against that immutable tree.
+
+The final branch HEAD and exact owner/session/repo installation are
+rechecked. The redacted result distinguishes a current snapshot
+(0 later commits) from a historic one (1–20 later commits), while
+always returning `canCommit:false`, `authorizesRestore:false`,
+`canUnlockImport:false`, and `canRetryAutomatically:false`.
+No private backup text is logged, persisted into MongoDB or returned
+in the result. No GitHub or MongoDB mutating operation is exposed.
+
+The explicit operator command `npm run vault:chunk:verify-history`
+requires `OGE_VAULT_CHUNK_SOURCE_HISTORY_READ_ONLY=
+YES_20_LINEAR_ANCESTORS_ONLY` (one environment value), exact signed
+owner/session/database and a private, 0700/0600 contiguous local
+chunk directory. The older current-only opt-in must remain unset.
+The operator command reads GitHub with **contents:read** permissions.
+
+Synthetic tests cover all depth boundaries, malformed merge/cycle
+histories, forged local SHA-256 and content, a changed branch HEAD,
+revoked signed owner and a 520-note >8-MiB historical source.
+There is still **no large-vault restore write or owner approval UI,
+historical source verification after repo removal, signed live GitHub
+two-device staging, or production flag change**. A confirmed
+historical source never implies that the notes are unchanged today.
+See `docs/OGE_VAULT_CHUNKED_BACKUP.md`.
+
+## Phase D3b2b2c4j / Milestone #57: Authenticated 12-note create-only intent (NO WRITE)
+
+The signed current/historical source GitHub proof from M55/M56 can now
+be combined with selected destination conflict checks to prepare an
+**explicit, bounded, non-authorizing** recovery intent for **1–12 Notes
+from a private source backup of up to 1,024 Notes**.
+
+`prepareVaultChunkRestoreBatchIntentReadOnly` requires the original
+complete private chunk sequence and an exact owner-supplied five-field
+request: `confirmation=PREPARE_CREATE_ONLY_RESTORE_BATCH`,
+`expectedSourceSnapshot`, `expectedSourceInventorySha256`,
+`expectedTargetHead`, and distinct `selectedIds`.
+It verifies the **entire** source sequence against the signed current
+GitHub Vault or a linear ancestor within 20 newer commits, rechecking
+raw Git blob SHA-1 and all note contents. The source helper emits only
+private **selected metadata** (UUID, subject UUID, Git blob SHA and
+SHA-256 canonical content digest) inside the process for intent binding;
+it never returns or stores original note plaintext.
+
+The destination is the **same owner-connected private GitHub Vault**.
+After source proof, the planner validates selected subject ownership,
+strictly scans the entire current Git tree at the **exact requested
+target HEAD**, checks exact selected UUIDs against unsaved encrypted
+MongoDB drafts, then rechecks the signed owner and current branch HEAD.
+Draft conflicts take priority over existing GitHub note conflicts.
+It returns only selected ID/status pairs, bounded counts, and a
+deterministic SHA-256 fingerprint of the source-selected metadata,
+selection order, source inventory and destination HEAD.
+
+There is no write route, no new GitHub App write token, no
+`commitVaultNoteBatch` call, no MongoDB draft deletion or lock release.
+A positive `eligibleForIndependentApproval` only means no current
+known conflict. All results remain `canCommit:false`,
+`commitAuthorized:false`, `requiresFreshUserApproval:true`, and
+`requiresIndependentWriteRecovery:true`: the digest is NOT a
+signed approval token.
+
+The operator-only `npm run vault:chunk:batch-intent` uses an
+**exclusive**, default-off `OGE_VAULT_CHUNK_BATCH_INTENT_READ_ONLY=
+YES_EXACT_VERIFIED_SELECTION_ONLY` mode and a separate owned 0600
+regular non-symlink selection JSON file. It retains all existing
+0700 private downloaded chunk-directory checks, inspects files
+**before database/GitHub access**, uses GitHub `contents:read`
+permissions and prints no note bodies. It never authorizes an
+actual restore.
+
+M57 tests cover a 520-note, over-8-MiB source, 12-note maximum,
+explicit source/target binding, conflicting committed notes,
+encrypted drafts, malicious selection keys, forged chunks,
+moving HEAD, stale owner and private local file safety.
+
+**Actual one-batch GitHub creation and multi-batch resumption remain
+M58+ work**, requiring a separate signed owner approval/authorization
+surface, fresh owner and subject fences, GitHub CAS, durable metadata-only
+uncertainty marker and a proven read-only reconciliation mechanism before
+any uncertain lock can be released. Live authenticated GitHub staging,
+Quick Notes, AirNotes, extension and full cutover are also pending.
+
+## Phase D3b2b2c4k / Milestone #58: Internal, single-batch create-only GitHub restore
+
+The new internal, explicitly disabled
+`executeApprovedVaultChunkRestoreBatch` accepts a **separate,
+exact six-field** `COMMIT_VERIFIED_CHUNK_BATCH_CREATE_ONLY`
+owner confirmation, including a previously reviewed M57 selected
+source/target content fingerprint. It is not exposed through
+HTTP routes, the user interface, operator scripts or cron.
+
+Before writing, the executor acquires the **existing durable
+owner import-exclusive lock** (preventing all competing encrypted
+draft writes), independently verifies every selected Note against
+the complete signed same-owner source GitHub backup (<=1,024
+Notes and <=20 newer linear Git commits), rechecks the selected
+1–12 immutable raw blobs and requires the original approved
+GitHub target HEAD and conflict-free draft/subject inventory.
+
+It then acquires the selected subject fences and uses the proven
+ordinary `executeApprovedVaultNotesImport` for a temporary,
+in-memory <=12-note archive. That executor repeats the live
+create-only Git tree, encrypted draft and owner/session checks,
+marks the **metadata-only possible-write boundary** durably
+before the first GitHub mutation, and delegates to the real
+`commitVaultNoteBatch`. GitHub's non-force ref CAS and
+post-write content/ancestry validation must succeed before
+releasing the owner fence or reporting a successful import.
+An unknown GitHub write result **retains** the quarantine;
+neither retries nor unlocks are automatic. Only GitHub holds
+permanent Note content.
+
+A separate `OGE_VAULT_CHUNK_RESTORE_COMMIT_PREVIEW=true`
+gate and explicit
+`OGE_VAULT_CHUNK_RESTORE_WRITE_ACK=
+YES_DISPOSABLE_SIGNED_STAGING_ONLY` are mandatory in addition
+to the existing import and Notes preview flags. Both are
+**default-off**, with no route wired to expose this internal
+executor to signed users. The code remains restricted to
+synthetic acceptance until a separate owner approval and
+isolated live GitHub staging route/CLI pass a security review.
+
+The M58 suite exercises the **real MongoDB replica-set**
+and actual Git batch-writer algorithms through a synthetic
+provider, including verified create-only commit, retained
+quarantine after a successful provider ref update followed
+by lost acknowledgment, fresh conflict detection and wrong
+fingerprint/target refusal. No real user notes or GitHub
+credentials are included.
+
+M58 does **not** implement cross-repository restoration,
+multi-batch execution/resume or a durable multi-batch
+progress ledger, independent user-facing signed approvals,
+automatic resolution of uncertain locks, production readiness
+or complete Quick Notes/AirNotes backup/restore. See
+`docs/OGE_VAULT_CHUNKED_BACKUP.md` for the complete scope.
+
+## Phase D3b2b2c4l / Milestone #59: Signed staging receipt, one-use restore and batch status
+
+The M58 single-batch create-only executor now has a **separately
+default-off, isolated staging bridge** that avoids uploading large
+Notes chunk backups into an HTTP request.
+
+The signed Auth.js owner can send an exact, explicit
+`COMMIT_VERIFIED_CHUNK_BATCH_CREATE_ONLY` JSON selection to
+`POST /api/vault/backup-import/chunk/authorize` on the SAME secure
+isolated staging HTTPS origin. The route requires the full Vault
+staging preflight, dedicated `oge_vault_restore_staging_*` Atlas/
+secure MongoDB database, matching request URL/Origin, signed owner
+session, rate limit, private GitHub App `contents:read` installation
+and unchanged target Git branch HEAD. Its response contains only a
+**10-minute HMAC-SHA256 receipt**, opaque receipt ID, expiry and
+explicit `immediatelyExecutesRestore:false`. No private Notes,
+chunk files, titles or answers are sent to this endpoint.
+
+The new metadata-only `vault_restore_approvals` MongoDB collection
+stores exact signed owner/session/repo/installation, unique hashed
+nonce `_id`, approval SHA-256, creation/expiry and pending/claimed/
+confirmed timestamps and optional verified Git commit SHA. A
+seven-day-after-expiry TTL index bounds ordinary incident retention.
+An atomic `pending -> claimed` compare-and-set enforces **ONE
+claim only**, even under concurrent requests or across devices.
+Expired, revoked or replayed authorization fails closed.
+
+A separate local
+`npm run vault:chunk:restore-staging` operator command requires
+exclusive staging-only flags, exact owner/session/repo/installation,
+a PRIVATE owner-only 0700 directory with up to 16 sequential 0600
+chunk parts, a separate 0600 HMAC receipt file and the **same
+dedicated secure staging DB as the Auth.js route**. It verifies
+local permissions, receipt HMAC/expiry/owner and preflight
+before any network. It consumes the MongoDB receipt atomically
+before minting a `contents:write` GitHub token. It then invokes
+the existing M58 owner/subject-fenced source-verified create-only
+GitHub CAS executor **once**, confirming only on a fully verified
+remote commit. An unknown outcome never triggers retry, draft
+deletion or owner quarantine release.
+
+An authenticated, read-only
+`GET /api/vault/backup-import/chunk/status?receiptId=...`
+reports only owner-scoped **pending, claimed/needs review, or
+GitHub batch confirmed** state. A `claimed` status might mean
+work in progress or an unknown GitHub mutation; it is NOT proof
+of failure and never authorizes a retry, unlock or next batch.
+Every new batch needs an independently reviewed, current-head
+M57 fingerprint and a NEW signed one-time receipt.
+
+Unit tests cover forged/expired HMAC receipt, owner/session/repo
+revocation, status privacy and private file safeguards; real
+disposable MongoDB tests prove unique receipt ID, concurrent CAS
+claims, metadata TTL, and replay denial. Combined disposable
+MongoDB + synthetic GitHub tests run a signed receipt through
+the actual M58 Git commit writer, including lost GitHub
+acknowledgment with one commit attempt and preserved owner
+quarantine. No note bodies enter MongoDB.
+
+**M59 is staging-only implementation, not live signed GitHub
+two-device acceptance, a polished owner-facing restore UI or
+a production restore route.** No multi-batch automatic resume,
+historical source-deletion recovery, uncertain lock unlock,
+Quick Notes/AirNotes cutover or production gate is enabled.
+See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
+## Phase D3b2b2c4m / Milestone #60: Bounded multi-batch history, unknown outcomes block progression
+
+The isolated M59 signed restore bridge issues an independent
+one-time 10-minute ticket for each owner-approved 1–12 Note
+GitHub CAS batch. M60 adds a staging-only, **read-only**
+`GET /api/vault/backup-import/chunk/history` route, requiring
+the existing disabled-by-default M59 approval preview gate,
+exact Auth.js owner/session, and dedicated secure restore
+staging MongoDB. It retrieves only the most recent **25
+metadata-only receipts** for the exact same signed owner,
+session, GitHub repo and App installation, ordered by
+creation timestamp and hashed receipt ID. A compound MongoDB
+index makes the bounded lookup efficient.
+
+The new `inspectVaultRestoreBatchHistoryReadOnly` engine
+rechecks the signed account and its import-lock state before
+and after the database read. It can report independently
+confirmed batches, pending/expired signed approvals, a
+claimed-but-unconfirmed outcome that could represent an
+unknown remote GitHub mutation, a present owner import
+quarantine, invalid metadata or a truncated history window.
+None of these states grants authorization to resume.
+
+M60 also prevents issuing a **new** M59 signed receipt
+whenever the owner import lock exists or an earlier
+receipt remains `claimed` rather than `confirmed`.
+After a truly confirmed previous batch, any additional
+batch requires a **new reviewed source fingerprint, exact
+current target Git HEAD and distinct signed owner approval**.
+There is no multi-batch automatic loop, and a `claimed`
+status is never treated as a failed or safely retryable
+GitHub commit.
+
+Results exclude note IDs, headings, answers, chunk files
+and owner identity. They explicitly state
+`historicalTotalsProven:false`,
+`historicalBatchChainVerified:false`,
+`currentGitHubHeadVerified:false`,
+`automaticNextBatchAuthorized:false`,
+`automaticRetryAuthorized:false` and
+`operatorLockReleaseAuthorized:false`. History is
+limited to the latest 25 records and metadata older than
+seven days after receipt expiration may be removed by
+MongoDB TTL; **this is not a durable complete disaster
+recovery ledger**.
+
+Real disposable replica-set integration tests verify two
+independently confirmed receipts, claimed/unknown outcome
+with an older confirmation, pending/expired records,
+more than 25 rows, import quarantine, invalid history,
+revoked owner mapping, and the new approval issuance
+block. These tests do **not** run authenticated live
+GitHub App OAuth, two-device provider isolation, real
+429/409/422 errors or deployment signoff. The signed
+staging acceptance and any potentially dangerous
+`github-write-possible` lock release remain BLOCKED.
+
+For staged operator instructions see
+`docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
+## Phase D3b2b2c4n / Milestone #61: Read-only real provider probe and deterministic error test matrix
+
+Milestone #61 adds a **separately opt-in, non-mutating**
+`npm run vault:staging:provider-probe` command for a
+**dedicated disposable staging GitHub Vault** (no real-user
+Notes). It requires
+`OGE_VAULT_REAL_PROVIDER_PROBE_READ_ONLY=
+YES_ISOLATED_PRIVATE_STAGING_GETS_ONLY` as a single value,
+exact signed owner/session/repo/installation and the existing
+isolated secure staging MongoDB and OAuth/App configuration.
+
+The script requires the regular Vault staging preflight,
+requests two independent **contents:read GitHub App**
+installation clients, and compares full signed owner identity,
+exact private repo mapping, current branch HEAD and immutable
+commit tree SHA. It verifies that the first HEAD is unchanged
+after the second scoped GET client reads the same commit,
+and rechecks signed account mapping including the account
+ID and login. It returns only redacted booleans; it never
+fetches Notes blobs, stores note contents in MongoDB or
+requests any GitHub write-scope token.
+
+A passing read-only probe **does not** validate the existence
+of two physical devices, actual browser OAuth sessions, any
+GitHub write behavior or a complete staging acceptance
+matrix. These are explicitly reported as `false`.
+The operator probe has **not yet been executed against
+real GitHub staging provider credentials** in this milestone.
+
+Synthetic provider/HTTP tests exercise the **real**
+`vaultGithubRequest` transport with simulated status
+responses for GitHub 401, 403, secondary rate-limited 403,
+429, 409 and 422; POST/PATCH writes under 429, 409,
+422, 503 and network drops are performed **once only**,
+with no blind retry. Additional tests reject signed owner
+revocation, changed repo ID/installation/login, changed
+HEAD/tree and unsafe/stale operator configuration. They
+are **not actual provider fault injections**.
+
+Only an independently authorized operator with real
+disposable credentials can subsequently run the opt-in
+GET-only command and separately document true two-device
+OAuth/App, private repository and write-path acceptance.
+No external observation or two-device signoff is
+recorded. The `github-write-possible` quarantine
+remains non-releasable without independent quiescence
+and dual authorization; PR #35 remains draft/unmerged
+and production restore flags remain OFF.
+
+For detailed operator checklist see
+`docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
+## Phase D3b2b2c4o / Milestone #62: Owner-facing staging-only restore review
+
+The previously CLI-oriented signed M57–M61 one-batch restore
+workflow now has a **hidden, responsive browser review surface**
+at `/vault/restore-staging`. It is linked from `/vault`
+**only for a connected owner in isolated staging**, with
+`OGE_VAULT_CHUNK_RESTORE_APPROVAL_PREVIEW=true`, the matching
+Notes/import preview flags, a dedicated
+`oge_vault_restore_staging_*` MongoDB and the existing
+Vault HTTPS staging readiness checks. The server rejects all
+other environments with 404, requires a signed Auth.js
+session and an owned connected private GitHub Vault,
+and marks the page noindex/nofollow.
+
+The UI loads the owner's bounded **read-only** multi-batch
+receipt history before permitting a new approval. Unknown
+or missing history, claimed/uncertain writes, a present import
+quarantine, pending approvals, invalid records and truncated
+history all **block issuance** in the browser. Even a
+previous confirmed batch does NOT verify that source/target
+GitHub revisions are current: every new batch must be
+independently reviewed. The M59 server route remains
+authoritative for signed owner, target HEAD and receipt
+issuance, while the M58 operator executor separately
+rechecks source note bytes, drafts and Git CAS state.
+
+For one batch the owner enters only reviewed metadata:
+the exact source/target 40-hex Git revisions, source
+inventory/selection 64-hex SHA-256 digests and 1–12
+unique lowercase note UUIDs. The user must confirm
+independent create-only conflict review and type
+`APPROVE ONE BATCH`; a successful request creates
+only a **10-minute single-use signed receipt**.
+Nothing is written to GitHub, no note bodies or private
+backup chunks are uploaded, and no draft or import lock
+is modified by the UI.
+
+The private HMAC receipt is kept in **in-memory React
+state only** and transferred by the user's explicit
+`Copy private ticket JSON` action for an authorized
+0600-file operator handoff. The token is not
+automatically rendered, placed in a URL, logged or
+persisted to localStorage/sessionStorage. If a POST
+response is interrupted, the browser does **not**
+retry; it instructs the owner to check the read-only
+history first. The owner can independently check
+a receipt's pending/claimed/confirmed status but
+cannot force a Git retry, unlock the quarantine,
+or trigger subsequent batches automatically.
+
+M62 automated tests verify strict payload and
+history-state handling, conditional staging visibility,
+signed owner access, no content uploads/browser
+storage, React lint and Next.js production build.
+Existing Chromium desktop/mobile smoke checks
+remain part of CI. **No real OAuth browser staging
+test, two-device signed provider acceptance, or
+complete consumer restore UX has been performed.**
+Production preview flags remain OFF, PR #35
+is still draft/unmerged, and no real notes were touched.
+
+See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`
+for human-reviewed operator instructions.
+
+## Phase D3b2b2c4p / Milestone #63: Local browser chunk integrity and exact reviewed M57 fingerprint
+
+The M62 staging-only owner review interface now requires a
+**complete local backup file integrity check before its 10-minute
+single-use receipt POST can be enabled**. The new browser-only
+`verifyVaultRestoreLocalChunkFiles` accepts exactly ordered
+`part-0001.json` through the final `part-NNNN.json`,
+up to **16 files (4 MiB per file)** representing up to **1,024
+current private GitHub Notes**. It reads one file at a time with
+the local browser File API and Web Crypto SHA-256; there is no
+network fetch, DB write, persistent browser storage or
+archive-content upload.
+
+The verifier checks the original complete Notes-only chunk
+format, canonical UTF-8/Note schema, byte limits, per-part
+SHA-256, ordered UUIDs and continuous offsets/cursors,
+matching snapshot/count/coverage, and recomputes the
+**complete content-free Git inventory SHA-256** across all
+Notes. It independently hashes the selected local Notes'
+canonical content fields and recomputes the exact **M57
+selectionFingerprint** bound to selected UUID order, original
+snapshot/inventory and the owner-reviewed destination HEAD.
+Tampering with private content, forging a replacement chunk
+checksum, leaving out a page, changing selected order,
+or mismatching the independently reviewed digest all fail
+closed. A green local result reports *only counts*, never
+private headings, answers or note data.
+
+Changing source/target hashes, selected IDs or any chosen
+files immediately invalidates the browser's local check.
+The owner still checks independent conflict review and
+types `APPROVE ONE BATCH`. If the browser POST loses
+the receipt response after submission, the form blocks
+a second POST for the **entire current review session**;
+the owner is redirected to read-only status/history
+investigation rather than silently retrying.
+
+**Crucial trust boundary:** local checksums and self-asserted
+Git SHAs in downloaded files are **not authentication** to
+a GitHub account or proof that those bytes still exist
+in the connected Vault. Local source proof cannot
+confirm draft conflicts or current GitHub HEAD. The
+M55–M58 **signed operator** must still independently
+verify the exact private source repository, raw Git blobs,
+owner/session/subjects, draft conflicts and Git CAS.
+No restore permission is gained from local verification
+alone, and no actual GitHub write is called by the UI.
+
+M63 unit/CI tests use complete 130-note and
+**520-note, >8-MiB** synthetic private backup sequences,
+compare accepted files against the trusted server chunk
+verifier, check incomplete/reordered/tampered parts,
+unsupported Note schemas, changed source/target/selection
+fingerprint and privacy/no-network behavior. No real
+GitHub OAuth two-device staging, actual provider error
+reproduction, full production UI acceptance or release
+approval has occurred. The existing Chromium smoke
+suite is general app coverage, not proof of the
+authenticated local-picker restore workflow.
+
+See `docs/OGE_VAULT_SIGNED_RESTORE_STAGING.md`.
+
+## Phase D3b2b2c4q / Milestone #64: Staged owner browser download of a complete pinned Notes chunk sequence
+
+The hidden, signed `/vault/restore-staging` page now exposes
+an explicit owner-initiated **Download private Notes chunks**
+control using the **existing** default-off `GET
+/api/vault/backup-export/chunk` handler. This only appears
+when the same isolated Auth.js, connected private owner
+Vault and `oge_vault_restore_staging_*` staging checks
+pass, **and** both read-only
+`OGE_VAULT_BACKUP_EXPORT_PREVIEW=true` and
+`OGE_VAULT_BACKUP_EXPORT_CHUNK_PREVIEW=true` are enabled
+in staging. No new route or GitHub write capability exists.
+
+The browser fetches the current signed Vault HEAD in
+the first GET, follows only each verified prior
+`snapshot` and `nextAfterId` thereafter, and
+rechecks the canonical Notes-only chunk format,
+strict size/64-Note pagination/part count bounds,
+per-chunk SHA-256 and **the entire ordered inventory
+SHA-256** using Web Crypto. Each response is limited
+to 4 MiB **during streaming**, not only by headers.
+Up to 16 checked parts / 1,024 current Notes are
+offered as local numbered files `part-0001.json`
+through the final part. A 520-Note backup exceeding
+the old 8-MiB archive limit can pass across multiple
+bounded files.
+
+The download is deliberately **not** an automatic
+background backup or robust cross-browser disk-save
+attestation. Browsers may block or require permission
+for multiple downloads. The UI reports only that
+HTTP response pages passed integrity verification
+and were offered as downloads;
+`savedToDiskVerified:false` remains the proof
+contract. The owner must confirm all files were
+actually saved and select them again in the
+M63 **independent local-file** verification step.
+Store all plaintext chunk files in encrypted,
+access-controlled private storage.
+
+Failures, rate limits, moving source HEAD, oversized
+or malformed pages, missing final parts and user
+cancellation stop the current review session.
+There is **no automatic retry, new-HEAD restart,
+blind snapshot mixing, GitHub write, MongoDB note
+persistence or import approval**. Browser checks
+are not independent signed GitHub blob proofs:
+the trusted M55–M58 operator still verifies raw
+Git object bytes, owner/session, subject/draft
+conflicts and Git CAS before any restore.
+
+Synthetic unit/CI tests validate a complete
+130-Note sequence and **520-Note >8 MiB**
+backup against the trusted Node verifier,
+with malformed/truncated/tampered source
+responses and strict no-network-write/no-storage
+UI tests. Actual signed GitHub provider OAuth,
+two physical devices, live multi-download browser
+permissions and production acceptance remain
+unperformed. No production flags have been enabled;
+PR #35 is still draft/unmerged.
+
+## Phase D3b2b2c4r / Milestone #65: Encrypted offline Notes-only backup files
+
+Milestone #65 changes the hidden owner staging browser downloader
+from offering plaintext source parts to **only offering encrypted
+part-NNNN.oge.json chunks**, with AES-256-GCM, a fresh random
+per-backup salt, unique per-part IVs and PBKDF2-SHA-256 derived
+from a user-provided strong password (600,000 iterations).
+The authenticated GitHub read-only server still returns original
+Note content to the browser over HTTPS. Once each source part
+passes the existing M64 chunk SHA-256 and cursor/complete-inventory
+checks, it is encrypted **locally before a downloadable Blob exists**.
+
+The M63 local restore reviewer now reads encrypted parts, derives
+the password key, authenticates/decrypts the pages into ephemeral
+browser memory and uses the unchanged complete Notes + M57
+reviewed selected-content verifier. Wrong password, tampered
+ciphertext/header and mixed/incomplete file sets fail closed.
+No Notes are uploaded to MongoDB, no GitHub writes are introduced,
+and no password is transmitted, logged or persisted by the app.
+
+**Outstanding:** the signed M58/M59 restricted operator cannot yet
+read .oge.json ciphertext files directly, so complete encrypted
+operator restore needs a separately reviewed and secured local
+conversion procedure; no source-GitHub-independent archived
+authenticity after repo deletion is available. Browser password
+strength, lost-password recovery, real two-device staging,
+operator signed proof and independent crypto audit are not complete.
+The source-repo GitHub evidence and durable owner import lock
+requirements remain unchanged; no production release is authorized.
+See docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md.
+
+## Next: Full import recovery and backup coverage (not implemented)
+
+A safe GitHub-backed replacement must:
+
+1. Extend the implemented strict archive and target validation with live
+   authenticated write-path, draft-race and stale-plan acceptance tests.
+2. Integrate accessible owner approval into the UI and safe recovery UX.
+   Never treat an uploaded source SHA or previous plan as write authority.
+3. Extend the bounded create-only commits with complete multi-batch
+   recovery and evidence that concurrent temporary drafts remain intact.
+4. Extend exports to complete, verifiable pagination for larger vaults,
+   and separately cover revision history, Quick Notes, AirNotes, subject
+   metadata, progress and explicit retention requirements.
+5. **Never** import confirmed note content into MongoDB, even via the
+   legacy backup JSON format; note bodies belong in the owner's GitHub Vault.
+6. Specify interrupted-commit reconciliation, partial-batch rollback and
+   session/repository revocation behavior, with no blind GitHub write retry.
+7. Pass signed staging GitHub/MongoDB, two-device conflict, mobile recovery,
+   large-vault rate-limit and privacy acceptance before any production release.
+
+No migration or cleanup of existing data is authorized by this document.
+
+## Current evidence and release blockers
+
+- Automated unit tests exercise valid history reads, immutable blobs, HEAD
+  drift, invalid trees, deleted revisions, subject mismatch and expected-SHA
+  restore conflicts.
+- CI browser smoke remains anonymous; signed OAuth and live GitHub App history
+  restoration have **not** been exercised.
+- The revision preview is capped to recent note history, the current-Notes
+  export is size bounded, and Notes-only import has a **read-only planner and
+  separately disabled create-only approved commit API**. Full history, multi-resource export, large-vault
+  pagination, conflict resolution, merge-aware/deep-history recovery and
+  owner-facing import recovery and production release of uncertain GitHub write locks remain unimplemented.
+- PR #35 remains draft. Keep `OGE_VAULT_REVISION_PREVIEW=false` outside
+  isolated staging until security and explicit release approval.
+
+
+## D3b2b2c4s / Milestone #66 — In-memory operator encrypted part adapter
+
+The signed staging-only M59 operator can now opt into .oge.json encrypted-only private file input, with a bounded FD3 pipe secret and original M65+M63 source/fingerprint preflight before DB connection and HMAC ticket claim. Decrypted plaintext never goes into temporary files. M58 independently reauthenticates all private GitHub source blobs and owner/draft/subject/CAS fences. External security and live two-device staging acceptance remain pending; see docs/OGE_VAULT_ENCRYPTED_OFFLINE_BACKUP.md.

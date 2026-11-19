@@ -68,7 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           {
             $set: { ...profileFields, lastLoginAt: now, updatedAt: now },
             $setOnInsert: { googleSub: ownerId, identityProvider: canonicalProvider,
-              createdAt: now, newsInterests: [], sessionVersion: randomUUID() },
+              createdAt: now, newsInterests: [], notesStorage: 'unselected', sessionVersion: randomUUID() },
           },
           { upsert: true },
         );

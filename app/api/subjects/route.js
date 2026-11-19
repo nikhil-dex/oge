@@ -4,7 +4,7 @@ import { checkOwnerMutationLimit, rateLimitResponse } from '../../../lib/rate-li
 import { readLimitedBody } from '../../../lib/read-limited-body.js';
 import { randomUUID } from 'node:crypto';
 import { deleteSubjectAtomically } from '../../../lib/atomic-subject-deletion.js';
-import { withActiveOwnerMutation } from '../../../lib/active-owner-mutation.js';
+import { withActiveOwnerMutation, ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,6 +67,19 @@ export async function DELETE(request) {
     const db = await getDatabase();
     const throttle = await checkOwnerMutationLimit(db, ownerId, 'subjects');
     if (!throttle.allowed) return rateLimitResponse(throttle);
+    // The legacy MongoDB transaction cannot remove files from GitHub
+    // atomically. Fail closed for every connected vault account until an
+    // owner-scoped, retryable cross-store deletion workflow is released.
+    // This prevents orphaning notes and deleting subject metadata while
+    // corresponding private GitHub notes may still exist.
+    const account = await db.collection('users').findOne(
+      ownerMutationFilter(ownerId, { sessionVersion }),
+      { projection: { vault: 1 } },
+    );
+    if (!account) return json({ error: 'Account session expired.' }, 401);
+    if (account.vault?.status === 'connected') {
+      return json({ error: 'Subject deletion is temporarily disabled for connected Oge Vault accounts to protect GitHub notes.' }, 409);
+    }
     const result = await deleteSubjectAtomically(db, ownerId, slug, { sessionVersion });
     if (result.status === 'not-found') return json({ error: 'Subject not found.' }, 404);
     if (result.status === 'last-subject') return json({ error: 'Keep at least one subject. Add another before deleting this one.' }, 400);

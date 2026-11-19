@@ -5,6 +5,8 @@ import { readLimitedBody } from '../../../../lib/read-limited-body.js';
 import { normalizeQuickNoteContent, quickNoteTitle, MAX_QUICK_NOTE_LENGTH } from '../../../../lib/quick-notes.js';
 import { withActiveOwnerMutation } from '../../../../lib/active-owner-mutation.js';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit.js';
+import { inspectLegacyCutoverForOwner, legacyCutoverBlockedResponse } from '../../../../lib/oge-vault-cutover-guard.js';
+import { vaultCaptureAvailable } from '../../../../lib/oge-vault-workspace-routing.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -74,8 +76,20 @@ export async function POST(request) {
       const live = await db.collection('users').findOne({
         googleSub: user.googleSub, extensionTokenHash: tokenHash,
         extensionTokenExpiresAt: { $gt: new Date() },
-      }, { session, projection: { _id: 1 } });
+      }, { session, projection: { _id: 1, vault: 1 } });
       if (!live) return json({ error: 'This extension connection has expired or been revoked.' }, 401);
+      // Updated extensions use /api/extension/vault-note. Old extension
+      // builds must not silently create another permanent MongoDB copy for
+      // an owner already using GitHub Notes.
+      if (vaultCaptureAvailable(live)) return json({
+        error: 'Your Notes now save to GitHub Vault. Update the extension and choose a subject.',
+      }, 409);
+      // An extension token is not GitHub Vault authorization. In staging,
+      // never fall back to writing permanent MongoDB content for an account
+      // whose own vault is connected or incompletely provisioned.
+      const cutover = await inspectLegacyCutoverForOwner(db, user.googleSub,
+        { extensionTokenHash: tokenHash }, { session });
+      if (cutover.blocked) return legacyCutoverBlockedResponse(cutover, { headers: HEADERS });
       const now = new Date();
       if (subjectSlug) {
         const subject = await db.collection('subjects').findOne(

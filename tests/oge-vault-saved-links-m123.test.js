@@ -171,3 +171,17 @@ test('M123 Saved Links API keeps same routes, chooses GitHub after owner verific
   assert.match(page, /pendingLinkId \? \{ id: pendingLinkId \}/);
   assert.match(page, /private GitHub Vault/);
 });
+
+test('M123 browser extension Save Link uses GitHub for Vault owners and MongoDB only for Cloud', async () => {
+  const route = await readFile(new URL('../app/api/extension/save-link/route.js', import.meta.url), 'utf8');
+  assert.match(route, /savedLinksStorageMode\(user\)/);
+  assert.match(route, /savedLinksStorageMode\(live\) !== 'github'/);
+  assert.match(route, /getVaultNoteClient\(db, \{/);
+  assert.match(route, /createVaultSavedLink\(client, normalized\.value/);
+  assert.match(route, /storage: 'github'/);
+  assert.match(route, /if \(storage === 'github'\)/);
+  assert.match(route, /withActiveOwnerMutation\(db, user\.googleSub/);
+  assert.match(route, /collection\('savedLinks'\)/);
+  assert.match(route, /extensionTokenHash: hashExtensionToken\(token\)/);
+  assert.match(route, /VaultGitHubError/);
+});

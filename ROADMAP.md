@@ -1,5 +1,15 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #121 — Real-account GitHub Save failure troubleshooting (19 Nov 2026)
+
+**Reported:** Vault connected and Notes editor reachable, but pressing **Save to GitHub** fails.
+
+- The Notes write client previously demanded an explicit `repositories` array in every installation-token response. GitHub documents that this response list may be conditional. It now accepts an omitted list only after it explicitly requested a token scoped to the persisted private Vault repo ID and then verified that exact owner's private repo via GitHub. A returned but wrong or oversized list is still rejected.
+- The familiar Notes editor now translates common GitHub errors (installation token, Contents permission, rate limit, note SHA conflict, inaccessible branch, uncertain commit) into practical guidance, links to the Vault connection screen, and leaves the draft open. An unconfirmed remote write is never displayed as Saved.
+- Added synthetic token-response and failure-message tests, including rejecting mismatched repo lists or nonprivate target repositories.
+- **Important:** This corrects an identified code-path false rejection and improves diagnosis. It is not proof that the reporting owner's specific GitHub failure was caused by this, and no live OAuth/commit has been executed with their credentials. When retesting, record the exact new error/status and whether the note exists on GitHub before retrying.
+- Practical MVP checkpoints **8/10 (80%) implemented; 0/3 independently verified live authenticated acceptance**. Deployment still last.
+
 ## Milestone #120 — Add a Note first-use subject onboarding (19 Nov 2026)
 
 **Reported bug:** In `/notes` (including the GitHub-backed editor), both **Add a note** buttons appeared dead to a new user because they were silently disabled with `disabled={!activeSubject}` until a subject existed or was selected.

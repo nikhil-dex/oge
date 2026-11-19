@@ -13,16 +13,13 @@ export const dynamic = 'force-dynamic';
  * silently copied from MongoDB.
  */
 export default async function QuickNotesLayout({ children }) {
-  if (process.env.OGE_VAULT_MAIN_PREVIEW !== 'true' ||
-      process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW !== 'true')
-    return children;
   const session = await auth();
   if (!session?.user?.id) return children;
   const db = await getDatabase();
   const account = await db.collection('users').findOne(
     ownerMutationFilter(session.user.id, {
       sessionVersion: session.user.sessionVersion,
-    }), { projection: { vault: 1 } },
+    }), { projection: { vault: 1, notesStorage: 1 } },
   );
   if (!account) redirect('/register');
   const destination = standaloneNotesDestination(account);

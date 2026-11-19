@@ -54,12 +54,12 @@ export default async function HomePage() {
       href: '/files', icon: '▣',
     }] : []),
     ...(captureReady ? [{
-      number: '06', group: 'CAPTURE', title: 'Quick Capture',
+      number: filesReady ? '07' : '06', group: 'CAPTURE', title: 'Quick Capture',
       description: 'Write a note fast. Choose a subject and press Save.',
       href: '/vault/capture', icon: '✎',
     }] : []),
     ...(process.env.OGE_LEARNING_TRACKS_PREVIEW === 'true' ? [{
-      number: captureReady ? '07' : '06', group: 'LEARN',
+      number: String(6 + Number(captureReady) + Number(filesReady)).padStart(2, '0'), group: 'LEARN',
       title: 'Learning Tracks', description: 'Turn video playlists into daily learning goals.',
       href: '/learning-tracks', icon: '▷',
     }] : []),

@@ -2,6 +2,8 @@
 
 ## Milestone #131 — Consistency repairs (in progress, 19 Nov 2026)
 
+- **Homepage Notes counter fixed:** Dashboard now reads GitHub Vault note totals from the paged `/api/vault/notes-main` response when Vault storage is selected, rather than counting legacy MongoDB `/api/notes` records. The dashboard Notes shortcuts point to the active Notes workspace; Quick Notes uses the matching provider. A failed Vault count shows unavailable (—), not misleading zero. Added regression coverage.
+
 - **Direct ZIP backup action:** Settings and the Vault page now link directly to an owner-authenticated `/api/vault/backup-zip` route, which resolves the Vault's current default branch and redirects to GitHub's native private repository ZIP archive. No server-side ZIP generation or MongoDB backup is involved. GitHub may require the owner to sign in. No Oge one-click ZIP restore yet; unsaved drafts are not part of the repository snapshot. Added regression checks.
 
 - **Settings backup routing fix:** Settings now uses the selected Notes storage. GitHub Vault owners see Vault backup instructions (private repository ZIP), not the MongoDB JSON backup and restore controls. MongoDB users keep their existing backup UI; no new restore mechanism is implied. Added regression coverage.

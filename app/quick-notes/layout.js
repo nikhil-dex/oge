@@ -23,6 +23,8 @@ export default async function QuickNotesLayout({ children }) {
   );
   if (!account) redirect('/register');
   const destination = standaloneNotesDestination(account);
-  if (destination) redirect(destination);
+  // GitHub users keep the original Quick Notes page with a GitHub API.
+  // Only missing storage selection or incomplete Vault setup redirects.
+  if (destination && destination !== '/vault/capture') redirect(destination);
   return children;
 }

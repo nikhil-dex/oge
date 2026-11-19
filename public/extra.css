@@ -1823,8 +1823,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   right: 14px;
   display: flex;
   gap: 5px;
-  opacity: 0;
-  transition: opacity .15s ease;
+  /* Delete should be discoverable without hovering on desktop or touch. */
+  opacity: 1;
 }
 .quick-notes-full-page .airnote-library-card:hover .note-card-actions,
 .quick-notes-full-page .airnote-library-card:focus-within .note-card-actions {
@@ -1834,14 +1834,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   position: static;
   display: grid;
   place-items: center;
-  width: 30px;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 64px;
   height: 30px;
+  padding: 0 9px;
   border: 1px solid var(--airnote-border);
   border-radius: 8px;
   background: var(--surface, #fff);
   color: var(--ink, #26372b);
   opacity: 1;
-  font-size: 15px;
+  font-size: 12px;
   cursor: pointer;
 }
 .quick-notes-full-page .airnote-library-card .note-card-actions button:hover {

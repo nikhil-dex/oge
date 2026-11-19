@@ -6,10 +6,10 @@ const read = async (relative) => readFile(new URL(relative, import.meta.url), 'u
 
 test('familiar GitHub Notes interface uses a separate, mandatory preview flag and owner gate', async () => {
   const page = await read('../app/vault/notes/page.js');
-  assert.match(page, /OGE_VAULT_MAIN_PREVIEW !== 'true'/);
+  assert.match(page, /vaultNotesAvailable\(user\)/);
   assert.match(page, /await auth\(\)/);
   assert.match(page, /ownerMutationFilter\(/);
-  assert.match(page, /user\?\.vault\?\.status !== 'connected'/);
+  assert.match(page, /if \(!vaultNotesAvailable\(user\)\)/);
   assert.match(page, /<NotesPage notesApi="\/api\/vault\/notes-main" vaultMode/);
 });
 

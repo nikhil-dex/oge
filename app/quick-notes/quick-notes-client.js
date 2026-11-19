@@ -41,7 +41,7 @@ export default function QuickNotesClient({ apiPath = '/api/quick-notes' }) {
       setLoading(false);
     }
   }, [apiPath]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { Promise.resolve().then(() => { void load(); }); }, [load]);
 
   const selected = notes.find(note => note.id === selectedId) || null;
   function select(note) {

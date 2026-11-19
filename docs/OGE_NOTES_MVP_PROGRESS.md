@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #129 GitHub-backed My Files.**
+**Updated 19 November 2026, after milestone #130 arbitrary GitHub Vault file types.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,27 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #130 — My Files supports arbitrary file formats
+
+The My Files file input and server validator no longer limit uploads to
+PDF/ZIP/JPG/PNG/WebP. Signed-in GitHub Vault owners can store arbitrary
+types (DOCX/XLSX/PPTX, code, CSV, MP3/MP4, binary model files,
+extensionless files, other archives) in their private GitHub repository.
+An empty browser MIME type defaults to `application/octet-stream`.
+
+The UI gains an **Other** filter and uses regular downloads when
+a preview is unavailable. Only validated PDF and raster JPG/PNG/WebP
+files are previewed inline. HTML, SVG, JavaScript and other user
+uploads are served as binary attachments, not executed as same-origin
+content. ZIP archives remain downloadable.
+
+Current 20 MiB file, 200 MiB active inventory, 500 file and 100
+folder limits remain. Git repository history can retain prior content
+even after file deletion. Tests cover arbitrary formats and byte-for-byte
+blob round trips. Real authenticated GitHub upload/download tests
+remain pending. This new feature does not change the Notes MVP score:
+**8/10 (80%)**, no production merge/deployment.
 
 ## Milestone #129 — My Files using private GitHub Vault
 

@@ -1,11 +1,10 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 import NotesPage from '../../notes/page.js';
 
-export const metadata = { title: 'Oge Vault · Notes workspace preview' };
+export const metadata = { title: 'Oge · Notes' };
 export const dynamic = 'force-dynamic';
 
 /**
@@ -29,11 +28,8 @@ export default async function VaultNotesPage() {
       user.vault.installationId < 1)
     redirect('/vault');
   const hybridDrafts = process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
-  return (
-    <>
-      <div className="oge-vault-editor-back"><Link href="/vault">← Return to Oge Vault</Link></div>
-      <NotesPage notesApi="/api/vault/notes-main" vaultMode hybridDrafts={hybridDrafts}
-        vaultOwnerId={session.user.id} vaultRepoId={user.vault.repoId} />
-    </>
-  );
+  // Render the original Oge Notes workspace directly. GitHub is the
+  // storage provider, not a separate preview-branded product interface.
+  return <NotesPage notesApi="/api/vault/notes-main" vaultMode hybridDrafts={hybridDrafts}
+    vaultOwnerId={session.user.id} vaultRepoId={user.vault.repoId} />;
 }

@@ -37,7 +37,7 @@ function fakeGitHub() {
     async call(path, opts = {}) {
       if (path === '/git/ref/heads/main' && !opts.method)
         return { object: { sha: branchHead } };
-      if (path === '/git/ref/heads/main' && opts.method === 'PATCH') {
+      if (path === '/git/refs/heads/main' && opts.method === 'PATCH') {
         const candidate = commits.get(opts.body.sha);
         if (!candidate || !candidate.parents.includes(branchHead) ||
             opts.body.force !== false)

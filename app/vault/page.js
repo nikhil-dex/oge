@@ -126,21 +126,43 @@ export default async function VaultPage({ searchParams }) {
           </>
         ) : (
           <>
-            <p className="oge-settings-description">Authorize the OgeNotes GitHub App once. Oge will create a fresh private repository named <code>ogenotes-vault</code> under your own personal GitHub account. No Git knowledge required.</p>
-            <div className="oge-vault-steps">
-              <span><strong>01</strong> Install the GitHub App</span>
-              <span><strong>02</strong> Authorize your GitHub identity</span>
-              <span><strong>03</strong> Create and verify your private vault</span>
-            </div>
-            {installUrl && <a className="oge-primary-link" href={installUrl} target="_blank" rel="noopener noreferrer">Install OgeNotes GitHub App ↗</a>}
-            {configured ? <form action="/api/vault/start" method="POST">
-              <button className="oge-google-button" type="submit">Connect GitHub &amp; create private vault →</button>
-            </form> : <p className="oge-settings-note">The OgeNotes GitHub App configuration must be completed before vault setup becomes available.</p>}
-            <p className="oge-settings-note">For now, the GitHub App requires an all-repositories installation to allow creation of a new repository. Oge uses a token restricted to your vault repository for writing notes. Do not proceed unless you are comfortable with that installation scope.</p>
+            <p className="oge-settings-description">Connect your personal GitHub account to create a private <code>ogenotes-vault</code> repository. No Git commands or manual repository creation are needed.</p>
+            <ol className="oge-vault-connect-list" aria-label="GitHub Vault connection steps">
+              <li className="oge-vault-connect-step">
+                <h3>1. Install the OgeNotes GitHub App</h3>
+                <p>GitHub will ask you to choose your personal account and approve the App installation. For the current version, choose <strong>All repositories</strong> if GitHub asks for repository access.</p>
+                {installUrl ? (
+                  <a className="oge-primary-link" href={installUrl} target="_blank" rel="noopener noreferrer">Install the GitHub App ↗</a>
+                ) : (
+                  <p className="oge-settings-note" role="status">The installation link is unavailable because the server has not set the GitHub App slug. If you already installed the App, you may continue below; otherwise the site owner must finish its GitHub App setup.</p>
+                )}
+              </li>
+              <li className="oge-vault-connect-step">
+                <h3>2. Connect and authorize GitHub</h3>
+                <p>After installation, return here and select this button. You will be sent to GitHub to approve access, then back to OgeNotes automatically.</p>
+                {configured ? (
+                  <form action="/api/vault/start" method="POST">
+                    <button className="oge-google-button" type="submit">Connect GitHub &amp; create my Vault →</button>
+                  </form>
+                ) : (
+                  <>
+                    <button className="oge-google-button" type="button" disabled aria-disabled="true">Connect GitHub — server setup required</button>
+                    <p className="oge-password-error" role="alert">Connection cannot begin on this OgeNotes server yet: its GitHub App credentials or callback URL have not been configured. The site owner must configure the Vault integration; signing in with GitHub alone does not connect your Notes storage.</p>
+                    <a className="oge-primary-link" href="https://github.com/nikhil-dex/oge/blob/feature/oge-vault-foundation/docs/OGE_VAULT_PHASE_A.md" target="_blank" rel="noopener noreferrer">Developer: GitHub App configuration guide ↗</a>
+                  </>
+                )}
+              </li>
+              <li className="oge-vault-connect-step">
+                <h3>3. Your private Vault is created automatically</h3>
+                <p>Once GitHub authorization succeeds, OgeNotes creates and verifies the private repository. A confirmation and an <strong>Open My Notes</strong> link will appear on this page.</p>
+              </li>
+            </ol>
+            {configured && !installUrl && <p className="oge-settings-note">Already installed the GitHub App? You can still select <strong>Connect GitHub</strong> above. If GitHub reports that installation is required, the site owner needs to publish the App installation link.</p>}
+            <p className="oge-settings-note">The current App installation may request access to all repositories, although Oge's Notes-writing token is limited to the private Vault repository. Review GitHub's permission screen before approving.</p>
           </>
         )}
       </div>
-      <p className="oge-vault-footnote">Your current notes are not moved, deleted, or copied by connecting your vault. Mandatory GitHub-backed Notes access will be enabled only after full cutover tests and reviewed cleanup of disposable MongoDB test records.</p>
+      <p className="oge-vault-footnote">Connecting your GitHub Vault never moves, deletes or copies existing MongoDB Notes automatically. If you selected GitHub during onboarding, your Notes workspace becomes available after a successful connection and the GitHub Notes service is enabled.</p>
     </main>
   );
 }

@@ -1,4 +1,8 @@
 (() => {
+  // Learning Tracks remains an unfinished prototype. Keep it out of the
+  // user-facing extension until the feature's roadmap work is resumed.
+  // The separate, server-gated prototype is deliberately retained.
+  const LEARNING_TRACKS_EXTENSION_PREVIEW = false;
   if (window.top !== window || document.getElementById('oge-floating-toolbelt-host')) return;
   const host = document.createElement('div');
   host.id = 'oge-floating-toolbelt-host';
@@ -19,7 +23,7 @@
     '.primary{display:block;width:100%;margin-top:9px;padding:9px;border:0;border-radius:8px;background:#316b50;color:white;font-size:11px;font-weight:750;cursor:pointer}.primary:hover{background:#23563d}',
     '.body [data-open-saved-vault-note],.body [data-new-vault-note]{display:block;width:100%;margin-top:6px;padding:8px;border:1px solid #b6d8bf;border-radius:8px;background:#e9f5ec;color:#245b38;font-size:11px;cursor:pointer}.body [data-open-saved-vault-note][hidden],.body [data-new-vault-note][hidden]{display:none}',
     'button:disabled{opacity:.65;cursor:wait}.status{min-height:0;margin:0 12px;color:#316b50;font-size:10px;overflow-wrap:anywhere}.status:not(:empty){padding:6px 0}.error{color:#b42318}',
-    '.belt{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:7px 10px;border-top:1px solid #e7eee8;background:#fafcfb}',
+    '.belt{display:grid;grid-template-columns:repeat(' + (LEARNING_TRACKS_EXTENSION_PREVIEW ? 3 : 2) + ',1fr);gap:5px;padding:7px 10px;border-top:1px solid #e7eee8;background:#fafcfb}',
     '.belt button{padding:7px 2px;border:1px solid transparent;border-radius:7px;background:transparent;color:#52685a;font-size:10px;font-weight:600;cursor:pointer}',
     '.belt button.selected{border-color:#b6d8bf;background:#e5f3e9;color:#275d39}',
     '.link{display:grid;gap:8px;padding:9px 0;border-bottom:1px solid #e4eee6}.link:last-child{border:0}.link strong{font-size:12px}',
@@ -49,9 +53,11 @@
     '<header class="top"><span class="mark">O</span><strong class="heading">OgeNotes</strong><button class="corner-button" type="button" aria-label="Move widget to top-right corner" title="Move to top-right corner">⌖</button><button class="close" type="button" aria-label="Close toolbelt">×</button></header>',
     '<div class="body" data-panel="note"><p class="hint">Write a quick thought, or a title followed by details. Choose a destination below.</p><textarea maxlength="20000" aria-label="Quick note" placeholder="Write a thought, or a title&#10;&#10;Your note…"></textarea><label class="subject-label" for="oge-note-subject">Save to</label><select class="subject-select" id="oge-note-subject" aria-label="Choose note destination"><option value="">Quick Notes (default)</option></select><button class="primary" type="button" data-save-note>Save to Quick Notes</button><button type="button" data-new-vault-note hidden>Save this as a separate Note instead</button><button type="button" data-open-saved-vault-note hidden>View last saved GitHub Note ↗</button></div>',
     '<div class="body" data-panel="links" hidden><p class="hint">Your GitHub, LinkedIn and portfolio links.</p><div data-links><p class="empty">Open My Links to load URLs.</p></div><button class="primary" type="button" data-save-url>＋ Save current page to Saved Links</button></div>',
+    ...(LEARNING_TRACKS_EXTENSION_PREVIEW ? [
     '<div class="body" data-panel="tracks" hidden><p class="hint">Open a YouTube playlist or a video inside one. This adds a playlist tracker, not video notes.</p><label class="subject-label">Track name<input class="track-input" data-track-title maxlength="120" placeholder="Machine learning course"></label><label class="subject-label">Videos per day<input class="track-input" data-track-daily type="number" min="1" max="20" value="2"></label><label class="subject-label">Total videos (optional)<input class="track-input" data-track-total type="number" min="1" max="10000" placeholder="Unknown"></label><button class="primary" type="button" data-save-track>Create learning track</button><button type="button" data-open-learning-tracks>Open Learning Tracks in Oge</button></div>',
+    ] : []),
     '<p class="status" role="status" aria-live="polite"></p>',
-    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="links" type="button">☷ My links</button><button data-tool="tracks" type="button">▷ Tracks</button></nav>',
+    '<nav class="belt" aria-label="OgeNotes tools"><button class="selected" data-tool="note" type="button">✎ Quick note</button><button data-tool="links" type="button">☷ My links</button>' + (LEARNING_TRACKS_EXTENSION_PREVIEW ? '<button data-tool="tracks" type="button">▷ Tracks</button>' : '') + '</nav>',
     '<button class="resize-corner resize-corner-left" type="button" aria-label="Resize widget from left corner" title="Drag left or down to resize">↙</button>',
     '<button class="resize-corner" type="button" aria-label="Resize widget width and height" title="Drag to resize width and height">↘</button>',
   ].join('');
@@ -490,28 +496,30 @@
     } catch (error) { setStatus(error.message, true); }
     finally { urlSave.disabled = false; }
   });
-  panel.querySelector('[data-open-learning-tracks]').addEventListener('click', async () => {
-    try { await send('OPEN_LEARNING_TRACKS'); setStatus('Opened Learning Tracks in Oge.'); }
-    catch (error) { setStatus(error.message || 'Could not open Learning Tracks.'); }
-  });
-  const trackSave = panel.querySelector('[data-save-track]');
-  trackSave.addEventListener('click', async () => {
-    const title = panel.querySelector('[data-track-title]').value.trim();
-    const dailyRaw = panel.querySelector('[data-track-daily]').value;
-    const totalRaw = panel.querySelector('[data-track-total]').value;
-    if (!title || !dailyRaw || (totalRaw && !Number.isInteger(Number(totalRaw)))) {
-      return setStatus('Enter a title and valid video counts.', true);
-    }
-    trackSave.disabled = true;
-    setStatus('Adding playlist track…');
-    try {
-      const result = await send('CREATE_LEARNING_TRACK', {
-        title, videosPerDay: Number(dailyRaw), totalVideos: totalRaw ? Number(totalRaw) : null,
-      });
-      setStatus('Learning track created: “' + result.title + '”. See Learning Tracks in Oge.');
-    } catch (error) { setStatus(error.message || 'Could not create learning track.', true); }
-    finally { trackSave.disabled = false; }
-  });
+  if (LEARNING_TRACKS_EXTENSION_PREVIEW) {
+    panel.querySelector('[data-open-learning-tracks]').addEventListener('click', async () => {
+      try { await send('OPEN_LEARNING_TRACKS'); setStatus('Opened Learning Tracks in Oge.'); }
+      catch (error) { setStatus(error.message || 'Could not open Learning Tracks.'); }
+    });
+    const trackSave = panel.querySelector('[data-save-track]');
+    trackSave.addEventListener('click', async () => {
+      const title = panel.querySelector('[data-track-title]').value.trim();
+      const dailyRaw = panel.querySelector('[data-track-daily]').value;
+      const totalRaw = panel.querySelector('[data-track-total]').value;
+      if (!title || !dailyRaw || (totalRaw && !Number.isInteger(Number(totalRaw)))) {
+        return setStatus('Enter a title and valid video counts.', true);
+      }
+      trackSave.disabled = true;
+      setStatus('Adding playlist track…');
+      try {
+        const result = await send('CREATE_LEARNING_TRACK', {
+          title, videosPerDay: Number(dailyRaw), totalVideos: totalRaw ? Number(totalRaw) : null,
+        });
+        setStatus('Learning track created: “' + result.title + '”. See Learning Tracks in Oge.');
+      } catch (error) { setStatus(error.message || 'Could not create learning track.', true); }
+      finally { trackSave.disabled = false; }
+    });
+  }
   async function copyUrl(url) {
     try {
       await navigator.clipboard.writeText(url);

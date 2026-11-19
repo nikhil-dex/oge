@@ -35,7 +35,7 @@ export default async function VaultPage({ searchParams }) {
   const db = await getDatabase();
   const user = await db.collection('users').findOne(
     ownerMutationFilter(session.user.id, { sessionVersion: session.user.sessionVersion }),
-    { projection: { vault: 1 } },
+    { projection: { vault: 1, notesStorage: 1 } },
   );
   if (!user) redirect('/register');
   const result = (await searchParams)?.result;
@@ -94,6 +94,9 @@ export default async function VaultPage({ searchParams }) {
         <span className="oge-retro-workspace-stamp" aria-hidden="true">✳<small>YOUR NOTES</small></span>
         <p>Keep your notes in your own private GitHub repository. Write, save, and find them from one workspace.</p>
       </section>
+      {user.notesStorage === 'github' && !vault && (
+        <p className="oge-settings-note" role="status">You chose GitHub Vault during onboarding. Complete the connection below before writing Notes; Oge will not silently save them to MongoDB instead.</p>
+      )}
       <div className="oge-settings-card oge-vault-card">
         <div className="oge-settings-card-heading">
           <div><span className="oge-section-kicker">01 · CONNECT</span><h2>Private GitHub vault</h2></div>

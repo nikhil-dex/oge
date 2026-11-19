@@ -38,9 +38,9 @@ function fixture() {
     async call(path, opts = {}) {
       const method = opts.method || 'GET';
       operations.push({ path, method, body: opts.body });
-      if (path === '/git/ref/heads/main') {
-        if (method === 'GET') return { object: { sha: head } };
-        if (method !== 'PATCH') throw Error('wrong ref verb');
+      if (path === '/git/ref/heads/main' && method === 'GET')
+        return { object: { sha: head } };
+      if (path === '/git/refs/heads/main' && method === 'PATCH') {
         patchCount++;
         if (compete) {
           compete = false;

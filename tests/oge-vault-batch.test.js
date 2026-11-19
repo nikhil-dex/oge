@@ -16,7 +16,7 @@ function fixture() {
     branch: 'main',
     async call(path, options = {}) {
       if (path === '/git/ref/heads/main' && !options.method) return { object: { sha: head } };
-      if (path === '/git/ref/heads/main' && options.method === 'PATCH') {
+      if (path === '/git/refs/heads/main' && options.method === 'PATCH') {
         if (failRef.value) throw new VaultGitHubError('github-api-error', 422);
         if (options.body.force !== false || !commits.get(options.body.sha)?.parents.includes(head)) {
           throw new VaultGitHubError('github-api-error', 422);
@@ -61,6 +61,29 @@ function fixture() {
   };
   return { client, failRef, files, getHead: () => head, getFiles: () => trees.get(commits.get(head).tree.sha) };
 }
+
+test('M122 GitHub read and branch update use different documented endpoints', async () => {
+  const f = fixture();
+  const observed = [];
+  const original = f.client.call.bind(f.client);
+  f.client.call = async (path, options = {}) => {
+    observed.push({ path, method: options.method || 'GET' });
+    return original(path, options);
+  };
+  const id = randomUUID();
+  const result = await commitVaultNoteBatch(f.client, [{
+    action: 'create', id, note: {
+      subjectId: randomUUID(), heading: 'GitHub PATCH endpoint', answer: 'Commit verified',
+    },
+  }]);
+  assert.equal(result.results[0].answer, 'Commit verified');
+  assert.ok(observed.some((call) =>
+    call.path === '/git/ref/heads/main' && call.method === 'GET'));
+  assert.ok(observed.some((call) =>
+    call.path === '/git/refs/heads/main' && call.method === 'PATCH'));
+  assert.equal(observed.some((call) =>
+    call.path === '/git/ref/heads/main' && call.method === 'PATCH'), false);
+});
 
 test('one Git commit persists multiple notes atomically and verifies all content', async () => {
   const f = fixture();

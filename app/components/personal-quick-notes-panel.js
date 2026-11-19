@@ -96,7 +96,11 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
   const [editContent, setEditContent] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const pendingCreateId = useRef(null);
+  const noteRevisionsRef = useRef(new Map());
   const vaultBacked = apiPath === '/api/vault/airnotes';
+  useEffect(() => {
+    noteRevisionsRef.current = new Map(notes.map((note) => [note.id, note.sha]));
+  }, [notes]);
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
@@ -123,7 +127,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
           const result = await readResponse(await fetch(apiPath, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, content, ...(vaultBacked ? { sha: notes.find((note) => note.id === id)?.sha } : {}) }),
+            body: JSON.stringify({ id, content, ...(vaultBacked ? { sha: noteRevisionsRef.current.get(id) } : {}) }),
           }));
           setNotes((current) => current.map((note) => note.id === id
             ? { ...note, title: result.title, updatedAt: result.updatedAt }
@@ -138,7 +142,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
       }));
     }, 700);
     return () => clearTimeout(timer);
-  }, [dirty, apiPath, vaultBacked, notes]);
+  }, [dirty, apiPath, vaultBacked]);
 
   async function addNote() {
     if (creating) return;

@@ -38,6 +38,12 @@ export default async function HomePage() {
       : vaultNotesReady ? '/vault/notes' : '/notes';
   const captureReady = account.notesStorage !== 'mongodb' && vaultNotesReady &&
     process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
+  // Home's Quick Notes widget must share the signed user's selected storage.
+  // A temporarily disconnected GitHub Vault is NOT permission to write to
+  // the legacy MongoDB Quick Notes collection.
+  const quickNotesApi = account.notesStorage === 'github' ||
+    (account.notesStorage !== 'mongodb' && account.vault?.status === 'connected')
+    ? '/api/vault/quick-notes' : '/api/quick-notes';
   const visibleModules = [
     ...modules,
     ...(captureReady ? [{
@@ -98,7 +104,7 @@ export default async function HomePage() {
       </section>
 
       <section className="oge-quick-notes-bottom" aria-label="Quick Notes">
-        <QuickNotesPanel />
+        <QuickNotesPanel apiPath={quickNotesApi} />
       </section>
 
       <footer className="oge-footer"><Link className="oge-brand oge-footer-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>A little more organized, every day.</span><Link href="/settings">Settings <span aria-hidden="true">↗</span></Link></footer>

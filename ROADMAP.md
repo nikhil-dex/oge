@@ -9,7 +9,7 @@
 - **Fixed:** My Files native sharing sends the actual downloaded file when supported; otherwise the fallback downloads the file for manual attachment instead of copying a private signed-in URL.
 - **Added:** Small regression tests covering these behavior contracts.
 - **Still open, high priority:** Full backup/export and restore of Saved Links and My Files. Do not claim JSON resource backups include these.
-- **Still open:** Consolidate feature availability checks, then reduce AirNotes GitHub autosave commits, harmonize navigation and show capacity warnings.
+- **Fixed:** Quick Notes and AirNotes pages now redirect GitHub-selected users with unavailable Vault capture to Vault setup rather than initializing a MongoDB API path. Added regression coverage.\n- **Still open:** Consolidate feature availability checks across all Vault APIs and screens; review AirNotes save cadence, harmonize navigation and show capacity warnings.
 - **Release:** Keep PR #35 draft and do not deploy until CI and real-account flows are verified.
 
 

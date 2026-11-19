@@ -232,7 +232,7 @@ export default function MediaLibrary() {
 
   return (
     <>
-      <SiteNavbar showFiles />
+      <SiteNavbar showFiles notesHref="/vault/notes" />
       <section className="media-hero">
         <p className="eyebrow">PRIVATE RESOURCE SPACE</p>
         <div className="media-title-row"><div><h1>My Files<span className="period">.</span></h1><p className="hub-lead">Keep images, PDFs, and ZIP archives organized in private folders.</p></div><span className="media-private-pill">♢ Private storage</span></div>

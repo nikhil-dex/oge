@@ -9,6 +9,7 @@ import EnglishWordExplainer from './components/english-word-explainer';
 import HomeDashboard from './components/home-dashboard';
 import QuickNotesPanel from './components/quick-notes-panel';
 import { githubVaultFilesEnabled } from '../lib/oge-vault-media-validation.js';
+import { vaultNotesAvailable, vaultCaptureAvailable } from '../lib/oge-vault-workspace-routing.js';
 
 const modules = [
   { number: '01', group: 'LEARN', title: 'Notes', description: 'Organize ideas, study material, and everything worth keeping.', href: '/notes', icon: '▤', featured: true },
@@ -28,22 +29,17 @@ export default async function HomePage() {
   if (!account?.onboardingComplete) redirect('/onboarding');
   // Once GitHub Notes is enabled for a connected owner, the main Notes card
   // should open the actual GitHub-backed editor, not the older MongoDB UI.
-  const vaultNotesReady = process.env.OGE_VAULT_MAIN_PREVIEW === 'true' &&
-    account.vault?.status === 'connected' &&
-    Number.isSafeInteger(account.vault.repoId) &&
-    Number.isSafeInteger(account.vault.installationId) &&
-    account.vault.repoId > 0 && account.vault.installationId > 0;
+  const vaultNotesReady = vaultNotesAvailable(account);
   const notesHref = account.notesStorage === 'github'
     ? (vaultNotesReady ? '/vault/notes' : '/vault?setup=onboarding')
     : account.notesStorage === 'mongodb' ? '/notes'
       : vaultNotesReady ? '/vault/notes' : '/notes';
-  const captureReady = account.notesStorage !== 'mongodb' && vaultNotesReady &&
-    process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
+  const captureReady = vaultCaptureAvailable(account);
   // Home's Quick Notes widget must share the signed user's selected storage.
   // A temporarily disconnected GitHub Vault is NOT permission to write to
   // the legacy MongoDB Quick Notes collection.
   const quickNotesApi = account.notesStorage === 'github' ||
-    (account.notesStorage !== 'mongodb' && account.vault?.status === 'connected')
+    githubVaultFilesEnabled(account)
     ? '/api/vault/quick-notes' : '/api/quick-notes';
   const filesReady = githubVaultFilesEnabled(account);
   // GitHub Vault does not use the legacy MongoDB revision queue or history pages.

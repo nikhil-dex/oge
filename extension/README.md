@@ -12,7 +12,7 @@ The Chrome Manifest V3 extension now combines the original OgeNotes floating Qui
 1. In Chrome, visit `chrome://extensions`, turn on Developer mode, and click **Load unpacked**. Select the `extension/` directory of the **oge** repository.
 2. Sign in to your OgeNotes site and open **Browser Extension**. Generate an extension token.
 3. Open the Chrome extension popup, choose **Connect**, paste the site origin (such as `http://localhost:3000` for local development) and the token, and click **Save connection**. Approve host permission.
-4. **Reload existing website tabs** to inject the widget, click the floating **O** button, and use any of the three tools. The header can be dragged.
+4. **Reload existing website tabs** to inject the widget, click the floating **O** button, and use **Quick note** or **My links**. The header can be dragged.
 5. Connected Vault captures appear in **GitHub Notes** under the selected subject; other accounts still use **Quick Notes**. Saved tabs appear in **Saved Links**.
 
 ## Security and limitations
@@ -60,7 +60,7 @@ The floating panel header has a **⌖ Position** control. Each click moves the *
 
 ## Learning Tracks preview (M97)
 
-On an HTTPS YouTube playlist or a watch page with a playlist query, open the floating **O** and select **Tracks**. Enter your own track name, videos-per-day goal and optional total number of videos. The background worker takes the tab URL from Chrome (not from webpage messages), and posts only this metadata to a token-authenticated route. The feature is **default OFF** on the server (`OGE_LEARNING_TRACKS_PREVIEW=false`). It does not scrape playlists or transmit titles, transcripts, watch history or note bodies. View and manually advance tracks at `/learning-tracks` after enabling an isolated preview. No automatic lesson notes, GitHub note commits, notifications, or provider-backed playlist extraction are implemented yet. The server limits each owner to 100 tracks and validates the owner/token in a MongoDB transaction. Release still requires real Chrome and two-device staging tests.
+**Hidden from the normal extension starting in M124.** M97 added an early experimental playlist-tracking UI before the planned Learning Track product was finished. The floating extension now shows only **Quick note** and **My links**. The prototype UI code remains behind the hardcoded `LEARNING_TRACKS_EXTENSION_PREVIEW = false` gate, and its original server API remains default OFF (`OGE_LEARNING_TRACKS_PREVIEW=false`). No user-visible extension Tracks button appears until a future roadmap decision explicitly re-enables it and completes testing. The existing prototype supports a manual playlist title and videos-per-day goal only; it does not automatically generate lesson notes, capture transcripts or sync watched video progress. Preserve the prototype without advertising it as a finished feature.
 
 ## M114 — Choose whether new text updates or creates a Note
 

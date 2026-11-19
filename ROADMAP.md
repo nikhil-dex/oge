@@ -2,6 +2,8 @@
 
 ## Milestone #131 — Consistency repairs (in progress, 19 Nov 2026)
 
+- **Settings backup routing fix:** Settings now uses the selected Notes storage. GitHub Vault owners see Vault backup instructions (private repository ZIP), not the MongoDB JSON backup and restore controls. MongoDB users keep their existing backup UI; no new restore mechanism is implied. Added regression coverage.
+
 **Goal:** Repair existing user-facing mismatches with minimal changes, rather than expand the architecture.
 
 - **Fixed:** GitHub Vault owners no longer see homepage links to MongoDB-only Revision and Revision History pages. The per-note GitHub revision API is preserved, and full Vault revision-page integration remains pending.

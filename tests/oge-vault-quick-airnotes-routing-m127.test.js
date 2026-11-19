@@ -53,8 +53,9 @@ test('M127 both GitHub-backed APIs use signed owner and separate private file di
 test('M127 original Quick Notes homepage widget follows selected storage without legacy MongoDB warning', async () => {
   const home = await read('../app/page.js');
   const panel = await read('../app/components/quick-notes-panel.js');
-  assert.match(home, /const quickNotesApi = account\.notesStorage === 'github'/);
+  assert.match(home, /const quickNotesApi = captureReady \?/);
   assert.match(home, /<QuickNotesPanel apiPath=\{quickNotesApi\}/);
+  assert.match(home, /showQuickNotes &&/);
   assert.match(panel, /apiPath = '\/api\/quick-notes'/);
   assert.match(panel, /vaultBacked = apiPath === '\/api\/vault\/quick-notes'/);
   assert.match(panel, /fetch\(apiPath, \{ cache: 'no-store' \}\)/);

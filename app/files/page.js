@@ -7,7 +7,7 @@ import MediaLibrary from '../components/media-library';
 
 export const metadata = {
   title: 'My Files',
-  description: 'Organize your PDFs, ZIPs and images in your own private GitHub Vault.',
+  description: 'Organize files of any type in your own private GitHub Vault.',
 };
 export const dynamic = 'force-dynamic';
 

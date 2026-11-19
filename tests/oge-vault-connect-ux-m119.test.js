@@ -28,7 +28,7 @@ test('M119 Vault connection screen provides real, actionable install and OAuth b
   assert.match(src, /GitHub App configuration guide/);
   assert.match(src, /Your private Vault is created automatically/);
   assert.match(src, /role="alert"/);
-  assert.match(src, /vault\?\.status === 'connected'/);
+  assert.match(src, /user\.vault\?\.status === 'connected'/);
   assert.doesNotMatch(src, /href="https:\/\/github\.com\/apps\/your_app_name/);
 });
 

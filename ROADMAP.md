@@ -1,5 +1,16 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #124 — Hide premature YouTube Learning Tracks option from extension (19 Nov 2026)
+
+**User feedback:** The floating Chrome extension showed a YouTube **Tracks** action despite the full Learning Track roadmap not being launched as a regular user-facing feature.
+
+- Verified M97 had previously added a **preview-only, basic playlist tracker**, and subsequent experimental M98–M103 code addressed prototype/verification pieces. This is **not** the finished automatic playlist-to-lesson Notes workflow.
+- `extension/content.js` previously showed `▷ Tracks` unconditionally even though the server endpoint is gated by `OGE_LEARNING_TRACKS_PREVIEW=true` and defaults off.
+- The normal extension now exposes **Quick note** and **My links** only. The Tracks panel, button and event wiring are guarded by `LEARNING_TRACKS_EXTENSION_PREVIEW = false` inside the extension; the layout is adjusted to two actions.
+- The existing prototype and server API are retained, disabled by default, for later roadmap work. No learning tracks or existing data were removed, and GitHub Vault Notes, links, and extension save actions remain unchanged.
+- Updated extension README and added regression tests. This is UI cleanup, not the start or release of the full Learning Tracks feature.
+- Practical Notes MVP implementation remains **8/10 (80%)**, with owner-connected acceptance and production deployment still pending.
+
 ## Milestone #123 — GitHub-backed Saved Links follow the chosen Notes storage (19 Nov 2026)
 
 **User request:** When GitHub Vault is enabled, store other personal content in GitHub too rather than saving bookmarks to MongoDB.

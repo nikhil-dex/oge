@@ -16,6 +16,7 @@
 - **Fixed:** Shared `connectedVaultStorageAvailable` now defines GitHub storage readiness for Notes, Quick Notes, AirNotes and My Files. Notes and capture retain their existing preview flags; My Files continues to use the connected-storage rule. Homepage/Notes/Vault settings use the same helpers, and the home Quick Notes inbox is hidden if its GitHub API is unavailable rather than falling back to MongoDB.
 - **Added:** Regression tests for ready, disconnected, invalid-ID and MongoDB-selected accounts plus homepage widget availability.
 - **Still open:** Real signed-in acceptance and Oge-managed full backup/restore. Current feature-specific preview flags remain until separately retired; this milestone does not enable unfinished functionality.
+- **CI follow-up:** The first shared-readiness run failed six tests: five stale source-code assertions and one My Files fixture missing installationId. Updated the tests to check the refactored paths and valid connection requirements; GitHub Actions rerun pending.
 - **Release:** Keep PR #35 draft and do not deploy until CI and real-account flows are verified.
 
 

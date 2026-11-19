@@ -7,8 +7,8 @@ const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 test('M104 home routes connected owners to GitHub Notes and exposes Quick Capture directly', async () => {
   const home = await read('../app/page.js');
   assert.match(home, /onboardingComplete: 1, vault: 1/);
-  assert.match(home, /const vaultNotesReady = process\.env\.OGE_VAULT_MAIN_PREVIEW === 'true'/);
-  assert.match(home, /account\.vault\?\.status === 'connected'/);
+  assert.match(home, /const vaultNotesReady = vaultNotesAvailable\(account\)/);
+  assert.match(home, /vaultNotesAvailable\(account\)/);
   assert.match(home, /const notesHref = account.notesStorage === 'github'/);
   assert.match(home, /account.notesStorage === 'mongodb'/);
   assert.match(home, /vaultNotesReady \? '\/vault\/notes' : '\/vault\?setup=onboarding'/);
@@ -41,7 +41,7 @@ test('M104 capture uses existing authenticated Notes and draft gates without a s
   assert.doesNotMatch(page, /OGE_VAULT_QUICK_CAPTURE_PREVIEW|OGE_VAULT_NOTE_API_PREVIEW|checkVaultStagingReadiness|oge_vault_restore_staging_/);
   assert.match(page, /ownerMutationFilter/);
   assert.match(page, /vault\?\.status !== 'connected'/);
-  assert.match(vault, /const capturePreviewEnabled = mainPreviewEnabled &&\s+process\.env\.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true'/);
+  assert.match(vault, /const capturePreviewEnabled = vaultCaptureAvailable\(user\)/);
   assert.match(drafts, /OGE_VAULT_MAIN_PREVIEW !== 'true'/);
   assert.match(drafts, /OGE_VAULT_HYBRID_DRAFT_PREVIEW !== 'true'/);
 });

@@ -41,7 +41,7 @@ export default async function OnboardingPage() {
               <span className="oge-storage-option-body">
                 <span className="oge-storage-option-heading"><strong>Oge Cloud · MongoDB</strong><small>Simple and ready to use</small></span>
                 <span>Write immediately without linking a GitHub account. Notes are saved in Oge&apos;s managed database.</span>
-                <span className="oge-storage-feature">Automatic saving · familiar Notes and Quick Notes · managed by Oge</span>
+                <span className="oge-storage-feature">Save your Notes to Oge Cloud · familiar Notes and Quick Notes · managed by Oge</span>
                 <span className="oge-storage-tradeoff">No personal Git repository or Git commit history. Your Notes rely on Oge&apos;s service.</span>
               </span>
             </label>

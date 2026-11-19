@@ -1047,7 +1047,7 @@ export default function NotesPage({
 
   return (
     <main className="shell">
-      <SiteNavbar notesHref={vaultMode ? '/vault/notes' : '/notes'} actions={<ThemeToggle />} />
+      <SiteNavbar notesHref={vaultMode ? '/vault/notes' : '/notes'} showFiles={vaultMode} actions={<ThemeToggle />} />
 
       <nav className="subject-nav" aria-label="Subjects">
         {subjects.map((subject) => (

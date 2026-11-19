@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #123 GitHub Saved Links.**
+**Updated 19 November 2026, after milestone #124 extension Tracks visibility fix.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,23 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #124 — Unfinished Tracks hidden from extension
+
+A user reported a premature YouTube Tracks button in the floating
+Chrome extension. Early milestone M97 built a limited manual playlist
+tracker prototype, but the complete planned Learning Tracks experience
+was never released. The server preview was disabled by default, while
+the floating extension UI exposed the action unconditionally.
+
+The UI now shows only **Quick note** and **My links** by default.
+Tracks markup and event handlers are kept behind a hardcoded, default-OFF
+`LEARNING_TRACKS_EXTENSION_PREVIEW` switch. The separate experimental
+server code remains available but does not become a shipped feature.
+Updated README and regression tests cover the hidden state.
+
+Notes MVP remains **8/10 (80%) implemented** and authenticated live
+acceptance remains pending. No production merge or deployment.
 
 ## Milestone #123 — GitHub Saved Links
 

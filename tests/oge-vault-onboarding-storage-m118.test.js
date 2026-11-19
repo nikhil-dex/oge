@@ -73,6 +73,20 @@ test('M118 signed Notes, Quick Notes, AirNotes and API routes honor storage choi
   assert.match(settings, /name="returnTo" value="\/settings"/);
 });
 
+test('M118 fresh signups must pick storage before writing any Notes', async () => {
+  const choiceRequired = { notesStorage: 'unselected' };
+  assert.equal(vaultLegacyCutoverDecision(choiceRequired, { env: {} }).code,
+    'notes-storage-choice-required');
+  assert.equal(standaloneNotesDestination(choiceRequired, env), '/onboarding');
+  assert.equal(legacyNotesWorkspaceDestination(
+    vaultLegacyCutoverDecision(choiceRequired, { env: {} })), 'blocked');
+  const auth = await read('../auth.js');
+  const layout = await read('../app/notes/layout.js');
+  assert.match(auth, /notesStorage: 'unselected'/);
+  assert.match(layout, /decision.code === 'notes-storage-choice-required'/);
+  assert.match(layout, /redirect\('\/onboarding'\)/);
+});
+
 test('M118 existing accounts with no explicit preference preserve legacy behavior', () => {
   assert.equal(vaultLegacyCutoverDecision({}, { env: {} }).blocked, false);
   assert.equal(standaloneNotesDestination({}, env), null);

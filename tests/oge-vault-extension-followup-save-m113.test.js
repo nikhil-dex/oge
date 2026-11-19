@@ -71,7 +71,7 @@ test('M113 typing during Save updates the SAME GitHub Note on next Save', async 
   assert.equal(editor.note.value, 'Machine learning task and read chapter two');
   assert.equal(editor.ctx.pendingSavedUpdate.id, originalId);
   assert.equal(editor.ctx.pendingSavedUpdate.sha, firstSha);
-  assert.match(editor.events.at(-1).message, /update the same GitHub Note/);
+  assert.match(editor.events.at(-1).message, /update the same Note/);
 
   await editor.save();
   assert.deepEqual(seen.map((call) => call.action),
@@ -179,13 +179,13 @@ test('M114 explicit separate-Note choice keeps text but uses a fresh GitHub Note
   });
   await saving;
   assert.equal(editor.ctx.noteNewCapture.hidden, false);
-  assert.match(editor.ctx.noteSave.textContent, /Update saved GitHub Note/);
+  assert.match(editor.ctx.noteSave.textContent, /Update saved Note/);
 
   editor.startNew();
   assert.equal(editor.note.value, 'Independent thought in the same subject');
   assert.equal(editor.ctx.pendingSavedUpdate, null);
   assert.equal(editor.ctx.noteNewCapture.hidden, true);
-  assert.match(editor.ctx.noteSave.textContent, /Save to GitHub Vault/);
+  assert.match(editor.ctx.noteSave.textContent, /Save to selected subject/);
   assert.match(editor.events.at(-1).message, /earlier GitHub Note is unchanged/);
 
   await editor.save();

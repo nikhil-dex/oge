@@ -62,7 +62,7 @@ test('M118 signed Notes, Quick Notes, AirNotes and API routes honor storage choi
   assert.match(home, /account\.notesStorage === 'mongodb'/);
   for (const route of [quick, air])
     assert.match(route, /notesStorage: 1/);
-  assert.match(quick, /if \(destination\) redirect\(destination\)/);
+  assert.match(quick, /if \(destination && destination !== '\/vault\/capture'\) redirect\(destination\)/);
   // AirNotes now keeps the original page and selects a GitHub-backed API
   // rather than redirecting to the generic Quick Capture editor.
   assert.match(air, /if \(destination && destination !== '\/vault\/capture'\) redirect\(destination\)/);

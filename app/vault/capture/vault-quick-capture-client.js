@@ -410,13 +410,11 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
     <section className="oge-settings-card" aria-labelledby="vault-capture-title">
       <div className="oge-settings-card-heading">
         <div><span className="oge-section-kicker">WRITE A NOTE</span>
-          <h2 id="vault-capture-title">Quick Capture → Vault</h2></div>
-        <span className="oge-settings-pill">Private GitHub on Save</span>
+          <h2 id="vault-capture-title">Quick capture</h2></div>
       </div>
       <p className="oge-settings-description">
-        Choose a subject and write a quick thought. For a longer note, put a title
-        on the first line and the details below. Your draft autosaves temporarily;
-        press Save to commit the finished Note to your private GitHub Vault.
+        Choose a subject and jot down a thought. For a longer note,
+        put a title on the first line and the details below.
       </p>
       <form onSubmit={createSubject} className="oge-note-editor-actions">
         <label htmlFor="vault-capture-new-subject">New subject</label>
@@ -441,7 +439,6 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
       {subjectId && <div className="oge-note-editor-actions">
         <button type="button" className="oge-primary-link" disabled={busy || uncertain}
           onClick={() => { void newCapture(); }}>New capture</button>
-        <span>Encrypted draft revision: {revision}</span>
       </div>}
       <form onSubmit={commit} className="oge-note-editor-form">
         <label htmlFor="vault-capture-content">Quick note</label>
@@ -457,7 +454,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
           <span>{content.length} / {VAULT_CAPTURE_MAX_CHARS}</span>
           <button type="submit" className="oge-primary-link"
             disabled={!noteId || busy || uncertain || blocked || !content.trim()}>
-            {busy ? 'Checking…' : 'Save to GitHub →'}
+            {busy ? 'Saving…' : 'Save note →'}
           </button>
         </div>
       </form>
@@ -472,10 +469,7 @@ export default function VaultQuickCaptureClient({ ownerId, repoId }) {
         Keep this browser copy and use the full <Link href="/vault/notes">Vault Notes
         recovery workspace</Link> before making more changes.
       </p>}
-      <p className="oge-settings-note">No automatic GitHub pushes, no permanent
-        MongoDB Note bodies, and no silent replay of an uncertain Save.
-        GitHub history still retains committed versions.</p>
-      <Link href="/vault/notes" className="oge-signin">Open full Vault Notes →</Link>
+      <Link href="/vault/notes" className="oge-signin">All notes →</Link>
     </section>
   );
 }

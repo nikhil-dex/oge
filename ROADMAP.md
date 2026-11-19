@@ -9,7 +9,11 @@
 - **Fixed:** My Files native sharing sends the actual downloaded file when supported; otherwise the fallback downloads the file for manual attachment instead of copying a private signed-in URL.
 - **Added:** Small regression tests covering these behavior contracts.
 - **Practical full backup path:** Connected GitHub owners now get an explicit link and instructions to use GitHub's **Code → Download ZIP**. That repository snapshot contains committed Notes, Quick Notes, AirNotes, Saved Links, and My Files. Unsaved drafts are excluded. This is not an automatic Oge restore; the limited three-resource JSON export remains unchanged.\n- **Still open, high priority:** Oge-managed complete backup/restore and signed-in restore acceptance. Do not claim that existing JSON backups include Saved Links or My Files.
-- **Fixed:** Quick Notes and AirNotes pages now redirect GitHub-selected users with unavailable Vault capture to Vault setup rather than initializing a MongoDB API path. Added regression coverage.\n- **Still open:** Consolidate feature availability checks across all Vault APIs and screens; review AirNotes save cadence, harmonize navigation and show capacity warnings.
+- **Fixed:** Quick Notes and AirNotes pages now redirect GitHub-selected users with unavailable Vault capture to Vault setup rather than initializing a MongoDB API path. Added regression coverage.
+- **Fixed:** My Files now appears in Notes, AirNotes, Saved Links and Quick Notes navigation for GitHub Vault users, without exposing the GitHub-only feature to explicit MongoDB users.
+- **Fixed:** Quick Notes and AirNotes show warnings starting at 270 of 300 items; AirNotes creation is disabled at the 300-item limit.
+- **Verified by code inspection:** The full-page AirNotes interface already uses explicit Save for edits. Its 700 ms inline autosave effect is not used by that full-page card/editor workflow, so no risky save-path rewrite was made.
+- **Still open:** Consolidate provider feature flags across APIs/screens and complete real-account backup/restore acceptance.
 - **Release:** Keep PR #35 draft and do not deploy until CI and real-account flows are verified.
 
 

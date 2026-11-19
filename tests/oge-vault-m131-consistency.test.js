@@ -117,3 +117,18 @@ test('Direct ZIP backup route checks signed owner and uses GitHub default branch
   assert.match(route, /Cache-Control/);
   assert.doesNotMatch(route, /\/api\/backup['"]/);
 });
+
+test('Home dashboard reads GitHub note count instead of MongoDB notes for Vault owners', () => {
+  const page = readFileSync(new URL('../app/page.js', import.meta.url), 'utf8');
+  const dashboard = readFileSync(new URL('../app/components/home-dashboard.js', import.meta.url), 'utf8');
+  assert.match(page, /<HomeDashboard vaultMode=\{/);
+  assert.match(page, /notesHref=\{notesHref\}/);
+  assert.match(dashboard, /if \(vaultMode\) \{/);
+  assert.match(dashboard, /readJson\('\/api\/vault\/notes-main\?paged=true&limit=25'\)/);
+  assert.match(dashboard, /noteCount = page\.total/);
+  assert.match(dashboard, /noteCount = null/);
+  assert.match(dashboard, /readJson\('\/api\/notes\?subject='/);
+  assert.match(dashboard, /data\.noteCount === null \? '—'/);
+  assert.match(dashboard, /href=\{notesHref\}/);
+  assert.match(dashboard, /readJson\(quickNotesApi\)/);
+});

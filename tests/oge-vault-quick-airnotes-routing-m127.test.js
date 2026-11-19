@@ -58,11 +58,9 @@ test('M127 original Quick Notes homepage widget follows selected storage without
   assert.match(panel, /apiPath = '\/api\/quick-notes'/);
   assert.match(panel, /vaultBacked = apiPath === '\/api\/vault\/quick-notes'/);
   assert.match(panel, /fetch\(apiPath, \{ cache: 'no-store' \}\)/);
-  assert.match(panel, /crypto\.randomUUID\(\)/);
-  assert.match(panel, /sha: noteRevisionsRef\.current\.get\(id\)/);
-  assert.match(panel, /noteRevisionsRef\.current\.set\(id, result\.sha\)/);
-  assert.match(panel, /inFlightRef\.current\.has\(id\)/);
   assert.match(panel, /vaultBacked \? '&sha='/);
+  assert.match(panel, /method: 'DELETE'/);
+  assert.doesNotMatch(panel, /contentEditable|method: 'POST'|method: 'PUT'/);
 });
 
 test('M127 original Quick Notes full-page editor keeps existing appearance and GitHub revision updates', async () => {
@@ -72,9 +70,10 @@ test('M127 original Quick Notes full-page editor keeps existing appearance and G
   assert.match(page, /<h1>Quick <span>Notes\.<\/span><\/h1>/);
   assert.match(page, /apiPath = '\/api\/quick-notes'/);
   assert.match(page, /apiPath === '\/api\/vault\/quick-notes'/);
-  assert.match(page, /setNoteSha\(note\.sha \|\| ''\)/);
-  assert.match(page, /sha: noteSha/);
-  assert.match(page, /pendingCreateId\.current/);
+  assert.match(page, /readOnly rows=\{12\}/);
+  assert.match(page, /method: 'DELETE'/);
+  assert.match(page, /selected\.sha \|\| ''/);
+  assert.doesNotMatch(page, /<form onSubmit|pendingCreateId|method: 'POST'|method: 'PUT'/);
   assert.doesNotMatch(page, /\/vault\/capture|Open your GitHub-backed Notes instead/);
 });
 

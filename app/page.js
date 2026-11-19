@@ -50,7 +50,7 @@ export default async function HomePage() {
     ...modules,
     ...(filesReady ? [{
       number: '06', group: 'COLLECT', title: 'My Files',
-      description: 'Store PDF documents, images and ZIPs in your private GitHub Vault.',
+      description: 'Store documents, code, media and other files in your private GitHub Vault.',
       href: '/files', icon: '▣',
     }] : []),
     ...(captureReady ? [{

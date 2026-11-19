@@ -108,18 +108,29 @@ async function mutate(request, action) {
     };
     // This fence stops AirNotes writes during import/restore; its MongoDB
     // records contain operational metadata, not AirNote content.
-    const saved = await withVaultOwnerDraftWrite(ctx.db, scope, () =>
-      commitVaultStandaloneCapture(ctx.client, {
-        kind: 'airnotes', action, id,
-        ...(action === 'delete' ? {} : { content: data.content }),
-        sha: sha || null,
-      }));
-    return json(action === 'delete' ? { deleted: saved.id } : asAirNote(saved),
-      action === 'create' ? 201 : 200);
+    try {
+      const saved = await withVaultOwnerDraftWrite(ctx.db, scope, () =>
+        commitVaultStandaloneCapture(ctx.client, {
+          kind: 'airnotes', action, id,
+          ...(action === 'delete' ? {} : { content: data.content }),
+          sha: sha || null,
+        }));
+      return json(action === 'delete' ? { deleted: saved.id } : asAirNote(saved),
+        action === 'create' ? 201 : 200);
+    } catch (error) {
+      // A GitHub response may be lost AFTER a commit. Confirm this exact
+      // UUID/content from the private default branch before reporting Save;
+      // never issue a second GitHub write to guess the outcome.
+      if (action !== 'delete') {
+        const existing = await getVaultStandaloneCapture(
+          ctx.client, 'airnotes', id).catch(() => null);
+        if (existing && existing.content === data.content &&
+            (action === 'create' || existing.sha !== sha))
+          return json(asAirNote(existing), 200);
+      }
+      throw error;
+    }
   } catch (error) {
-    // A connection can fail AFTER a GitHub ref was updated. Verify the
-    // precise current file before confirming; do not retry an unknown write.
-    // Users retain their editor copy when verification is inconclusive.
     return fail(error);
   }
 }

@@ -52,7 +52,7 @@ test('D2 signed server layout redirects only after authenticated, owner-scoped d
   const layout = await readFile(new URL('../app/notes/layout.js', import.meta.url), 'utf8');
   const vault = await readFile(new URL('../app/vault/notes/page.js', import.meta.url), 'utf8');
   const classic = await readFile(new URL('../app/notes/page.js', import.meta.url), 'utf8');
-  assert.match(layout, /if \(!vaultLegacyCutoverPreviewEnabled\(\)\) return children/);
+  assert.match(layout, /inspectLegacyCutoverForOwner/);
   assert.match(layout, /const session = await auth\(\)/);
   assert.match(layout, /if \(!session\?\.user\?\.id\) redirect\('\/register'\)/);
   assert.match(layout, /inspectLegacyCutoverForOwner\(/);

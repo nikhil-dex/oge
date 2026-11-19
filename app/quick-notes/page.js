@@ -1,4 +1,5 @@
 import { auth } from '../../auth.js';
+import { redirect } from 'next/navigation';
 import { getDatabase } from '../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import { vaultCaptureAvailable } from '../../lib/oge-vault-workspace-routing.js';
@@ -17,8 +18,12 @@ export default async function QuickNotesPage() {
         sessionVersion: session.user.sessionVersion,
       }), { projection: { vault: 1, notesStorage: 1 } },
     );
-    if (account?.notesStorage !== 'mongodb' && vaultCaptureAvailable(account))
+    if (!account) redirect('/register');
+    if (account.notesStorage === 'unselected') redirect('/onboarding');
+    if (account.notesStorage !== 'mongodb') {
+      if (!vaultCaptureAvailable(account)) redirect('/vault?setup=onboarding');
       apiPath = '/api/vault/quick-notes';
+    }
   }
   // This is the original Oge Quick Notes page; storage is selected on
   // the server, and GitHub users never write through the MongoDB API.

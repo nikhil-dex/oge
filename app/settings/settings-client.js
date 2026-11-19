@@ -24,7 +24,7 @@ function readLocal(key, fallback) {
   try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
 }
 
-export default function SettingsClient({ accountDeletionEnabled = false }) {
+export default function SettingsClient({ accountDeletionEnabled = false, githubVaultSelected = false }) {
   const [subjects, setSubjects] = useState([]);
   const [subjectName, setSubjectName] = useState('');
   const [subjectLoading, setSubjectLoading] = useState(true);
@@ -284,13 +284,25 @@ export default function SettingsClient({ accountDeletionEnabled = false }) {
       </section>
 
       <section className="oge-settings-card" id="data" aria-labelledby="backup-heading">
-        <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">05 · RECOVERY</span><h2 id="backup-heading">Backup & restore</h2></div></div>
-        <p className="oge-settings-description">Export your subjects, notes, Quick Notes, Saved Links, and news preferences as a JSON file. Keep a backup somewhere private.</p>
-        <div className="oge-settings-data-actions">{/* Backup is a file-response endpoint, not a client-side page route. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a className="oge-settings-secondary-link" href="/api/backup">↓ Download backup</a><button className="oge-settings-secondary-button" type="button" onClick={() => fileRef.current?.click()} disabled={backupBusy}>{backupBusy ? 'Restoring…' : 'Restore from backup ↑'}</button><input ref={fileRef} className="oge-settings-file-input" type="file" accept="application/json,.json" onChange={restoreBackup} aria-label="Choose an OgeNotes backup file" /></div>
-        {backupMessage && <p className="oge-settings-feedback" role="status" aria-live="polite">{backupMessage}</p>}
-        <p className="oge-settings-note">Restore adds missing records and skips duplicates. It does not delete existing records. Maximum backup size: 10 MB.</p>
+        <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">05 · RECOVERY</span><h2 id="backup-heading">Backup &amp; restore</h2></div></div>
+        {githubVaultSelected ? (
+          <>
+            <p className="oge-settings-description">Your Notes use GitHub Vault, not MongoDB. Back up your committed Notes, Quick Notes, AirNotes, Saved Links and My Files from your private GitHub repository.</p>
+            <div className="oge-settings-data-actions">
+              <a className="oge-settings-secondary-link" href="/vault">Open GitHub Vault backup options →</a>
+            </div>
+            <p className="oge-settings-note">On the Vault page, open your private GitHub repository and choose Code → Download ZIP. Unsaved drafts are not included. Automatic restore from this ZIP is not yet available in Oge.</p>
+          </>
+        ) : (
+          <>
+            <p className="oge-settings-description">Export your MongoDB subjects, notes, Quick Notes, Saved Links, and news preferences as a JSON file. Keep a backup somewhere private.</p>
+            <div className="oge-settings-data-actions">{/* Backup is a file-response endpoint, not a client-side page route. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+              <a className="oge-settings-secondary-link" href="/api/backup">↓ Download backup</a><button className="oge-settings-secondary-button" type="button" onClick={() => fileRef.current?.click()} disabled={backupBusy}>{backupBusy ? 'Restoring…' : 'Restore from backup ↑'}</button><input ref={fileRef} className="oge-settings-file-input" type="file" accept="application/json,.json" onChange={restoreBackup} aria-label="Choose an OgeNotes backup file" /></div>
+            {backupMessage && <p className="oge-settings-feedback" role="status" aria-live="polite">{backupMessage}</p>}
+            <p className="oge-settings-note">Restore adds missing records and skips duplicates. It does not delete existing records. Maximum backup size: 10 MB.</p>
+          </>
+        )}
       </section>
       {accountDeletionEnabled && (
         <section className="oge-settings-card" id="account-deletion" aria-labelledby="account-deletion-heading">

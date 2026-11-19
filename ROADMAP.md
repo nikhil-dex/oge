@@ -13,7 +13,9 @@
 - **Fixed:** My Files now appears in Notes, AirNotes, Saved Links and Quick Notes navigation for GitHub Vault users, without exposing the GitHub-only feature to explicit MongoDB users.
 - **Fixed:** Quick Notes and AirNotes show warnings starting at 270 of 300 items; AirNotes creation is disabled at the 300-item limit.
 - **Verified by code inspection:** The full-page AirNotes interface already uses explicit Save for edits. Its 700 ms inline autosave effect is not used by that full-page card/editor workflow, so no risky save-path rewrite was made.
-- **Still open:** Consolidate provider feature flags across APIs/screens and complete real-account backup/restore acceptance.
+- **Fixed:** Shared `connectedVaultStorageAvailable` now defines GitHub storage readiness for Notes, Quick Notes, AirNotes and My Files. Notes and capture retain their existing preview flags; My Files continues to use the connected-storage rule. Homepage/Notes/Vault settings use the same helpers, and the home Quick Notes inbox is hidden if its GitHub API is unavailable rather than falling back to MongoDB.
+- **Added:** Regression tests for ready, disconnected, invalid-ID and MongoDB-selected accounts plus homepage widget availability.
+- **Still open:** Real signed-in acceptance and Oge-managed full backup/restore. Current feature-specific preview flags remain until separately retired; this milestone does not enable unfinished functionality.
 - **Release:** Keep PR #35 draft and do not deploy until CI and real-account flows are verified.
 
 

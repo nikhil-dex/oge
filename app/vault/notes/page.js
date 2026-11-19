@@ -3,6 +3,7 @@ import { auth } from '../../../auth.js';
 import { getDatabase } from '../../../lib/mongodb.js';
 import { ownerMutationFilter } from '../../../lib/active-owner-mutation.js';
 import NotesPage from '../../notes/page.js';
+import { vaultNotesAvailable } from '../../../lib/oge-vault-workspace-routing.js';
 
 export const metadata = { title: 'Oge · Notes' };
 export const dynamic = 'force-dynamic';
@@ -14,19 +15,14 @@ export const dynamic = 'force-dynamic';
  * routes all use GitHub too.
  */
 export default async function VaultNotesPage() {
-  if (process.env.OGE_VAULT_MAIN_PREVIEW !== 'true') redirect('/vault');
   const session = await auth();
   if (!session?.user?.id) redirect('/register');
   const db = await getDatabase();
   const user = await db.collection('users').findOne(
     ownerMutationFilter(session.user.id, { sessionVersion: session.user.sessionVersion }),
-    { projection: { vault: 1 } },
+    { projection: { vault: 1, notesStorage: 1 } },
   );
-  if (user?.vault?.status !== 'connected' ||
-      !Number.isSafeInteger(user.vault.repoId) || user.vault.repoId < 1 ||
-      !Number.isSafeInteger(user.vault.installationId) ||
-      user.vault.installationId < 1)
-    redirect('/vault');
+  if (!vaultNotesAvailable(user)) redirect('/vault?setup=onboarding');
   const hybridDrafts = process.env.OGE_VAULT_HYBRID_DRAFT_PREVIEW === 'true';
   // Render the original Oge Notes workspace directly. GitHub is the
   // storage provider, not a separate preview-branded product interface.

@@ -360,7 +360,7 @@
       subjectSelect.replaceChildren();
       const quick = document.createElement('option');
       quick.value = '';
-      quick.textContent = vaultReady ? 'Choose a subject (GitHub Vault)' : 'Quick Notes (default)';
+      quick.textContent = 'Quick Notes (default)';
       subjectSelect.append(quick);
       for (const subject of result.subjects || []) {
         if (typeof subject.slug !== 'string' || typeof subject.name !== 'string') continue;
@@ -371,9 +371,10 @@
       }
       if (previous && [...subjectSelect.options].some((option) => option.value === previous)) {
         subjectSelect.value = previous;
-      } else if (vaultReady && subjectSelect.options.length > 1) {
-        // Make the typical connected-owner path a single click.
-        subjectSelect.value = subjectSelect.options[1].value;
+      } else {
+        // Quick Notes is always the default destination. Subjects are
+        // optional and select the regular Notes library instead.
+        subjectSelect.value = '';
       }
       noteSave.disabled = savingCapture;
       updateNoteButton();
@@ -390,8 +391,8 @@
     noteNewCapture.hidden = !continuing;
     noteSave.textContent = vaultReady === null ? 'Loading destination…'
       : vaultReady ? (subjectSelect.value
-        ? continuing ? 'Update saved GitHub Note →' : 'Save to GitHub Vault →'
-        : 'Choose a Vault subject')
+        ? continuing ? 'Update saved Note →' : 'Save to selected subject →'
+        : 'Save to Quick Notes')
         : subjectSelect.value ? 'Save to selected subject →' : 'Save to Quick Notes';
   }
   subjectSelect.addEventListener('change', updateNoteButton);
@@ -400,8 +401,6 @@
     if (savingCapture) return;
     if (!note.value.trim()) return setStatus('Write something before saving.', true);
     if (vaultReady === null) return setStatus('Load your Oge Notes connection before saving.', true);
-    if (vaultReady && !subjectSelect.value)
-      return setStatus('Choose a subject first. Add one in Oge Quick Capture if needed.', true);
     // Snapshot exactly what this request intends to commit. The user can
     // keep typing while the network is slow; that newer text is NOT part
     // of this Save and must never be erased by its eventual response.
@@ -414,6 +413,28 @@
     try {
       let result;
       if (submittedToVault) {
+        if (!submittedSubject) {
+          // The extension alone creates standalone Quick Notes.
+          // Hold this UUID across a lost response to prevent duplicates.
+          if (!pendingVaultCapture ||
+              pendingVaultCapture.content !== submittedContent ||
+              pendingVaultCapture.subjectSlug !== '') {
+            pendingVaultCapture = {
+              id: createCaptureId(), content: submittedContent, subjectSlug: '',
+            };
+          }
+          result = await send('CREATE_VAULT_QUICK_NOTE', {
+            content: submittedContent, captureId: pendingVaultCapture.id,
+          });
+          if (result.confirmed !== true ||
+              result.destination !== 'quick-notes' ||
+              !/^[a-f0-9]{40}$/i.test(result.sha || ''))
+            throw new Error('Quick Note Save was not confirmed.');
+          pendingVaultCapture = null;
+          pendingSavedUpdate = null;
+          lastSavedVaultNoteId = null;
+          noteOpenSaved.hidden = true;
+        } else {
         if (pendingSavedUpdate &&
             pendingSavedUpdate.subjectSlug === submittedSubject) {
           // The previous Save succeeded, but the user kept editing the
@@ -444,6 +465,7 @@
         pendingVaultCapture = null;
         lastSavedVaultNoteId = result.id;
         noteOpenSaved.hidden = false;
+        }
       } else {
         result = await send('CREATE_QUICK_NOTE', {
           content: submittedContent, subjectSlug: submittedSubject,
@@ -451,20 +473,20 @@
       }
       const unchanged = note.value === submittedContent &&
         subjectSelect.value === submittedSubject;
-      if (submittedToVault) {
+      if (submittedToVault && submittedSubject) {
         pendingSavedUpdate = unchanged ? null : {
           id: result.id, sha: result.sha, subjectSlug: submittedSubject,
         };
       }
       if (unchanged) note.value = '';
       const confirmation = result.destination === 'vault'
-        ? 'Saved “' + result.title + '” to GitHub Vault / ' + result.subject + '.'
+        ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.'
         : result.destination === 'notes'
           ? 'Saved “' + result.title + '” to ' + result.subject + ' in Notes.'
           : 'Saved “' + result.title + '” to Quick Notes.';
       setStatus(confirmation + (unchanged ? ''
-        : submittedToVault && subjectSelect.value === submittedSubject
-          ? ' Newer edits are still here; press Save again to update the same GitHub Note.'
+        : submittedToVault && submittedSubject && subjectSelect.value === submittedSubject
+          ? ' Newer edits are still here; press Save again to update the same Note.'
           : ' Newer edits are still in your editor; press Save again for them.'));
     } catch (error) {
       // Do not erase text or the retry UUID on an uncertain Save.

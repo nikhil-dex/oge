@@ -4,6 +4,7 @@ import { getDatabase } from '../../lib/mongodb.js';
 import { redirect } from 'next/navigation';
 import { saveNewsInterests } from '../onboarding/actions.js';
 import { NEWS_TOPICS } from '../../lib/news-topics.js';
+import { vaultConfigured } from '../../lib/oge-vault-github.js';
 import SettingsClient from './settings-client.js';
 import { ownerMutationFilter } from '../../lib/active-owner-mutation.js';
 import SiteNavbar from '../components/site-navbar';
@@ -20,9 +21,11 @@ export default async function SettingsPage() {
   const accountFilter = ownerMutationFilter(ownerId, { sessionVersion: session.user.sessionVersion });
   const user = await db.collection('users').findOne(
     accountFilter,
-    { projection: { newsInterests: 1 } },
+    { projection: { newsInterests: 1, notesStorage: 1, vault: 1 } },
   );
   if (!user) redirect('/register');
+  const vaultConnected = user.vault?.status === 'connected';
+  const vaultEnabled = vaultConfigured();
 
   return (
     <main className="shell oge-shell oge-settings-page oge-retro-workspace">
@@ -43,6 +46,7 @@ export default async function SettingsPage() {
           <a href="#gemini-ai">Gemini AI</a>
           <a href="#pixel-strip">Pixel Strip</a>
           <a href="#news-preferences">News preferences</a>
+          <a href="#vault-connection">GitHub Vault</a>
           <a href="#data">Your data</a>
         </aside>
 
@@ -72,6 +76,19 @@ export default async function SettingsPage() {
               </div>
               <div className="oge-settings-form-actions"><button className="oge-google-button" name="action" value="save" type="submit">Save news preferences <span aria-hidden="true">→</span></button></div>
             </form>
+          </section>
+
+          <section className="oge-settings-card" id="vault-connection" aria-labelledby="vault-connection-heading">
+            <div className="oge-settings-card-heading">
+              <div><span className="oge-section-kicker">06 · NOTES STORAGE</span><h2 id="vault-connection-heading">GitHub Vault connection</h2></div>
+              <span className="oge-settings-pill">{vaultConnected ? 'Connected' : vaultEnabled ? 'Ready to connect' : 'Setup required'}</span>
+            </div>
+            <p className="oge-settings-description">{vaultConnected
+              ? 'Your private GitHub Vault is connected. Open the Vault page to see the repository and GitHub Notes workspace.'
+              : 'Connect a private GitHub repository for committed Notes. The Vault setup page has an installation link, an authorization button and connection status.'}</p>
+            <p className="oge-settings-note">Notes storage selected: <strong>{user.notesStorage === 'github' ? 'GitHub Vault' : user.notesStorage === 'mongodb' ? 'MongoDB' : 'Existing workspace / not yet selected'}</strong>. Connecting a GitHub repository does not automatically move previously saved MongoDB Notes or change a MongoDB storage selection.</p>
+            <Link className="oge-primary-link" href="/vault">{vaultConnected ? 'Manage my connected GitHub Vault →' : 'Set up GitHub Vault →'}</Link>
+            {!vaultConnected && !vaultEnabled && <p className="oge-settings-note" role="status">The GitHub connection button will be unavailable until Oge's GitHub App is configured on this server. Open the setup page for the configuration guide.</p>}
           </section>
 
           <footer className="oge-settings-footer"><Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>YOUR WORKSPACE · YOUR WAY</span></footer>

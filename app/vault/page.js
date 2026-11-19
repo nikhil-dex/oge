@@ -118,6 +118,8 @@ export default async function VaultPage({ searchParams }) {
             {previewEnabled && !mainPreviewEnabled &&
               <Link className="oge-primary-link" href="/vault/preview">Open legacy Notes preview →</Link>}
             {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open My Notes →</Link>}
+            {user.notesStorage !== 'mongodb' &&
+              <Link className="oge-primary-link" href="/files">Open My Files →</Link>}
             {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Write a Quick Note →</Link>}
             {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}
             {recoveryCenterVisible && <Link className="oge-primary-link" href="/vault/recovery">Recovery Center — coverage and safety status →</Link>}

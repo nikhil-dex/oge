@@ -86,7 +86,7 @@ export default function MediaLibrary() {
     if (!window.confirm(`Delete folder “${folder.name}” and permanently delete all files inside it from private storage? This cannot be undone.`)) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      await readResponse(await fetch('/api/media?id=' + encodeURIComponent(folder.id) + '&type=folder', { method: 'DELETE' }));
+      await readResponse(await fetch('/api/vault/media?id=' + encodeURIComponent(folder.id) + '&type=folder', { method: 'DELETE' }));
       setFolders((current) => current.filter((item) => item.id !== folder.id));
       setMessage('Folder deleted.');
     } catch (err) { setError(err.message || 'Could not delete the folder.'); }
@@ -139,7 +139,7 @@ export default function MediaLibrary() {
   async function openPreview(file) {
     setError('');
     try {
-      const result = await readResponse(await fetch('/api/media?action=download&id=' + encodeURIComponent(file.id), { cache: 'no-store' }));
+      const result = await readResponse(await fetch('/api/vault/media?action=download&id=' + encodeURIComponent(file.id), { cache: 'no-store' }));
       setPreview({ ...file, url: result.url });
     } catch (err) { setError(err.message || 'Could not open this file.'); }
   }
@@ -147,7 +147,7 @@ export default function MediaLibrary() {
   async function downloadFile(file) {
     setBusy(true); setError('');
     try {
-      const result = await readResponse(await fetch('/api/media?action=download&disposition=attachment&id=' + encodeURIComponent(file.id), { cache: 'no-store' }));
+      const result = await readResponse(await fetch('/api/vault/media?action=download&disposition=attachment&id=' + encodeURIComponent(file.id), { cache: 'no-store' }));
       const link = document.createElement('a');
       link.href = result.url;
       link.download = file.name;
@@ -177,7 +177,7 @@ export default function MediaLibrary() {
   async function shareFile(file) {
     setError(''); setMessage('');
     try {
-      const result = await readResponse(await fetch('/api/media?action=download&id=' + encodeURIComponent(file.id), { cache: 'no-store' }));
+      const result = await readResponse(await fetch('/api/vault/media?action=download&id=' + encodeURIComponent(file.id), { cache: 'no-store' }));
       const url = new URL(result.url, window.location.origin).href;
       if (navigator.share && navigator.canShare) {
         const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
@@ -222,7 +222,7 @@ export default function MediaLibrary() {
     if (!window.confirm(`Delete “${file.name}” from private storage? This cannot be undone.`)) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      await readResponse(await fetch('/api/media?id=' + encodeURIComponent(file.id), { method: 'DELETE' }));
+      await readResponse(await fetch('/api/vault/media?id=' + encodeURIComponent(file.id), { method: 'DELETE' }));
       setFiles((current) => current.filter((item) => item.id !== file.id));
       if (preview?.id === file.id) setPreview(null);
       setMessage('File deleted.');

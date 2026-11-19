@@ -56,3 +56,39 @@ test('Vault Quick Notes and AirNotes warn before their 300-item limits', () => {
   assert.match(airnotes, /notes\.length >= 270/);
   assert.match(airnotes, /disabled=\{creating \|\| atVaultLimit\}/);
 });
+
+test('All GitHub Vault features share one connected-storage eligibility rule', async () => {
+  const { connectedVaultStorageAvailable, vaultNotesAvailable, vaultCaptureAvailable } =
+    await import('../lib/oge-vault-workspace-routing.js');
+  const { githubVaultFilesEnabled } = await import('../lib/oge-vault-media-validation.js');
+  const ready = {
+    notesStorage: 'github',
+    vault: { status: 'connected', repoId: 123, installationId: 456 },
+  };
+  const flags = { OGE_VAULT_MAIN_PREVIEW: 'true', OGE_VAULT_HYBRID_DRAFT_PREVIEW: 'true' };
+  assert.equal(connectedVaultStorageAvailable(ready), true);
+  assert.equal(githubVaultFilesEnabled(ready), true);
+  assert.equal(vaultNotesAvailable(ready, flags), true);
+  assert.equal(vaultCaptureAvailable(ready, flags), true);
+  assert.equal(vaultCaptureAvailable(ready, { ...flags, OGE_VAULT_HYBRID_DRAFT_PREVIEW: 'false' }), false);
+  assert.equal(vaultNotesAvailable(ready, { ...flags, OGE_VAULT_MAIN_PREVIEW: 'false' }), false);
+  for (const bad of [
+    { ...ready, notesStorage: 'mongodb' },
+    { ...ready, notesStorage: 'unselected' },
+    { ...ready, vault: { ...ready.vault, status: 'disconnected' } },
+    { ...ready, vault: { ...ready.vault, installationId: 0 } },
+    { ...ready, vault: { ...ready.vault, repoId: null } },
+  ]) {
+    assert.equal(connectedVaultStorageAvailable(bad), false);
+    assert.equal(githubVaultFilesEnabled(bad), false);
+    assert.equal(vaultNotesAvailable(bad, flags), false);
+    assert.equal(vaultCaptureAvailable(bad, flags), false);
+  }
+});
+
+test('Home only renders the Quick Notes inbox when its selected API is available', () => {
+  const home = readFileSync(new URL('../app/page.js', import.meta.url), 'utf8');
+  assert.match(home, /const showQuickNotes = captureReady/);
+  assert.match(home, /\{showQuickNotes && <section/);
+  assert.match(home, /const quickNotesApi = captureReady \?/);
+});

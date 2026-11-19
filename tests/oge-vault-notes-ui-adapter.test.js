@@ -47,8 +47,8 @@ test('familiar vault Notes paginates without changing the legacy production endp
   assert.match(page, /setNextNotesCursor\(vaultMode \? response\.nextCursor \|\| null : null\)/);
   assert.match(page, /encodeURIComponent\(nextNotesCursor\)/);
   assert.match(page, /setNotes\(\(existing\) => \{/);
-  assert.match(page, /Load more GitHub notes/);
-  assert.match(page, /Search, filters and sorting apply to loaded notes/);
+  assert.match(page, /Load more notes/);
+  assert.match(page, /notes loaded/);
   assert.match(adapter, /params\.get\('paged'\) === 'true'/);
   assert.match(adapter, /listVaultNotePage\(ctx\.client, \{ limit, cursor: params\.get\('cursor'\) \}\)/);
   assert.match(adapter, /note\.subjectId === subject/);

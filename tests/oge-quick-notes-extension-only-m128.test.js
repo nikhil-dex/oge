@@ -123,8 +123,8 @@ test('M128 live extension widget handler defaults GitHub Save to Quick Notes and
     },
   };
   vm.runInNewContext(source.slice(from, to), ctx, { timeout: 2000 });
-  assert.equal(noteSave.textContent, 'Save to Quick Notes');
   await saveHandler();
+  assert.equal(noteSave.textContent, 'Save to Quick Notes');
   assert.equal(note.value, 'Captured from the extension');
   await saveHandler();
   assert.equal(note.value, '');

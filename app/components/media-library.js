@@ -32,6 +32,7 @@ export default function MediaLibrary() {
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState(null);
   const uploadRef = useRef(null);
+  const pendingUploadsRef = useRef(new Map());
 
   const loadLibrary = useCallback(async (selectedFolder = null) => {
     setLoading(true);
@@ -101,15 +102,22 @@ export default function MediaLibrary() {
     let uploaded = 0;
     try {
       for (const file of selected) {
-        const type = file.type || (file.name.toLowerCase().endsWith('.zip') ? 'application/zip' : '');
+        const type = file.name.toLowerCase().endsWith('.zip')
+          ? 'application/zip' : (file.type || '');
         const size = file.size;
         if (!size || size > 20 * 1024 * 1024)
           throw new Error('Choose a file between 1 byte and 20 MB.');
-        const id = crypto.randomUUID();
-        const chunks = [];
+        // A lost final HTTP response must not cause a second file ID. Keep
+        // completed chunk SHAs until this exact upload is confirmed.
+        const fingerprint = [folderId || '', file.name, type, size, file.lastModified].join('|');
+        const pending = pendingUploadsRef.current.get(fingerprint) ||
+          { id: crypto.randomUUID(), chunks: [] };
+        pendingUploadsRef.current.set(fingerprint, pending);
+        const id = pending.id;
+        const chunks = pending.chunks;
         const chunkSize = 2 * 1024 * 1024;
         const count = Math.ceil(size / chunkSize);
-        for (let part = 0; part < count; part++) {
+        for (let part = chunks.length; part < count; part++) {
           const piece = file.slice(part * chunkSize, Math.min(size, (part + 1) * chunkSize));
           const result = await readResponse(await fetch('/api/vault/media?action=upload-chunk&id=' +
             encodeURIComponent(id) + '&part=' + part, {
@@ -126,6 +134,7 @@ export default function MediaLibrary() {
             action: 'upload-file', id, name: file.name, type, size, folderId, parts: chunks,
           }),
         }));
+        pendingUploadsRef.current.delete(fingerprint);
         uploaded++;
       }
       setMessage(uploaded + ' file' + (uploaded === 1 ? '' : 's') + ' uploaded.');

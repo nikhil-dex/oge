@@ -1,5 +1,18 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #123 — GitHub-backed Saved Links follow the chosen Notes storage (19 Nov 2026)
+
+**User request:** When GitHub Vault is enabled, store other personal content in GitHub too rather than saving bookmarks to MongoDB.
+
+- `GET/POST/PUT/DELETE/PATCH /api/saved-links` now retain the existing client shape while routing all new Saved Links CRUD and ordering to `links/saved-links.json` in the signed user's private GitHub Vault when storage is GitHub.
+- Explicit MongoDB users keep their existing Saved Links experience; connected Vaults never override an explicit Oge Cloud preference. First-run unselected GitHub setup does not silently fall back to MongoDB.
+- GitHub collection is versioned JSON with existing title, URL, description, category, tags and order. It uses GitHub's file SHA to refuse concurrent overwrites and re-reads the resulting private file before confirming Save.
+- Browser's new-link UUID is stable across a failed/unconfirmed Save, so retrying the same link does not create a duplicate; UI reports the active storage provider.
+- Previously saved MongoDB links remain unchanged and are NOT automatically copied into the GitHub file, to avoid silent migration or deletion. An explicit import/export migration can follow later if requested.
+- Existing GitHub-backed Notes/Quick Capture flow is preserved; account, subject, login and learning-track metadata stay in MongoDB. File uploads/attachments and import backups still do not include Saved Links.
+- Added synthetic GitHub-provider tests for full Saved Links CRUD/reordering, retry idempotency, stale SHA conflicts and storage routing. No live owner-account GitHub Saved Links verification yet.
+- Existing Notes MVP measure remains **8/10 (80%) implemented**; the new bookmark work is additional scope, not a claim that the last two Notes checkpoints are complete. Production merge and deployment stay last.
+
 ## Milestone #122 — Correct GitHub branch PATCH endpoint for committed Notes (19 Nov 2026)
 
 **User evidence:** `POST /api/vault/notes-main` returned HTTP 503 in 5.6s, while `GET /api/vault/drafts?...confirm=true` returned HTTP 200 and `PUT /api/vault/drafts` returned HTTP 200. A 200 confirmation HTTP status alone does not prove its `confirmed` response field is true.

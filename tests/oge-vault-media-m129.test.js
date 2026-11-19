@@ -241,3 +241,34 @@ test('M129 file library UI matches OgeNotes features and routes ONLY to GitHub V
   assert.match(navigation, /showFiles \? \[\.\.\.links, \{ href: '\/files'/);
   assert.match(home, /filesReady \? \[\{/);
 });
+
+test('M130 arbitrary file formats commit to private Git blobs without PDF/image signature requirements', async () => {
+  const f = fixture();
+  const entries = [
+    { name: 'program.js', type: 'application/javascript', bytes: Buffer.from('const greeting = "hi";') },
+    { name: 'report.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      bytes: Buffer.from('a docx-like binary sample') },
+    { name: 'diagram.svg', type: 'image/svg+xml', bytes: Buffer.from('<svg onload="alert(1)"/>') },
+    { name: 'audio.mp3', type: 'audio/mpeg', bytes: Buffer.from([1, 2, 3, 4]) },
+    { name: 'video.mp4', type: 'video/mp4', bytes: Buffer.from([4, 3, 2, 1]) },
+    { name: 'model.safetensors', type: '', bytes: Buffer.from('model data') },
+    { name: '.env', type: 'text/plain', bytes: Buffer.from('KEY=value') },
+    { name: 'binary', type: '', bytes: Buffer.from([0, 254, 255]) },
+  ];
+  for (const { name, type, bytes } of entries) {
+    const id = randomUUID();
+    const part = await createVaultMediaBlob(f.client, bytes);
+    const uploaded = await applyVaultMediaMutation(f.client, 'upload-file', {
+      id, name, type, size: bytes.length, folderId: null, parts: [part],
+    });
+    assert.equal(uploaded.name, name);
+    assert.equal(uploaded.type, type || 'application/octet-stream');
+    const snapshot = await readVaultMediaSnapshot(f.client);
+    const saved = vaultMediaRecord(snapshot, id);
+    assert.equal(saved.parts.length, 1);
+    const downloaded = await readVaultMediaBlob(f.client, saved.parts[0].sha, bytes.length);
+    assert.deepEqual(downloaded, bytes);
+  }
+  assert.equal(mediaList(await readVaultMediaSnapshot(f.client)).files.length, entries.length);
+  assert.equal(f.calls.some(c => c.path === '/git/refs/heads/main' && c.method === 'PATCH'), true);
+});

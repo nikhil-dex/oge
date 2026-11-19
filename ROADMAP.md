@@ -1,5 +1,17 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #130 — Upload any file type to GitHub Vault My Files (19 Nov 2026)
+
+**User request:** Now that files live in each user's private repository, remove the old OgeNotes Vercel Blob-specific restriction that allowed only PDF, ZIP, JPEG, PNG and WebP.
+
+- Removed the file-input `accept` filter and server file-type whitelist: GitHub Vault **My Files** now accepts arbitrary formats, including DOCX, XLSX, PPTX, MP4, MP3, source code, CSV, SVG, compressed archives, binary model files and extensionless files. Blank browser MIME types normalize to `application/octet-stream`.
+- Kept the existing name/path checks and **20 MiB per-file**, 500 files, 100 folders, 200 MiB current inventory limits; GitHub is not unlimited storage, and older binary blobs remain in version history after deletion.
+- The folder/file UI retains its original look. Added **Other** filtering and descriptive file-extension indicators; file cards open a download if no safe preview is available. Search, move, rename, share and delete work regardless of extension.
+- Existing PDF and raster JPG/PNG/WebP inline previews are preserved with signature checks; ZIP remains downloadable. SVG, HTML, JavaScript and other arbitrary uploaded content are always returned as `application/octet-stream` attachments through the authenticated endpoint, not rendered as active same-origin pages. Unsupported types do not show a fake image or PDF preview.
+- Only files eligible for an inline preview (plus recognized ZIP archives) have format signatures validated. Other files are stored byte-for-byte without reinterpretation or execution. Uploaded content is still in the user's private Git repository, not MongoDB/Vercel Blob.
+- Regression tests cover generic MIME types, missing MIME types, long office-document MIME types, source code and binaries, raw Git blob content round-trips, the file picker, download-only fallback and preview/attachment behavior.
+- **No change to the original Notes MVP score (8/10, 80%)**; this is an additional My Files milestone. Real signed-in GitHub Vault upload/download acceptance remains pending; PR #35 stays draft/unmerged.
+
 ## Milestone #129 — My Files mirrors OgeNotes, stored in each owner's private GitHub Vault (19 Nov 2026)
 
 **User request:** Bring the original `ogenotes` My Files workspace (image, PDF and ZIP uploads using Vercel Blob) into `oge`, without Oge hosting everyone's file content. Enable it **only** for users whose selected storage is connected GitHub Vault.

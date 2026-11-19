@@ -34,7 +34,7 @@ function AirNoteLibraryCard({ note, index, onOpen, onDelete }) {
         <span className="card-bottom">◷ <span>{formatDate(note.updatedAt || note.createdAt)}</span></span>
       </button>
       <div className="note-card-actions" aria-label={'Actions for ' + title}>
-        <button type="button" className="delete-note" onClick={() => onDelete(note)} aria-label={'Delete AirNote: ' + title} title="Delete AirNote">×</button>
+        <button type="button" className="delete-note" onClick={() => onDelete(note)} aria-label={'Delete AirNote: ' + title} title="Delete AirNote">Delete</button>
       </div>
     </article>
   );
@@ -195,6 +195,8 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
       setNotes((current) => current.filter((item) => item.id !== note.id));
       setDirty((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== note.id)));
       setSaveErrors((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== note.id)));
+      setOpenedNote(null);
+      setEditingNote(null);
       setMessage('AirNote deleted.');
     } catch (err) {
       setError(err.message || 'Could not delete this quick note.');
@@ -287,6 +289,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
                 <div className="reader-pagination"><span className="reader-kicker">AIRNOTE</span></div>
                 <div className="reader-toolbar-actions">
                   <button type="button" className="note-share-button airnote-reader-edit-button" onClick={() => openEditor(openedNote)} aria-label="Edit AirNote" title="Edit AirNote">✎ Edit</button>
+                  <button type="button" className="oge-danger-link" onClick={() => deleteNote(openedNote)} aria-label="Delete AirNote">Delete</button>
                   <button className="close-button reader-close" onClick={() => setOpenedNote(null)} aria-label="Close AirNote">×</button>
                 </div>
               </div>
@@ -307,6 +310,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
               <p className="form-subtitle">Make your changes, then save them to AirNotes.</p>
               <textarea autoFocus value={editContent} onChange={(event) => setEditContent(event.target.value)} aria-label="AirNote content" rows={12} />
               <div className="editor-dialog-actions">
+                <button type="button" className="oge-danger-link" onClick={() => deleteNote(editingNote)} disabled={editSaving}>Delete AirNote</button>
                 <button type="button" className="study-button" onClick={() => setEditingNote(null)} disabled={editSaving}>Cancel</button>
                 <button type="button" className="add-button" onClick={saveEditedNote} disabled={editSaving}>{editSaving ? 'Saving…' : 'Save changes'}</button>
               </div>

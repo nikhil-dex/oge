@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #125 original Oge Notes styling.**
+**Updated 19 November 2026, after milestone #126 original AirNotes UI with GitHub storage.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,29 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #126 — AirNotes keeps original Oge UI with GitHub storage
+
+GitHub-selected owners no longer get redirected from `/airnotes`
+to generic Quick Capture. The original `PersonalQuickNotesPanel fullPage`
+and AirNotes cards, reader, modal edit, new-note action and deletion
+remain in place. Only the server-selected API destination changes:
+GitHub users use `/api/vault/airnotes`, and explicit MongoDB users
+keep the original `/api/personal-quick-notes` endpoint.
+
+Private GitHub AirNotes are stored as `airnotes/<UUID>.json`,
+using the existing typed standalone GitHub writer. Branch update now
+uses GitHub's correct plural `PATCH /git/refs` endpoint instead of
+the singular read URL. Edit/delete sends the last verified file SHA.
+An uncertain write is never blindly retried; an identical committed
+file is read back before Save is confirmed. No permanent AirNote content
+is stored in MongoDB for GitHub users, and historical MongoDB entries
+are not migrated or deleted.
+
+New regression tests cover UI parity, routing and GitHub writer calls.
+The signed user's actual GitHub AirNotes UI journey still requires
+a local test. Notes MVP continues at **8/10 implemented (80%)**,
+production merge and deployment pending.
 
 ## Milestone #125 — Familiar Oge Notes presentation
 

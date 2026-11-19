@@ -35,7 +35,7 @@ test('M120 successfully creating the first subject opens a note in that subject'
 test('M120 note Save still requires a selected subject and GitHub mode retains the provider writer', async () => {
   const page = await read('../app/notes/page.js');
   assert.match(page, /disabled=\{saving \|\| !activeSubject \|\| \(hybridDrafts && !hybridReady\)\}/);
-  assert.match(page, /notesApi="\/api\/vault\/notes-main"/) === false; // prop belongs to VaultNotesPage
+  assert.doesNotMatch(page, /notesApi="\/api\/vault\/notes-main"/); // prop belongs to VaultNotesPage
   const vault = await read('../app/vault/notes/page.js');
   assert.match(vault, /<NotesPage notesApi="\/api\/vault\/notes-main" vaultMode/);
 });

@@ -23,7 +23,12 @@ test('Phase D guard is default-off even for a connected Vault account', async ()
   assert.equal(vaultLegacyCutoverPreviewEnabled(env), false);
   assert.deepEqual(vaultLegacyCutoverDecision(connected, { env }),
     { blocked: false, mode: 'legacy' });
-  const db = { collection() { throw Error('Disabled guard must not touch MongoDB'); } };
+  // Explicit onboarding preferences must still be checked when cutover preview
+  // is disabled; otherwise a GitHub-selected user could write to MongoDB.
+  const db = { collection(name) {
+    assert.equal(name, 'users');
+    return { async findOne() { return connected; } };
+  } };
   assert.deepEqual(await inspectLegacyCutoverForOwner(db, ownerId,
     { sessionVersion }, { env }), { blocked: false, mode: 'legacy' });
 });
@@ -90,7 +95,7 @@ test('Phase D signed owner check reads only account metadata and enforces sessio
     db, ownerId, { sessionVersion }, { env: preview });
   assert.equal(decision.blocked, true);
   assert.deepEqual(calls[0].filter, { googleSub: ownerId, sessionVersion });
-  assert.deepEqual(calls[0].options.projection, { _id: 1, vault: 1 });
+  assert.deepEqual(calls[0].options.projection, { _id: 1, vault: 1, notesStorage: 1 });
 });
 
 test('Phase D browser-extension checks require the verified token hash and preserve transactions', async () => {

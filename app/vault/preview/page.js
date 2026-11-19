@@ -22,6 +22,12 @@ export default async function VaultPreviewPage() {
   if (account.vault?.status !== 'connected' ||
       !Number.isSafeInteger(account.vault.repoId)) redirect('/vault');
 
+  // A connected user should see the familiar Oge Notes page, never an
+  // obsolete preview-branded editor. Keep the original B3 preview source
+  // only for isolated scenarios where the main Notes workspace is disabled.
+  if (process.env.OGE_VAULT_MAIN_PREVIEW === 'true')
+    redirect('/vault/notes');
+
   return (
     <main className="shell oge-shell oge-retro-workspace oge-vault-page">
       <SiteNavbar actions={<Link className="oge-signin" href="/vault">Oge Vault →</Link>}/>

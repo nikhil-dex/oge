@@ -37,3 +37,22 @@ test('Vault settings offers complete GitHub repository ZIP instructions', () => 
   assert.match(page, /including Saved Links and My Files/);
   assert.match(page, /not an Oge one-click restore/);
 });
+
+test('GitHub Vault navigation includes My Files across existing workspaces', () => {
+  const notes = readFileSync(new URL('../app/notes/page.js', import.meta.url), 'utf8');
+  const airnotes = readFileSync(new URL('../app/components/personal-quick-notes-panel.js', import.meta.url), 'utf8');
+  const links = readFileSync(new URL('../app/saved-links/page.js', import.meta.url), 'utf8');
+  const quick = readFileSync(new URL('../app/quick-notes/quick-notes-client.js', import.meta.url), 'utf8');
+  assert.match(notes, /showFiles=\{vaultMode\}/);
+  assert.match(airnotes, /showFiles=\{vaultBacked\}/);
+  assert.match(links, /showFiles=\{storage === 'github'\}/);
+  assert.match(quick, /vaultBacked && <Link href="\/files">My Files<\/Link>/);
+});
+
+test('Vault Quick Notes and AirNotes warn before their 300-item limits', () => {
+  const quick = readFileSync(new URL('../app/components/quick-notes-panel.js', import.meta.url), 'utf8');
+  const airnotes = readFileSync(new URL('../app/components/personal-quick-notes-panel.js', import.meta.url), 'utf8');
+  assert.match(quick, /notes\.length >= 270/);
+  assert.match(airnotes, /notes\.length >= 270/);
+  assert.match(airnotes, /disabled=\{creating \|\| atVaultLimit\}/);
+});

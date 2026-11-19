@@ -1,5 +1,17 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #126 — Restore Oge AirNotes page with GitHub Vault storage (19 Nov 2026)
+
+**User report:** Selecting **AirNotes** while GitHub Vault is enabled sent users to the unrelated generic Quick Capture page, replacing the original Oge AirNotes layout, card library, reader and editor.
+
+- Corrected `/airnotes` routing so connected GitHub users stay on the original page; incomplete Vault setup still redirects to setup. `PersonalQuickNotesPanel fullPage` and its existing AirNotes UI are reused, not redesigned.
+- The original AirNotes panel accepts a server-selected API path. Explicit MongoDB users keep `/api/personal-quick-notes`; GitHub-selected owners use new `/api/vault/airnotes` with the same array/object response shape and revision SHA supplied during edit/delete.
+- GitHub AirNotes are committed to individual `airnotes/<UUID>.json` files in the owner's private repository, using the existing signed GitHub App client and standalone typed capture serializer. No permanent AirNote text is written to MongoDB.
+- Fixed a separate **confirmed standalone writer bug**: GitHub reference read uses singular `GET /git/ref/heads/<branch>`, but its branch update needs plural `PATCH /git/refs/heads/<branch>`. Existing simulated provider tests enforce the correct paths.
+- New creates retain a client-generated UUID across uncertain responses; after uncertain create/update, the API verifies matching content from the current GitHub branch before reporting a successful Save. Failed writes do not silently fall back to MongoDB.
+- Existing MongoDB AirNotes remain untouched; there is no hidden migration. Read/edit/delete remain explicit, and the original page's design and controls are unchanged.
+- Added regression coverage for routing, original UI, owner-scoped GitHub API and typed AirNote content. Automated CI and live user-account verification are tracked separately. Notes MVP remains **8/10 (80%) implemented**, live acceptance pending, PR #35 unmerged, deployment last.
+
 ## Milestone #125 — Original Oge Notes styling without GitHub preview banners (19 Nov 2026)
 
 **User request:** Remove the unnecessary `← Return to Oge Vault` header, `GITHUB VAULT PREVIEW` banner and technical explanations in Notes; make the GitHub-backed Notes workspace look like ordinary Oge.

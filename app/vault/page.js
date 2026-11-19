@@ -123,6 +123,10 @@ export default async function VaultPage({ searchParams }) {
             {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Write a Quick Note →</Link>}
             {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}
             {recoveryCenterVisible && <Link className="oge-primary-link" href="/vault/recovery">Recovery Center — coverage and safety status →</Link>}
+            {user.notesStorage !== 'mongodb' && <>
+              <p className="oge-settings-note">Need a copy of everything currently committed in your Vault, including Saved Links and My Files? Open your private repository on GitHub, select <strong>Code → Download ZIP</strong>. This downloads a repository snapshot, not an Oge one-click restore. Keep it private; unsaved drafts are not included.</p>
+              <a className="oge-primary-link" href={'https://github.com/' + encodeURIComponent(vault.githubLogin) + '/' + encodeURIComponent(vault.repoName)} target="_blank" rel="noopener noreferrer">Open GitHub Vault for complete ZIP backup ↗</a>
+            </>}
             {currentResourceBackupVisible && <>
               <p className="oge-settings-note">Staging three-resource current snapshot backup includes private plaintext committed Notes, Quick Notes and AirNotes. Secure the downloaded JSON. Historical revisions, drafts and other account data are NOT included, and this file cannot be imported yet.</p>
               <a className="oge-primary-link" href="/api/vault/backup-current-resources" download="oge-vault-current-resources.json">Download current committed Vault resources (staging only) ↓</a>

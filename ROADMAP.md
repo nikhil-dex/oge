@@ -1,5 +1,20 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #129 — My Files mirrors OgeNotes, stored in each owner's private GitHub Vault (19 Nov 2026)
+
+**User request:** Bring the original `ogenotes` My Files workspace (image, PDF and ZIP uploads using Vercel Blob) into `oge`, without Oge hosting everyone's file content. Enable it **only** for users whose selected storage is connected GitHub Vault.
+
+- Copied the existing `nikhil-dex/ogenotes` `app/components/media-library.js` UI into `oge`: the original CSS already existed and remains in use. `/files` supports folder creation/rename/delete, browsing, search, PDF/ZIP/image filters, upload, protected image/PDF preview, ZIP download, file rename, move, private share link and delete.
+- Added the `/files` entry to the Oge home toolkit and nav **only for connected GitHub Vault owners**, plus a link on the connected Vault settings page. Explicit Oge Cloud/MongoDB users cannot access this repository-backed feature.
+- Replaced Vercel Blob entirely with a signed user-owned GitHub App client; file bytes are uploaded in **2 MiB Git blobs** and committed under `files/objects/<uuid>/part-0000` etc. with versioned metadata in `files/index.json`. Metadata and binary content both live in the owner's private `ogenotes-vault` repo, **not in MongoDB or shared Vercel Blob**.
+- Original 20 MiB per-file upload limit is retained. Initial practical bounds are **500 files**, **100 folders** and **200 MiB of current files per Vault** to limit GitHub API/repository growth. 20 MiB is split into up to 10 small requests, avoiding an oversized single server function body.
+- GitHub Saves create a non-forced commit on the owner's current branch; no forced history rewrites. Read-after-write checks verify the committed manifest. A lost response does not silently switch storage; repeat uploads from the same browser session reuse the original ID and chunk SHAs.
+- Signed-in owners download and preview through an authenticated, same-origin streaming endpoint supporting PDF byte ranges. Private share links require the same Oge account session and are **not public sharing links**.
+- Original format rules validate PDF, ZIP, JPEG, PNG and WebP names, sizes and magic bytes. Folder and file operations use the current Git SHA manifest and fail rather than overwriting concurrent GitHub branch changes.
+- **GitHub caveat:** This is a private Git repository, not unlimited cloud storage. Deleted/updated file blobs remain in historical Git commits unless Git history is rewritten outside Oge; repository size can continue growing. This is intentionally not represented as permanent physical erasure.
+- Added synthetic GitHub provider tests for upload blobs, folder/file CRUD, two-chunk uploads, SHA conflicts and current-library deletion, plus routing/UI contracts. Automated CI checks do not replace an actual connected account's PDF/ZIP/image upload/download/browser test.
+- This adds a new product capability **outside the original Notes MVP scorecard**: practical Notes milestones still **8/10 (80%)** with owner-account acceptance and production deployment pending. Keep PR #35 as draft and `main`/`backup` unchanged.
+
 ## Milestone #128 — Extension-only Quick Notes and clear AirNotes deletion (19 Nov 2026)
 
 **User request:** Show a proper **Delete** option in AirNotes. Remove Quick Notes creation from the Oge app, so the browser extension's **Save to Quick Notes** is the only way to create new Quick Notes; allow reading and deleting saved Quick Notes from Oge.

@@ -2,7 +2,7 @@
 
 The Chrome Manifest V3 extension now combines the original OgeNotes floating Quick Notes feature with the new Oge tools:
 
-- **Quick Note:** write while browsing. When your GitHub Vault is connected, select a subject and press **Save to GitHub Vault**; otherwise the original Quick Notes behavior remains available.
+- **Quick Note:** write while browsing. Choose **Quick Notes** (the default) to save to the Quick Notes inbox, or select a subject to save a regular Note in GitHub Vault.
 - **Save URL:** save the current page in Saved Links.
 - **My Links:** view the GitHub, LinkedIn and portfolio URLs saved in Profile, and copy or visit them.
 - A draggable **O** button appears at the bottom right of regular HTTP and HTTPS pages. The existing extension popup remains available for token setup, saving tabs, and profile links.
@@ -13,7 +13,7 @@ The Chrome Manifest V3 extension now combines the original OgeNotes floating Qui
 2. Sign in to your OgeNotes site and open **Browser Extension**. Generate an extension token.
 3. Open the Chrome extension popup, choose **Connect**, paste the site origin (such as `http://localhost:3000` for local development) and the token, and click **Save connection**. Approve host permission.
 4. **Reload existing website tabs** to inject the widget, click the floating **O** button, and use **Quick note** or **My links**. The header can be dragged.
-5. Connected Vault captures appear in **GitHub Notes** under the selected subject; other accounts still use **Quick Notes**. Saved tabs appear in **Saved Links**.
+5. For connected Vault accounts, **Quick Notes** captures appear in the Quick Notes inbox; subject-selected captures appear in GitHub Notes. Other accounts use their selected storage. Saved tabs appear in **Saved Links**.
 
 ## Security and limitations
 
@@ -25,9 +25,9 @@ The Chrome Manifest V3 extension now combines the original OgeNotes floating Qui
 - Browser behavior, keyboard shortcuts, connection revocation, and clipboard fallback require manual Chrome validation before deployment.
 - To revoke access, use the Browser Extension page in OgeNotes; deleting the local token alone is not server-side revocation.
 
-## Choose a subject when capturing
+## Choose where to save a capture
 
-In the floating Quick Note editor, **Save to** loads your available subjects. If your account has a connected Vault and the GitHub Notes editor is enabled, the widget chooses the first subject when available and displays **Save to GitHub Vault**. The first line becomes the heading; text below it becomes the body. **No subject is selected?** Add one in Oge's Quick Capture page. For accounts without a connected Vault, the original standalone Quick Notes and subject-based legacy behavior remains unchanged. An older extension build will receive an instruction to update instead of silently duplicating permanent MongoDB Notes for a connected Vault account.
+**Quick Notes** is the default destination. The extension can create Quick Notes; the Oge app can read, copy and delete them, but cannot create or edit them. Selecting an existing subject saves a regular Note instead. The first line becomes the title and the rest becomes the body. A GitHub Vault account writes to its private repository, not the legacy MongoDB Notes collection.
 
 ## Reset the extension
 

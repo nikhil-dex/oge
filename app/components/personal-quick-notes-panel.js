@@ -97,6 +97,8 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
   const [editSaving, setEditSaving] = useState(false);
   const pendingCreateId = useRef(null);
   const noteRevisionsRef = useRef(new Map());
+  const inFlightRef = useRef(new Set());
+  const [saveCycle, setSaveCycle] = useState(0);
   const vaultBacked = apiPath === '/api/vault/airnotes';
   useEffect(() => {
     noteRevisionsRef.current = new Map(notes.map((note) => [note.id, note.sha]));
@@ -122,27 +124,37 @@ export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/
     if (!entries.length) return undefined;
     const timer = setTimeout(async () => {
       await Promise.all(entries.map(async ([id, content]) => {
+        if (inFlightRef.current.has(id)) return;
+        inFlightRef.current.add(id);
         setSavingIds((current) => ({ ...current, [id]: true }));
+        let saved = false;
         try {
           const result = await readResponse(await fetch(apiPath, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, content, ...(vaultBacked ? { sha: noteRevisionsRef.current.get(id) } : {}) }),
+            body: JSON.stringify({ id, content,
+              ...(vaultBacked ? { sha: noteRevisionsRef.current.get(id) } : {}) }),
           }));
+          if (vaultBacked) noteRevisionsRef.current.set(id, result.sha);
           setNotes((current) => current.map((note) => note.id === id
-            ? { ...note, title: result.title, updatedAt: result.updatedAt }
-            : note));
+            ? { ...note, title: result.title, updatedAt: result.updatedAt,
+              ...(vaultBacked ? { sha: result.sha } : {}) } : note));
           setSaveErrors((current) => ({ ...current, [id]: '' }));
-          setDirty((current) => current[id] === content ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)) : current);
+          setDirty((current) => current[id] === content
+            ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== id))
+            : current);
+          saved = true;
         } catch (err) {
           setSaveErrors((current) => ({ ...current, [id]: err.message || 'Could not save this note.' }));
         } finally {
+          inFlightRef.current.delete(id);
           setSavingIds((current) => ({ ...current, [id]: false }));
+          if (saved) setSaveCycle((cycle) => cycle + 1);
         }
       }));
     }, 700);
     return () => clearTimeout(timer);
-  }, [dirty, apiPath, vaultBacked]);
+  }, [dirty, apiPath, vaultBacked, saveCycle]);
 
   async function addNote() {
     if (creating) return;

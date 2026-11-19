@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #127 standalone Notes storage routing fix.**
+**Updated 19 November 2026, after milestone #129 GitHub-backed My Files.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,39 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #129 — My Files using private GitHub Vault
+
+Ported the original `nikhil-dex/ogenotes` My Files interface into
+`oge` at `/files`, keeping its folder/card layout, filters, search,
+multi-file uploads, rename, move, delete, PDF/image previews, ZIP downloads
+and same-user private sharing URLs. The old CSS was already present.
+The home toolkit and navigation link to My Files only for connected
+GitHub Vault users; explicit MongoDB/Oge Cloud users cannot use it.
+
+New owner-verified `/api/vault/media` stores file bytes in 2 MiB Git blobs
+and commits a versioned `files/index.json` plus references under
+`files/objects/<uuid>/part-0000` in each user's private repository.
+No Vercel Blob store is required, and MongoDB stores **no media bytes
+or file-library metadata**. The original file formats and 20 MiB upload
+cap remain; current media inventory is capped at 500 files, 100 folders,
+and 200 MiB. Immutable chunk SHA checking, file signatures, non-forced
+Git branch updates and read-back verification support safe commits.
+The streaming same-origin content endpoint provides HTTP Range for PDFs
+and requires the owner's signed-in Oge session.
+
+**Important:** GitHub is a version-control repository, not unlimited
+cloud file storage. Files removed from the current library can still
+exist in old commits and contribute to repository size. Oge cannot
+physically erase historical Git blobs through regular Delete.
+New upload retries in the same browser session preserve the file ID
+and uploaded chunk references.
+
+Synthetic provider tests cover folder/file operations, multi-part uploads,
+storage exclusivity and original UI. Actual connected-owner uploads,
+previews and downloads remain to be tested. This adds product scope
+without changing the agreed Notes MVP score: **8/10 (80%)**; no merge,
+production deployment or Notes migration yet.
 
 ## Milestone #128 — Quick Notes created only by extension; AirNotes Delete visible
 

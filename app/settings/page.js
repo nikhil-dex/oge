@@ -88,7 +88,7 @@ export default async function SettingsPage() {
               : 'Connect a private GitHub repository for committed Notes. The Vault setup page has an installation link, an authorization button and connection status.'}</p>
             <p className="oge-settings-note">Notes storage selected: <strong>{user.notesStorage === 'github' ? 'GitHub Vault' : user.notesStorage === 'mongodb' ? 'MongoDB' : 'Existing workspace / not yet selected'}</strong>. Connecting a GitHub repository does not automatically move previously saved MongoDB Notes or change a MongoDB storage selection.</p>
             <Link className="oge-primary-link" href="/vault">{vaultConnected ? 'Manage my connected GitHub Vault →' : 'Set up GitHub Vault →'}</Link>
-            {!vaultConnected && !vaultEnabled && <p className="oge-settings-note" role="status">The GitHub connection button will be unavailable until Oge's GitHub App is configured on this server. Open the setup page for the configuration guide.</p>}
+            {!vaultConnected && !vaultEnabled && <p className="oge-settings-note" role="status">The GitHub connection button will be unavailable until Oge&apos;s GitHub App is configured on this server. Open the setup page for the configuration guide.</p>}
           </section>
 
           <footer className="oge-settings-footer"><Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link><span>YOUR WORKSPACE · YOUR WAY</span></footer>

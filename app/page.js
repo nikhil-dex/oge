@@ -8,6 +8,7 @@ import HomeNewsFeed from './components/home-news-feed';
 import EnglishWordExplainer from './components/english-word-explainer';
 import HomeDashboard from './components/home-dashboard';
 import QuickNotesPanel from './components/quick-notes-panel';
+import { githubVaultFilesEnabled } from '../lib/oge-vault-media-validation.js';
 
 const modules = [
   { number: '01', group: 'LEARN', title: 'Notes', description: 'Organize ideas, study material, and everything worth keeping.', href: '/notes', icon: '▤', featured: true },
@@ -44,8 +45,14 @@ export default async function HomePage() {
   const quickNotesApi = account.notesStorage === 'github' ||
     (account.notesStorage !== 'mongodb' && account.vault?.status === 'connected')
     ? '/api/vault/quick-notes' : '/api/quick-notes';
+  const filesReady = githubVaultFilesEnabled(account);
   const visibleModules = [
     ...modules,
+    ...(filesReady ? [{
+      number: '06', group: 'COLLECT', title: 'My Files',
+      description: 'Store PDF documents, images and ZIPs in your private GitHub Vault.',
+      href: '/files', icon: '▣',
+    }] : []),
     ...(captureReady ? [{
       number: '06', group: 'CAPTURE', title: 'Quick Capture',
       description: 'Write a note fast. Choose a subject and press Save.',
@@ -60,7 +67,7 @@ export default async function HomePage() {
 
   return (
     <main className="shell hub-shell oge-shell">
-      <SiteNavbar notesHref={notesHref} actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
+      <SiteNavbar notesHref={notesHref} showFiles={filesReady} actions={<><Link className="oge-signin" href="/settings">Settings <span aria-hidden="true">↗</span></Link><ThemeToggle /></>} />
 
       <HomeNewsFeed />
 

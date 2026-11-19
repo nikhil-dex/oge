@@ -1,5 +1,18 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #127 — Fix Quick Notes and AirNotes calling legacy MongoDB routes for GitHub owners (19 Nov 2026)
+
+**Real user report:** Both Quick Notes and AirNotes showed `Your Notes storage is GitHub Vault. Open your GitHub-backed Notes instead.` The message originates in the legacy MongoDB cutover guard. The guard is correct for MongoDB endpoints but the home Quick Notes widget and standalone Quick Notes page still called those routes.
+
+- Added signed owner-scoped `/api/vault/quick-notes` using the existing standalone GitHub serializer, GitHub App client, and individual `quick-notes/<UUID>.json` files. Supports list, create, edit and delete with file SHA conflict checks and read-back recovery of uncertain commits. Does not write permanent Quick Note content to MongoDB.
+- Both `/quick-notes` and `/airnotes` keep the **original Oge** UI; they select an API by the signed user's storage preference, with no generic Quick Capture redirect. Incomplete Vault setup still redirects to setup.
+- The **home page Quick Notes widget** now receives the selected provider API instead of unconditionally requesting `/api/quick-notes`. A disconnected GitHub Vault does not silently switch to MongoDB.
+- Quick Notes' regular full-page editor and home widget send current GitHub SHA for update/delete, preserve a create UUID across uncertain responses, and update SHA after confirmed saves.
+- Fixed AirNotes and Quick Notes autosave loops to advance the GitHub SHA on each successful PUT and avoid overlapping writes on the same capture. Existing card/editor layout remains the same.
+- Kept the old `/api/quick-notes` and `/api/personal-quick-notes` cutover guards intact for explicit MongoDB-only data; historic MongoDB content remains untouched and is not silently migrated.
+- Added tests checking client URLs, authenticated GitHub write routes, storage separation, UI parity, legacy guard retention and timestamped typed captures.
+- Notes MVP implementation remains **8/10 (80%)**, independently authenticated end-to-end acceptance pending, deployment/merge deferred.
+
 ## Milestone #126 — Restore Oge AirNotes page with GitHub Vault storage (19 Nov 2026)
 
 **User report:** Selecting **AirNotes** while GitHub Vault is enabled sent users to the unrelated generic Quick Capture page, replacing the original Oge AirNotes layout, card library, reader and editor.

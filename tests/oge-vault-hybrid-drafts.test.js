@@ -85,7 +85,7 @@ test('familiar Notes hybrid editor is opt-in and preserves legacy production mod
   assert.match(page, /An unsynced draft exists/);
   assert.match(page, /Browser and server drafts differ/);
   assert.match(page, /crypto\.randomUUID\(\)/);
-  assert.match(page, /recoverNewHybridDraft\(activeSubject, generation\)/);
+  assert.match(page, /recoverNewHybridDraft\(subjectId, generation\)/);
   assert.match(page, /newDraftPointerKey\(subjectId\)/);
   assert.match(page, /sessionStorage\.getItem\(newDraftPointerKey\(subjectId\)\)/);
   assert.match(page, /hybridDrafts \? \{ \.\.\.payload, id: newDraftId \} : payload/);

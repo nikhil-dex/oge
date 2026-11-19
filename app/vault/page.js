@@ -113,7 +113,10 @@ export default async function VaultPage({ searchParams }) {
             <p className="oge-settings-note">{user.notesStorage === 'mongodb'
               ? 'You selected MongoDB for your everyday Notes. This GitHub repository remains connected, but your Notes still use the MongoDB workspace until you explicitly change storage and review any migration.'
               : 'Your Notes workspace saves committed Notes in your private GitHub repository. Quick Capture uses the same subjects and saves there when you press Save. Other legacy note features remain separate until migrated.'}</p>
-            {previewEnabled && <Link className="oge-primary-link" href="/vault/preview">Open GitHub-only Notes preview →</Link>}
+            {/* The familiar Notes UI is the only everyday editing entrypoint.
+                Keep the older B3 preview out of the connected-user navigation. */}
+            {previewEnabled && !mainPreviewEnabled &&
+              <Link className="oge-primary-link" href="/vault/preview">Open legacy Notes preview →</Link>}
             {mainPreviewEnabled && <Link className="oge-primary-link" href="/vault/notes">Open My Notes →</Link>}
             {capturePreviewEnabled && <Link className="oge-primary-link" href="/vault/capture">Write a Quick Note →</Link>}
             {standaloneEditorVisible && <Link className="oge-primary-link" href="/vault/standalone-editor">GitHub-backed Quick Notes &amp; AirNotes (staging preview) →</Link>}

@@ -12,6 +12,7 @@
 - Signed-in owners download and preview through an authenticated, same-origin streaming endpoint supporting PDF byte ranges. Private share links require the same Oge account session and are **not public sharing links**.
 - Original format rules validate PDF, ZIP, JPEG, PNG and WebP names, sizes and magic bytes. Folder and file operations use the current Git SHA manifest and fail rather than overwriting concurrent GitHub branch changes.
 - **GitHub caveat:** This is a private Git repository, not unlimited cloud storage. Deleted/updated file blobs remain in historical Git commits unless Git history is rewritten outside Oge; repository size can continue growing. This is intentionally not represented as permanent physical erasure.
+- The older JSON-only Vault backup/export tools are for Notes, Quick Notes and AirNotes; **they do not yet include these uploaded binary files**. Binary file history is kept separately in the GitHub repository. Importing legacy OgeNotes Vercel Blob files is not automatic.
 - Added synthetic GitHub provider tests for upload blobs, folder/file CRUD, two-chunk uploads, SHA conflicts and current-library deletion, plus routing/UI contracts. Automated CI checks do not replace an actual connected account's PDF/ZIP/image upload/download/browser test.
 - This adds a new product capability **outside the original Notes MVP scorecard**: practical Notes milestones still **8/10 (80%)** with owner-account acceptance and production deployment pending. Keep PR #35 as draft and `main`/`backup` unchanged.
 

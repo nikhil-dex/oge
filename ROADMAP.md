@@ -1,5 +1,18 @@
 # OgeNotes — Product and Engineering Roadmap
 
+## Milestone #128 — Extension-only Quick Notes and clear AirNotes deletion (19 Nov 2026)
+
+**User request:** Show a proper **Delete** option in AirNotes. Remove Quick Notes creation from the Oge app, so the browser extension's **Save to Quick Notes** is the only way to create new Quick Notes; allow reading and deleting saved Quick Notes from Oge.
+
+- AirNotes original card now has a visible **Delete** label rather than a small ×, and its reader toolbar and edit dialog also expose **Delete / Delete AirNote** with confirmation. Successful deletion closes open modals and removes the card.
+- `/quick-notes` and the home-page Quick Notes widget now present a read-only capture inbox with **read, copy, and delete**, without Add buttons, editable content or in-app Save actions. Existing Quick Notes remain available.
+- Both web Quick Notes APIs (`/api/quick-notes` and `/api/vault/quick-notes`) now reject browser POST/PUT (HTTP 405). Their GET and DELETE remain available; extension-specific endpoints perform creation.
+- Fixed a **real extension destination bug**: the previous GitHub-connected widget automatically selected the first subject and prevented selecting default Quick Notes. It now defaults to **Quick Notes** for both storage modes. Selecting a subject still saves a regular subject Note.
+- New bearer-token endpoint `/api/extension/vault-quick-note` commits a typed file to the connected owner's `quick-notes/<UUID>.json` GitHub directory. A stable extension-generated capture ID, read-back verification and no blind retry prevent uncertain saves from duplicating Notes. Explicit Oge Cloud owners continue using the existing extension Quick Notes MongoDB endpoint.
+- The extension service worker only uses the private GitHub endpoint for GitHub-selected Quick Notes and the existing subject-note endpoint when a subject is selected. Extension auth and login/session owner selection remain unchanged; no cross-provider content fallback.
+- Added/updated regression tests covering extension routing, GitHub-only writes, no app creation/edit controls, AirNotes deletion, storage paths and the unchanged legacy cutover guard.
+- Notes MVP implementation remains **8/10 (80%)** under the existing scorecard; independent authenticated extension tests still required; PR #35 draft and unmerged, deployment last.
+
 ## Milestone #127 — Fix Quick Notes and AirNotes calling legacy MongoDB routes for GitHub owners (19 Nov 2026)
 
 **Real user report:** Both Quick Notes and AirNotes showed `Your Notes storage is GitHub Vault. Open your GitHub-backed Notes instead.` The message originates in the legacy MongoDB cutover guard. The guard is correct for MongoDB endpoints but the home Quick Notes widget and standalone Quick Notes page still called those routes.

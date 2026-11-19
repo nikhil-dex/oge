@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #118 onboarding storage choice.**
+**Updated 19 November 2026, after milestone #120 Add a note first-use fix.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,21 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #120 — Notes creation without an existing subject
+
+A real user found **Add a note** disabled after connecting GitHub Vault,
+because both Notes buttons required `activeSubject` and supplied no
+explanation when no subject had been created/selected. Both buttons now open
+the Add subject form instead of silently doing nothing. The subject input
+receives focus, and successfully creating the first subject automatically
+opens the Note editor in that subject. Cancel leaves the workspace unchanged.
+The subject requirement remains explicit; note content is still saved only
+through the user's selected backend and the existing manual Save action.
+
+Executable source-level regression tests cover both entry points and the
+handoff. No signed-in real GitHub/Chrome browser test has run. **Implementation
+8/10 (80%); live acceptance 0/3; no merge or deployment.**
 
 ## Milestone #118 — Choose Notes storage alongside first-run news interests
 

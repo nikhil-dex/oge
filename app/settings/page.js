@@ -59,7 +59,7 @@ export default async function SettingsPage() {
             <Link className="oge-primary-link" href="/profile">Open your profile →</Link>
           </section>
 
-          <SettingsClient accountDeletionEnabled={process.env.OGE_ACCOUNT_DELETION_ENABLED === 'true'} />
+          <SettingsClient accountDeletionEnabled={process.env.OGE_ACCOUNT_DELETION_ENABLED === 'true'} githubVaultSelected={user.notesStorage === 'github'} />
 
           <section className="oge-settings-card" id="news-preferences" aria-labelledby="news-preferences-heading">
             <div className="oge-settings-card-heading"><div><span className="oge-section-kicker">05 · PERSONALIZATION</span><h2 id="news-preferences-heading">News preferences</h2></div></div>

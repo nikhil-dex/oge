@@ -774,7 +774,7 @@ export default function NotesPage({
       setAnswerFullscreen(false);
       setPreview(false);
       setEditingId(note.id);
-      setMessage(vaultMode ? 'Note saved to GitHub successfully.' : 'Note saved successfully.');
+      setMessage('Note saved successfully.');
       await load(activeSubject);
     } catch (err) {
       if (attemptedGitHubSave && hybridDrafts && vaultMode) {
@@ -828,7 +828,7 @@ export default function NotesPage({
                 setAnswerFullscreen(false);
                 setPreview(false);
                 setEditingId(reconciled.note.id);
-                setMessage('Note saved to GitHub successfully — commit recovered.');
+                setMessage('Note saved successfully.');
                 await load(activeSubject);
                 return;
               }
@@ -1047,9 +1047,6 @@ export default function NotesPage({
 
   return (
     <main className="shell">
-      {vaultMode && <div role="status" className="oge-vault-editor-notice">✳ GITHUB VAULT PREVIEW · {hybridDrafts
-        ? 'Temporary encrypted drafts autosave to MongoDB. Press Save to commit to your private GitHub repository.'
-        : 'Notes are written to your private GitHub repository. You must manually save changes.'}</div>}
       <SiteNavbar notesHref={vaultMode ? '/vault/notes' : '/notes'} actions={<ThemeToggle />} />
 
       <nav className="subject-nav" aria-label="Subjects">
@@ -1094,7 +1091,7 @@ export default function NotesPage({
       </section>
 
       <section className="stats" aria-label="Note statistics">
-        <div className="stat"><span className="stat-number">{String(vaultMode ? (totalVaultNotes ?? notes.length) : notes.length).padStart(2, '0')}</span><span className="stat-label">{vaultMode ? 'GITHUB NOTES' : 'TOTAL NOTES'}</span></div>
+        <div className="stat"><span className="stat-number">{String(vaultMode ? (totalVaultNotes ?? notes.length) : notes.length).padStart(2, '0')}</span><span className="stat-label">TOTAL NOTES</span></div>
         <div className="stat-divider" />
         <div className="stat"><span className="stat-number">{String(subjects.length).padStart(2, '0')}</span><span className="stat-label">SUBJECTS</span></div>
         <div className="stat-spacer" />
@@ -1117,7 +1114,7 @@ export default function NotesPage({
           <p role="status">Searching {notes.length} of {totalVaultNotes ?? notes.length} loaded Notes. Older notes may be on other GitHub pages.</p>
           <button type="button" className="add-button" onClick={() => void scanRemainingVaultNotes()}
             disabled={searchScanBusy || loadingMoreNotes || loading || saving || noteDialog}>
-            {searchScanBusy ? 'Searching…' : 'Search remaining GitHub Notes'}
+            {searchScanBusy ? 'Searching…' : 'Search all notes'}
           </button>
           {searchScanBusy && <button type="button" className="text-button"
             onClick={() => searchScanRef.current?.abort()}>Stop search</button>}
@@ -1145,10 +1142,10 @@ export default function NotesPage({
               : vaultMode && nextNotesCursor && !globalSearch && !favoritesOnly && !selectedTag
                 ? 'No Notes from this subject loaded yet' : 'Start your collection'}</h3>
               <p>{query ? (vaultMode && nextNotesCursor
-                ? 'Use Search remaining GitHub Notes above to check older pages.'
+                ? 'Use Search all notes above to check older pages.'
                 : 'Try another search, or clear the filters.')
                 : vaultMode && nextNotesCursor && !globalSearch && !favoritesOnly && !selectedTag
-                  ? 'Your GitHub library has more pages. Notes for this subject may be farther down.'
+                  ? 'More notes may be available. Load them to find notes in this subject.'
                   : !activeSubject
                     ? 'Create a subject first; it helps organize your notes. Add a note will guide you through setup.'
                     : 'Add a note to this subject, then come back to study it.'}</p>
@@ -1163,10 +1160,10 @@ export default function NotesPage({
                 <span>＋</span> {activeSubject ? 'Add a note' : 'Create a subject to add notes'}
               </button></div>}
         {vaultMode && <div className="oge-vault-notes-pagination">
-          <p role="status">Showing {notes.length} of {totalVaultNotes ?? notes.length} GitHub notes. Search, filters and sorting apply to loaded notes. Use Search remaining GitHub Notes to include older pages.</p>
+          <p role="status">{notes.length} of {totalVaultNotes ?? notes.length} notes loaded</p>
           {nextNotesCursor && <button type="button" className="add-button" onClick={() => void loadMoreVaultNotes()}
             disabled={loadingMoreNotes || searchScanBusy || saving || noteDialog}>
-            {loadingMoreNotes ? 'Loading…' : 'Load more GitHub notes'}
+            {loadingMoreNotes ? 'Loading…' : 'Load more notes'}
           </button>}
         </div>}
       </section>
@@ -1201,7 +1198,7 @@ export default function NotesPage({
             <p className={'oge-editor-feedback oge-editor-feedback--' + editorFeedback.kind}
               role="status" aria-live="polite">{editorFeedback.label}</p>
             {vaultMode && hybridDrafts && draftStatus && <p className="oge-editor-draft-detail">
-              {draftStatus === 'Draft saved' ? 'Temporary draft only — not yet committed.' : draftStatus}
+              {draftStatus === 'Draft saved' ? 'Draft saved · press Save to finish.' : draftStatus}
             </p>}
             {hybridError && <p role="alert" className="form-error">{hybridError}</p>}
             {hybridDrafts && hybridReady && hybridError && !hybridError.startsWith('Draft conflict:') &&
@@ -1213,11 +1210,11 @@ export default function NotesPage({
             <div className="oge-editor-save-footer">
               <div className="oge-editor-save-meta">
                 <span>{editorMetrics.words} {editorMetrics.words === 1 ? 'word' : 'words'} · {editorMetrics.characters.toLocaleString('en-IN')} / 20,000 characters</span>
-                <span>{vaultMode ? 'Saved to private GitHub only when you press Save' : 'Press Save to keep your changes'}</span>
+                <span>Press Save to keep your changes</span>
               </div>
               <button className="submit-button" type="submit"
                 disabled={saving || !activeSubject || (hybridDrafts && !hybridReady)}>
-                <span>{saving ? 'Saving…' : vaultMode ? 'Save to GitHub' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span>
+                <span>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Save note'}</span><span aria-hidden="true">→</span>
               </button>
               <p className="field-hint">Tip: press Ctrl+Enter (Windows) or ⌘+Enter (Mac) to Save.</p>
             </div>

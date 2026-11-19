@@ -8,7 +8,7 @@
 - **Fixed:** The extension README now explains extension-only Quick Notes capture (default destination) and subject-selected regular Notes.
 - **Fixed:** My Files native sharing sends the actual downloaded file when supported; otherwise the fallback downloads the file for manual attachment instead of copying a private signed-in URL.
 - **Added:** Small regression tests covering these behavior contracts.
-- **Still open, high priority:** Full backup/export and restore of Saved Links and My Files. Do not claim JSON resource backups include these.
+- **Practical full backup path:** Connected GitHub owners now get an explicit link and instructions to use GitHub's **Code → Download ZIP**. That repository snapshot contains committed Notes, Quick Notes, AirNotes, Saved Links, and My Files. Unsaved drafts are excluded. This is not an automatic Oge restore; the limited three-resource JSON export remains unchanged.\n- **Still open, high priority:** Oge-managed complete backup/restore and signed-in restore acceptance. Do not claim that existing JSON backups include Saved Links or My Files.
 - **Fixed:** Quick Notes and AirNotes pages now redirect GitHub-selected users with unavailable Vault capture to Vault setup rather than initializing a MongoDB API path. Added regression coverage.\n- **Still open:** Consolidate feature availability checks across all Vault APIs and screens; review AirNotes save cadence, harmonize navigation and show capacity warnings.
 - **Release:** Keep PR #35 draft and do not deploy until CI and real-account flows are verified.
 

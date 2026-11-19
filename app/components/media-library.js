@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SiteNavbar from './site-navbar';
+import { canPreviewMediaFile } from '../../lib/oge-vault-media-validation.js';
 
 async function readResponse(response) {
   const data = await response.json().catch(() => ({}));
@@ -55,7 +56,10 @@ export default function MediaLibrary() {
   const visibleFolders = useMemo(() => folders.filter((folder) => folder.name.toLowerCase().includes(query.trim().toLowerCase())), [folders, query]);
   const visibleFiles = useMemo(() => files.filter((file) => {
     const matchesQuery = file.name.toLowerCase().includes(query.trim().toLowerCase());
-    const matchesType = typeFilter === 'all' || (typeFilter === 'pdf' ? file.type === 'application/pdf' : typeFilter === 'zip' ? file.type === 'application/zip' : file.type.startsWith('image/'));
+    const category = file.type === 'application/pdf' ? 'pdf'
+      : file.type === 'application/zip' ? 'zip'
+        : file.type.startsWith('image/') ? 'images' : 'other';
+    const matchesType = typeFilter === 'all' || typeFilter === category;
     return matchesQuery && matchesType;
   }), [files, query, typeFilter]);
 
@@ -103,7 +107,7 @@ export default function MediaLibrary() {
     try {
       for (const file of selected) {
         const type = file.name.toLowerCase().endsWith('.zip')
-          ? 'application/zip' : (file.type || '');
+          ? 'application/zip' : (file.type || 'application/octet-stream');
         const size = file.size;
         if (!size || size > 20 * 1024 * 1024)
           throw new Error('Choose a file between 1 byte and 20 MB.');
@@ -146,6 +150,10 @@ export default function MediaLibrary() {
   }
 
   async function openPreview(file) {
+    if (!canPreviewMediaFile(file)) {
+      await downloadFile(file);
+      return;
+    }
     setError('');
     try {
       const result = await readResponse(await fetch('/api/vault/media?action=download&id=' + encodeURIComponent(file.id), { cache: 'no-store' }));
@@ -244,32 +252,32 @@ export default function MediaLibrary() {
       <SiteNavbar showFiles notesHref="/vault/notes" />
       <section className="media-hero">
         <p className="eyebrow">PRIVATE RESOURCE SPACE</p>
-        <div className="media-title-row"><div><h1>My Files<span className="period">.</span></h1><p className="hub-lead">Keep images, PDFs, and ZIP archives organized in private folders.</p></div><span className="media-private-pill">♢ Private storage</span></div>
+        <div className="media-title-row"><div><h1>My Files<span className="period">.</span></h1><p className="hub-lead">Keep files of any type organized in private folders.</p></div><span className="media-private-pill">♢ Private storage</span></div>
       </section>
 
-      <section className="media-workspace" aria-label="Image and PDF library">
+      <section className="media-workspace" aria-label="Private file library">
         <div className="media-toolbar">
           <div className="media-search"><span aria-hidden="true">⌕</span><input aria-label="Search files and folders" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search this folder…" /></div>
           <div className="media-toolbar-actions">
             <button className="study-button" type="button" disabled={busy} onClick={createFolder}>＋ Folder</button>
             <button className="add-button" type="button" disabled={busy} onClick={() => uploadRef.current?.click()}>↑ Upload files</button>
-            <input ref={uploadRef} className="media-hidden-input" type="file" accept=".pdf,.zip,.jpg,.jpeg,.png,.webp,application/pdf,application/zip,image/jpeg,image/png,image/webp" multiple onChange={uploadFiles} />
+            <input ref={uploadRef} className="media-hidden-input" type="file" multiple onChange={uploadFiles} />
           </div>
         </div>
         <div className="media-breadcrumbs"><button type="button" onClick={() => loadLibrary(null)}>My Files</button>{currentFolder && <><span>/</span><strong>{currentFolder.name}</strong></>}</div>
-        <div className="media-filter-row"><span>{currentFolder ? 'CURRENT FOLDER' : 'ALL FILES'}</span><div className="media-type-filters">{[['all','All'],['pdf','PDFs'],['zip','ZIPs'],['images','Images']].map(([value,label]) => <button key={value} className={typeFilter === value ? 'active' : ''} type="button" onClick={() => setTypeFilter(value)}>{label}</button>)}</div></div>
+        <div className="media-filter-row"><span>{currentFolder ? 'CURRENT FOLDER' : 'ALL FILES'}</span><div className="media-type-filters">{[['all','All'],['pdf','PDFs'],['zip','ZIPs'],['images','Images'],['other','Other']].map(([value,label]) => <button key={value} className={typeFilter === value ? 'active' : ''} type="button" onClick={() => setTypeFilter(value)}>{label}</button>)}</div></div>
         {error && <p className="media-feedback is-error" role="alert">{error}</p>}
         {message && <p className="media-feedback" role="status">{message}</p>}
         {busy && <p className="media-inline-status" role="status">Working… Keep this page open until the operation finishes.</p>}
         {loading ? <p className="media-empty">Loading your private library…</p> : (
           <>
             {!query && visibleFolders.length > 0 && <div className="media-folder-grid">{visibleFolders.map((folder) => <article className="media-folder-card" key={folder.id}><button className="media-folder-open" type="button" onClick={() => loadLibrary(folder.id)}><span className="media-folder-icon">▰</span><strong>{folder.name}</strong><small>Folder</small></button><div className="media-folder-actions"><button type="button" onClick={() => renameFolder(folder)} disabled={busy} aria-label={`Rename ${folder.name}`}>Rename</button><button type="button" onClick={() => deleteFolder(folder)} disabled={busy} aria-label={`Delete ${folder.name}`}>Delete</button></div></article>)}</div>}
-            {visibleFiles.length > 0 ? <div className="media-file-grid">{visibleFiles.map((file) => <article className="media-file-card" key={file.id}><button className="media-file-preview" type="button" onClick={() => openPreview(file)} aria-label={`Preview ${file.name}`}>{file.type.startsWith('image/') ? <span className="media-file-image">▧</span> : file.type === 'application/zip' ? <span className="media-file-pdf">ZIP</span> : <span className="media-file-pdf">PDF</span>}</button><div className="media-file-info"><strong title={file.name}>{file.name}</strong><span>{formatBytes(file.size)} · {formatDate(file.updatedAt || file.createdAt)}</span><div className="media-file-actions"><button type="button" onClick={() => openPreview(file)}>Preview</button><button type="button" onClick={() => downloadFile(file)} disabled={busy}>Download</button><button type="button" onClick={() => renameFile(file)} disabled={busy}>Rename</button><button type="button" onClick={() => shareFile(file)} disabled={busy}>Share</button><button type="button" onClick={() => moveFile(file)} disabled={busy}>Move</button><button type="button" onClick={() => deleteFile(file)} disabled={busy}>Delete</button></div></div></article>)}</div> : <div className="media-empty"><span className="media-empty-icon">▧</span><h2>{query ? 'No matches found' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename or clear your search.' : 'Upload an image, PDF, or ZIP archive, or create a folder to get started.'}</p></div>}
+            {visibleFiles.length > 0 ? <div className="media-file-grid">{visibleFiles.map((file) => <article className="media-file-card" key={file.id}><button className="media-file-preview" type="button" onClick={() => openPreview(file)} aria-label={(canPreviewMediaFile(file) ? 'Preview ' : 'Download ') + file.name}>{canPreviewMediaFile(file) && file.type.startsWith('image/') ? <span className="media-file-image">▧</span> : <span className="media-file-pdf">{file.type === 'application/pdf' ? 'PDF' : file.type === 'application/zip' ? 'ZIP' : (file.name.split('.').at(-1) || 'FILE').slice(0, 5).toUpperCase()}</span>}</button><div className="media-file-info"><strong title={file.name}>{file.name}</strong><span>{formatBytes(file.size)} · {formatDate(file.updatedAt || file.createdAt)}</span><div className="media-file-actions">{canPreviewMediaFile(file) && <button type="button" onClick={() => openPreview(file)}>Preview</button>}<button type="button" onClick={() => downloadFile(file)} disabled={busy}>Download</button><button type="button" onClick={() => renameFile(file)} disabled={busy}>Rename</button><button type="button" onClick={() => shareFile(file)} disabled={busy}>Share</button><button type="button" onClick={() => moveFile(file)} disabled={busy}>Move</button><button type="button" onClick={() => deleteFile(file)} disabled={busy}>Delete</button></div></div></article>)}</div> : <div className="media-empty"><span className="media-empty-icon">▧</span><h2>{query ? 'No matches found' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename or clear your search.' : 'Upload any file, or create a folder to get started.'}</p></div>}
           </>
         )}
       </section>
       <footer><span>Keep useful files close at hand.</span><span>OGENOTES · PRIVATE FILE LIBRARY</span></footer>
-      {preview && <div className="media-preview-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreview(null); }}><section className="media-preview-dialog" role="dialog" aria-modal="true" aria-label={`Preview ${preview.name}`}><div className="media-preview-header"><div><strong>{preview.name}</strong><span>{formatBytes(preview.size)}</span></div><div><button type="button" onClick={() => downloadFile(preview)} disabled={busy}>Download</button><button type="button" onClick={() => renameFile(preview)} disabled={busy}>Rename</button><button type="button" onClick={() => shareFile(preview)} disabled={busy}>Share</button><button className="media-preview-close" type="button" onClick={() => setPreview(null)} aria-label="Close preview">×</button></div></div>{preview.type === 'application/pdf' ? <iframe title={preview.name} src={preview.url} className="media-pdf-frame" /> : preview.type === 'application/zip' ? <div className="media-empty"><h2>ZIP archive</h2><p>Download this ZIP to open its contents.</p></div> : <img src={preview.url} alt={preview.name} className="media-image-preview" />}</section></div>}
+      {preview && <div className="media-preview-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreview(null); }}><section className="media-preview-dialog" role="dialog" aria-modal="true" aria-label={`Preview ${preview.name}`}><div className="media-preview-header"><div><strong>{preview.name}</strong><span>{formatBytes(preview.size)}</span></div><div><button type="button" onClick={() => downloadFile(preview)} disabled={busy}>Download</button><button type="button" onClick={() => renameFile(preview)} disabled={busy}>Rename</button><button type="button" onClick={() => shareFile(preview)} disabled={busy}>Share</button><button className="media-preview-close" type="button" onClick={() => setPreview(null)} aria-label="Close preview">×</button></div></div>{canPreviewMediaFile(preview) && preview.type === 'application/pdf' ? <iframe title={preview.name} src={preview.url} className="media-pdf-frame" /> : canPreviewMediaFile(preview) ? <img src={preview.url} alt={preview.name} className="media-image-preview" /> : <div className="media-empty"><p>Download this file to open it.</p></div>}</section></div>}
     </>
   );
 }

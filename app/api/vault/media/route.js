@@ -39,7 +39,7 @@ async function context({ readOnly = false } = {}) {
 function errorResponse(error) {
   if (error instanceof VaultGitHubError) {
     return json({ error: error.message },
-      [400, 401, 403, 404, 409, 413, 429].includes(error.status) ? error.status : 503);
+      [400, 401, 403, 404, 409, 413, 416, 429].includes(error.status) ? error.status : 503);
   }
   if (error instanceof TypeError || error instanceof SyntaxError)
     return json({ error: error.message }, 400);

@@ -23,6 +23,9 @@ export default async function AirNotesLayout({ children }) {
   );
   if (!account) redirect('/register');
   const destination = standaloneNotesDestination(account);
-  if (destination) redirect(destination);
+  // M126: GitHub Vault users keep the ORIGINAL /airnotes screen.
+  // The page chooses its GitHub-backed API; only a missing storage choice
+  // or incomplete GitHub setup redirects to onboarding/setup.
+  if (destination && destination !== '/vault/capture') redirect(destination);
   return children;
 }

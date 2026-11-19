@@ -46,8 +46,11 @@ export default async function HomePage() {
     (account.notesStorage !== 'mongodb' && account.vault?.status === 'connected')
     ? '/api/vault/quick-notes' : '/api/quick-notes';
   const filesReady = githubVaultFilesEnabled(account);
+  // GitHub Vault does not use the legacy MongoDB revision queue or history pages.
+  // Per-note GitHub history is accessible within Vault Notes instead.
   const visibleModules = [
-    ...modules,
+    ...modules.filter((item) => account.notesStorage !== 'github' ||
+      (item.href !== '/revision' && item.href !== '/revision-history')),
     ...(filesReady ? [{
       number: '06', group: 'COLLECT', title: 'My Files',
       description: 'Store documents, code, media and other files in your private GitHub Vault.',

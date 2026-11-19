@@ -207,12 +207,11 @@ export default function MediaLibrary() {
           return;
         }
       }
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        setMessage('Private file link copied. Only your signed-in Oge account can open it.');
-      } else {
-        window.prompt('Copy this private file link. It requires your OgeNotes access session:', url);
-      }
+      // An authenticated Vault URL is not a public sharing link.
+      // When native file sharing is unavailable, download the real file
+      // so the owner can attach it to a message themselves.
+      await downloadFile(file);
+      setMessage('File downloaded. Attach the downloaded file to share it with someone.');
     } catch (err) {
       if (err?.name === 'AbortError') return;
       setError(err.message || 'Could not share this file.');

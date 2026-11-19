@@ -69,7 +69,7 @@ export default function QuickNotesClient({ apiPath = '/api/quick-notes' }) {
     <main className="shell oge-shell oge-feature-page">
       <header className="oge-topbar">
         <Link className="oge-brand" href="/"><span className="oge-brand-mark">O</span><span>OgeNotes</span></Link>
-        <nav className="oge-nav" aria-label="Main navigation"><Link href="/">Home</Link><Link href="/notes">Notes</Link><Link href="/news">News</Link></nav>
+        <nav className="oge-nav" aria-label="Main navigation"><Link href="/">Home</Link><Link href={vaultBacked ? "/vault/notes" : "/notes"}>Notes</Link>{vaultBacked && <Link href="/files">My Files</Link>}<Link href="/news">News</Link></nav>
         <div className="oge-top-actions"><Link className="oge-signin" href="/settings">Settings ↗</Link><ThemeToggle /></div>
       </header>
       <section className="oge-notes-hero">
@@ -91,7 +91,7 @@ export default function QuickNotesClient({ apiPath = '/api/quick-notes' }) {
             {!loading && !notes.length &&
               <p className="oge-muted">No Quick Notes yet. Save one with the Oge browser extension.</p>}
           </div>
-          <div className="oge-notes-sidebar-foot"><span>{notes.length} saved notes</span></div>
+          <div className="oge-notes-sidebar-foot"><span>{notes.length} saved notes</span>{vaultBacked && notes.length >= 270 && <span role="status">{notes.length}/300 Quick Notes used. {notes.length >= 300 ? "Delete old captures to make room." : "Approaching capacity."}</span>}</div>
         </aside>
         <section className="oge-note-editor-panel oge-quick-editor">
           <div className="oge-note-editor-form">

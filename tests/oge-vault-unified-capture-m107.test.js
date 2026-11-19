@@ -78,7 +78,8 @@ test('M107 extension explicitly selects GitHub destination without double MongoD
   assert.match(widget, /crypto\.getRandomValues\(new Uint8Array\(16\)\)/);
   assert.match(widget, /noteSave\.disabled = true/);
   assert.match(widget, /vaultReady === null/);
-  assert.match(widget, /Save to GitHub Vault/);
+  assert.match(widget, /Save to Quick Notes/);
+  assert.match(widget, /send\('CREATE_VAULT_QUICK_NOTE'/);
   assert.match(widget, /send\('CREATE_QUICK_NOTE'/);
   assert.match(old, /inspectLegacyCutoverForOwner/);
   assert.doesNotMatch(old, /commitVaultNoteBatch/);

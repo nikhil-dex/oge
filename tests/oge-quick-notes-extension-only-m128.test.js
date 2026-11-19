@@ -88,3 +88,50 @@ test('M128 AirNotes delete is visible in cards, reader and edit dialog', async (
   assert.match(panel, /method: 'DELETE'/);
   assert.match(panel, /vaultBacked \? '&sha='/);
 });
+
+test('M128 live extension widget handler defaults GitHub Save to Quick Notes and retries the same UUID', async () => {
+  const { default: vm } = await import('node:vm');
+  const { randomUUID: uuid } = await import('node:crypto');
+  const source = await read('../extension/content.js');
+  const from = source.indexOf('  function updateNoteButton() {');
+  const to = source.indexOf('  const urlSave = ', from);
+  assert.ok(from > 0 && to > from);
+
+  const calls = [], statuses = [];
+  let attempt = 0, saveHandler;
+  const note = { value: 'Captured from the extension' };
+  const noteSave = {
+    disabled: false, addEventListener(type, fn) {
+      if (type === 'click') saveHandler = fn;
+    },
+  };
+  const ctx = {
+    note, noteSave, noteNewCapture: { hidden: true, addEventListener() {} },
+    noteOpenSaved: { hidden: true },
+    subjectSelect: { value: '', addEventListener() {} },
+    vaultReady: true,
+    pendingSavedUpdate: null, pendingVaultCapture: null,
+    savingCapture: false, lastSavedVaultNoteId: null,
+    createCaptureId: uuid,
+    setStatus: (...message) => statuses.push(message),
+    async send(action, payload) {
+      calls.push({ action, payload });
+      if (action !== 'CREATE_VAULT_QUICK_NOTE') throw new Error('wrong destination');
+      if (++attempt === 1) throw new Error('Request interrupted');
+      return { destination: 'quick-notes', confirmed: true,
+        id: payload.captureId, sha: 'a'.repeat(40), title: 'Captured from the extension' };
+    },
+  };
+  vm.runInNewContext(source.slice(from, to), ctx, { timeout: 2000 });
+  assert.equal(noteSave.textContent, 'Save to Quick Notes');
+  await saveHandler();
+  assert.equal(note.value, 'Captured from the extension');
+  await saveHandler();
+  assert.equal(note.value, '');
+  assert.deepEqual(calls.map(x => x.action),
+    ['CREATE_VAULT_QUICK_NOTE', 'CREATE_VAULT_QUICK_NOTE']);
+  assert.equal(calls[0].payload.captureId, calls[1].payload.captureId);
+  assert.equal(ctx.pendingVaultCapture, null);
+  assert.equal(ctx.noteOpenSaved.hidden, true);
+  assert.match(statuses.at(-1)[0], /to Quick Notes/);
+});

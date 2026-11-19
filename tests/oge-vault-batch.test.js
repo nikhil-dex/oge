@@ -211,7 +211,7 @@ test('B7 simulated two-device GitHub race preserves the winner and rejects stale
     async call(path, options = {}) {
       // Device B has already prepared its commit, but Device A updates the
       // branch before B's non-fast-forward protection runs.
-      if (!raceInjected && path === '/git/ref/heads/main' &&
+      if (!raceInjected && path === '/git/refs/heads/main' &&
           options.method === 'PATCH') {
         raceInjected = true;
         winner = await commitVaultNoteBatch(f.client, [{

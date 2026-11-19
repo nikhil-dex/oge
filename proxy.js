@@ -29,7 +29,7 @@ export default auth((request) => {
   // CSP telemetry is sent without a user session and must not redirect to sign-in.
   if (pathname === '/api/csp-report' && request.method === 'POST') return secure(NextResponse.next());
   // The extension endpoint uses a separately validated bearer token, not cookie auth.
-  if (pathname === '/api/extension/save-link' || pathname === '/api/extension/profile-links' || pathname === '/api/extension/quick-note' || pathname === '/api/extension/vault-note' || pathname === '/api/extension/subjects' || pathname === '/api/extension/learning-track') return secure(NextResponse.next());
+  if (pathname === '/api/extension/save-link' || pathname === '/api/extension/profile-links' || pathname === '/api/extension/quick-note' || pathname === '/api/extension/vault-note' || pathname === '/api/extension/vault-quick-note' || pathname === '/api/extension/subjects' || pathname === '/api/extension/learning-track') return secure(NextResponse.next());
   if (requiresSameOriginCheck(request) && !isSameOriginRequest(request)) {
     return secure(NextResponse.json({ error: 'Cross-origin request blocked.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } }));
   }

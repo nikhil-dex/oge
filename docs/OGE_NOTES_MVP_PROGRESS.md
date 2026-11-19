@@ -1,6 +1,6 @@
 # Oge Notes — implementation progress scorecard
 
-**Updated 19 November 2026, after milestone #117 code changes.**
+**Updated 19 November 2026, after milestone #118 onboarding storage choice.**
 This progress measure is deliberately about the practical note-taking MVP,
 not the previous uncalibrated ~96% prototype number.
 
@@ -218,6 +218,24 @@ Simulated cleanup tests verify success, interruption, conflict and
 no-server-draft paths. This is **not** independently verified against
 a real signed-in GitHub account: **8/10 implementation checkpoints
 (80%)**, **0/3 live connected-account journeys**, no production release.
+
+## Milestone #118 — Choose Notes storage alongside first-run news interests
+
+New accounts choose between familiar **MongoDB Notes** and **GitHub Vault Notes**
+before entering the app. The comparison explains initial setup, private
+repository ownership, explicit GitHub Save, and temporary MongoDB/browser
+draft recovery. News personalization can be skipped, but Notes storage must
+still be selected. GitHub selection immediately opens the Vault connection
+screen; until a connected GitHub Vault and its Notes editor are available,
+legacy MongoDB Note-content APIs reject access rather than silently writing
+Notes elsewhere. MongoDB selection keeps the regular Notes experience
+without Github. Existing users with no recorded choice are not migrated or
+forced through onboarding again.
+
+This is a navigation/onboarding improvement within checkpoint #1, not a
+new completion checkpoint. **8/10 MVP checkpoints remain implemented (80%)**,
+and **0/3 authenticated end-to-end journeys are independently verified**.
+No production cutover or merge took place.
 
 ## The three mandatory live journeys
 

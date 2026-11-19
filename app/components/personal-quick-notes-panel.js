@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import SiteNavbar from './site-navbar';
 
@@ -82,7 +82,7 @@ const QuickNoteCard = memo(function QuickNoteCard({ note, content, index, title,
   );
 });
 
-export default function PersonalQuickNotesPanel({ fullPage = false }) {
+export default function PersonalQuickNotesPanel({ fullPage = false, apiPath = '/api/personal-quick-notes' }) {
   const [notes, setNotes] = useState([]);
   const [dirty, setDirty] = useState({});
   const [loading, setLoading] = useState(true);
@@ -95,19 +95,21 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
   const [editingNote, setEditingNote] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const pendingCreateId = useRef(null);
+  const vaultBacked = apiPath === '/api/vault/airnotes';
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await readResponse(await fetch('/api/personal-quick-notes', { cache: 'no-store' }));
+      const data = await readResponse(await fetch(apiPath, { cache: 'no-store' }));
       setNotes(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || 'Could not load quick notes.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiPath]);
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
 
@@ -118,10 +120,10 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
       await Promise.all(entries.map(async ([id, content]) => {
         setSavingIds((current) => ({ ...current, [id]: true }));
         try {
-          const result = await readResponse(await fetch('/api/personal-quick-notes', {
+          const result = await readResponse(await fetch(apiPath, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, content }),
+            body: JSON.stringify({ id, content, ...(vaultBacked ? { sha: notes.find((note) => note.id === id)?.sha } : {}) }),
           }));
           setNotes((current) => current.map((note) => note.id === id
             ? { ...note, title: result.title, updatedAt: result.updatedAt }
@@ -136,7 +138,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
       }));
     }, 700);
     return () => clearTimeout(timer);
-  }, [dirty]);
+  }, [dirty, apiPath, vaultBacked, notes]);
 
   async function addNote() {
     if (creating) return;
@@ -144,12 +146,16 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     setError('');
     setMessage('');
     try {
-      const note = await readResponse(await fetch('/api/personal-quick-notes', {
+      if (vaultBacked && !pendingCreateId.current)
+        pendingCreateId.current = crypto.randomUUID();
+      const note = await readResponse(await fetch(apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: '' }),
+        body: JSON.stringify({ content: '',
+          ...(vaultBacked ? { id: pendingCreateId.current } : {}) }),
       }));
-      setNotes((current) => [note, ...current]);
+      pendingCreateId.current = null;
+      setNotes((current) => [note, ...current.filter((entry) => entry.id !== note.id)]);
       setMessage('AirNote created. Start with a title or your first thought.');
     } catch (err) {
       setError(err.message || 'Could not create a quick note.');
@@ -169,7 +175,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     setError('');
     setMessage('');
     try {
-      await readResponse(await fetch('/api/personal-quick-notes?id=' + encodeURIComponent(note.id), { method: 'DELETE' }));
+      await readResponse(await fetch(apiPath + '?id=' + encodeURIComponent(note.id) + (vaultBacked ? '&sha=' + encodeURIComponent(note.sha || '') : ''), { method: 'DELETE' }));
       setNotes((current) => current.filter((item) => item.id !== note.id));
       setDirty((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== note.id)));
       setSaveErrors((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== note.id)));
@@ -177,7 +183,7 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     } catch (err) {
       setError(err.message || 'Could not delete this quick note.');
     }
-  }, []);
+  }, [apiPath, vaultBacked]);
 
   function openEditor(note) {
     setEditingNote(note);
@@ -192,10 +198,11 @@ export default function PersonalQuickNotesPanel({ fullPage = false }) {
     setEditSaving(true);
     setError('');
     try {
-      const result = await readResponse(await fetch('/api/personal-quick-notes', {
+      const result = await readResponse(await fetch(apiPath, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingNote.id, content: editContent }),
+        body: JSON.stringify({ id: editingNote.id, content: editContent,
+          ...(vaultBacked ? { sha: editingNote.sha } : {}) }),
       }));
       setNotes((current) => current.map((note) => note.id === editingNote.id ? { ...note, ...result } : note));
       setDirty((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== editingNote.id)));
